@@ -538,11 +538,13 @@ function OrganigrammaVista({ ruoli, membri, team = [], azienda, organoAmm = null
     // costruisce l'HTML ricorsivo di una casella e dei suoi figli
     const casellaHtml = (r) => {
       const persona = r.membro_id ? nomeMembro(r.membro_id) : null
+      const teamMembri = team.filter(t => t.ruolo_id === r.id).map(t => nomeMembro(t.membro_id)).filter(Boolean)
       const figli = ruoli.filter(x => x.parent_id === r.id)
       const box = `<div class="box${persona ? '' : ' vuoto'}">
         <div class="sigla">${esc(r.sigla)}</div>
         <div class="nome">${esc(r.nome)}</div>
         <div class="persona">${persona ? esc(persona) : '— Non assegnato —'}</div>
+        ${teamMembri.length > 0 ? `<div class="team">${teamMembri.map(t => `<div class="team-membro">${esc(t)}</div>`).join('')}</div>` : ''}
       </div>`
       if (figli.length === 0) return `<div class="nodo">${box}</div>`
       return `<div class="nodo">${box}
@@ -594,6 +596,8 @@ function OrganigrammaVista({ ruoli, membri, team = [], azienda, organoAmm = null
         .nome { font-size: 12px; font-weight: 600; line-height: 1.2; }
         .persona { font-size: 11px; color: #2B8A6B; margin-top: 3px; }
         .box.vuoto .persona { color: #B9770E; }
+        .team { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #E2E8F0; }
+        .team-membro { font-size: 10px; color: #8A94A0; line-height: 1.4; }
         .linea-tra { width: 1.5px; height: 20px; background: #CBD5E1; margin: 0 auto; }
         .albero { display: flex; flex-direction: column; align-items: center; }
         .albero .banda { width: auto; max-width: 100%; display: inline-block; text-align: center; }
