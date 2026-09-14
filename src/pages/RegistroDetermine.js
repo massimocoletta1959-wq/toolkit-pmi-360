@@ -107,7 +107,7 @@ export default function RegistroDetermine() {
 
   return (
     <div>
-      {organoAzienda === null && (
+      {organoAzienda === null && azienda?.tipo_soggetto !== 'individuale' && (
         <div className="alert alert-error" style={{ marginBottom: 16 }}>
           Questa azienda non ha un organo amministrativo (Amministratore Unico o CdA). Crealo nella sezione Organi per gestire le {nomeAtto(organoAzienda, azienda?.tipo_soggetto, { plurale: true })}.
         </div>
