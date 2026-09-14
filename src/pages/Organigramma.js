@@ -599,7 +599,7 @@ function OrganigrammaVista({ ruoli, membri, team = [], azienda, organoAmm = null
         .team { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #E2E8F0; }
         .team-membro { font-size: 10px; color: #8A94A0; line-height: 1.4; }
         .linea-tra { width: 1.5px; height: 20px; background: #CBD5E1; margin: 0 auto; }
-        .albero { display: flex; flex-direction: column; align-items: center; }
+        .albero { display: block; text-align: center; }
         .albero .banda { width: auto; max-width: 100%; display: inline-block; text-align: center; }
         .albero .riga { justify-content: center; }
         .linea-v { width: 1.5px; height: 12px; background: #CBD5E1; }
