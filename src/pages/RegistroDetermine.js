@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../App'
-import { etichettaAttiGovernance } from '../lib/modalitaSolo'
+import { etichettaAttiGovernance, nomeAtto } from '../lib/modalitaSolo'
 
 // Etichette leggibili per i tipi di determina (coerenti con lo schema della migrazione 54)
 const TIPO_LABEL = {
@@ -95,10 +95,10 @@ export default function RegistroDetermine() {
   // Etichette adattive in base all'organo attuale
   const isCda = organoAzienda === 'cda'
   const titoloRegistro = etichettaAttiGovernance(organoAzienda, azienda?.tipo_soggetto)
-  const sottotitoloRegistro = isCda
-    ? 'Delibere del Consiglio di Amministrazione di'
-    : "Determine dell'Amministratore Unico di"
-  const nuovoLabel = isCda ? '+ Nuova delibera' : '+ Nuova determina'
+  const sottotitoloRegistro = azienda?.tipo_soggetto === 'individuale'
+    ? 'Decisioni di'
+    : isCda ? 'Delibere del Consiglio di Amministrazione di' : "Determine dell'Amministratore Unico di"
+  const nuovoLabel = `+ Nuova ${nomeAtto(organoAzienda, azienda?.tipo_soggetto)}`
   const nFirmate = determine.filter(d => d.stato === 'firmata').length
   const nBozze   = determine.filter(d => d.stato === 'bozza').length
   const valFirmate = determine
@@ -109,7 +109,7 @@ export default function RegistroDetermine() {
     <div>
       {organoAzienda === null && (
         <div className="alert alert-error" style={{ marginBottom: 16 }}>
-          Questa azienda non ha un organo amministrativo (Amministratore Unico o CdA). Crealo nella sezione Organi per gestire le determine/delibere.
+          Questa azienda non ha un organo amministrativo (Amministratore Unico o CdA). Crealo nella sezione Organi per gestire le {nomeAtto(organoAzienda, azienda?.tipo_soggetto, { plurale: true })}.
         </div>
       )}
       <div className="page-header">
@@ -123,7 +123,7 @@ export default function RegistroDetermine() {
       </div>
 
       <div className="stats-grid">
-        <div className="stat-card"><div className="stat-num">{determine.length}</div><div className="stat-label">{isCda ? 'Delibere totali' : 'Determine totali'}</div></div>
+        <div className="stat-card"><div className="stat-num">{determine.length}</div><div className="stat-label">{nomeAtto(organoAzienda, azienda?.tipo_soggetto, { plurale: true, maiuscolo: true })} totali</div></div>
         <div className="stat-card"><div className="stat-num" style={{ color: '#1E8449' }}>{nFirmate}</div><div className="stat-label">{isCda ? 'Protocollate' : 'Firmate'}</div></div>
         <div className="stat-card"><div className="stat-num" style={{ color: '#856404' }}>{nBozze}</div><div className="stat-label">Bozze aperte</div></div>
         <div className="stat-card"><div className="stat-num" style={{ fontSize: 20 }}>{eur(valFirmate)}</div><div className="stat-label">{isCda ? 'Valore protocollato' : 'Valore firmato'}</div></div>
@@ -146,8 +146,8 @@ export default function RegistroDetermine() {
           <div className="empty-state">
             <div style={{ fontSize: 36 }}>📚</div>
             <p>{determine.length === 0
-              ? 'Nessuna determina registrata. Clicca "+ Nuova determina" per crearne una.'
-              : 'Nessuna determina corrisponde ai filtri.'}</p>
+              ? `Nessuna ${nomeAtto(organoAzienda, azienda?.tipo_soggetto)} registrata. Clicca "+ Nuova ${nomeAtto(organoAzienda, azienda?.tipo_soggetto)}" per crearne una.`
+              : `Nessuna ${nomeAtto(organoAzienda, azienda?.tipo_soggetto)} corrisponde ai filtri.`}</p>
           </div>
         ) : (
           <div className="table-wrap">

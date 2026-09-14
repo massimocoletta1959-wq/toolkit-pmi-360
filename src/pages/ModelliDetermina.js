@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../App'
+import { nomeAtto as calcolaNomeAtto } from '../lib/modalitaSolo'
 
 // Tipi di determina/delibera (allineati al wizard NuovaDetermina)
 const TIPI = [
@@ -31,7 +32,9 @@ export default function ModelliDetermina() {
   const [daEsistente, setDaEsistente] = useState(false)
 
   const isCda = organoAzienda === 'cda'
-  const nomeAtto = isCda ? 'delibera' : 'determina'
+  // Suffisso AU/CdA nel titolo: per un'impresa individuale (nessun organo collegiale) si omette
+  const suffissoAtto = azienda?.tipo_soggetto === 'individuale' ? '' : (isCda ? ' CdA' : ' AU')
+  const nomeAtto = calcolaNomeAtto(organoAzienda, azienda?.tipo_soggetto)
   const tipiTutti = [...TIPI, ...tipiCustom.map(c => ({ id: 'custom:' + c.id, label: c.label }))]
   const labelDiTipo = t => TIPO_LABEL[t] || tipiTutti.find(x => x.id === t)?.label || t
 
@@ -67,7 +70,7 @@ export default function ModelliDetermina() {
       <div className="page-header">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <h2>Modelli {isCda ? 'delibere CdA' : 'determine AU'}</h2>
+            <h2>Modelli {calcolaNomeAtto(organoAzienda, azienda?.tipo_soggetto, { plurale: true })}{suffissoAtto}</h2>
             <p>Facsimile riutilizzabili per <strong>{azienda?.nome}</strong>: crea da zero o da un atto esistente</p>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>

@@ -18,3 +18,14 @@ export function etichettaAttiGovernance(organoTipo, tipoSoggetto) {
   if (tipoSoggetto === 'individuale') return 'Registro delle Decisioni'
   return organoTipo === 'cda' ? 'Preparazione Delibere CdA' : 'Preparazione Determine AU'
 }
+
+// Nome dell'atto (determina/delibera/decisione) da usare nel testo delle pagine
+// collegate al registro atti, coerente con etichettaAttiGovernance qui sopra.
+export function nomeAtto(organoTipo, tipoSoggetto, { plurale = false, maiuscolo = false } = {}) {
+  const parola = tipoSoggetto === 'individuale'
+    ? (plurale ? 'decisioni' : 'decisione')
+    : organoTipo === 'cda'
+      ? (plurale ? 'delibere' : 'delibera')
+      : (plurale ? 'determine' : 'determina')
+  return maiuscolo ? parola.charAt(0).toUpperCase() + parola.slice(1) : parola
+}

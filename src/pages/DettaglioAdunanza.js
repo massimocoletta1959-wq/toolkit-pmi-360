@@ -617,10 +617,12 @@ export default function DettaglioAdunanza() {
       {/* Delibere in trattazione (richiamo delibere preparate) */}
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Delibere in trattazione</span>
+          <span className="card-title">{azienda?.tipo_soggetto === 'individuale' ? 'Decisioni in trattazione' : 'Delibere in trattazione'}</span>
         </div>
         <p style={{ fontSize: 12, color: '#999', marginBottom: 10 }}>
-          Richiama le delibere/determine già preparate (con il loro fascicolo di supporto) da mettere all'ordine del giorno di questa seduta. Puoi poi completare l'OdG con punti liberi qui sotto.
+          {azienda?.tipo_soggetto === 'individuale'
+            ? "Richiama le decisioni già preparate (con il loro fascicolo di supporto) da mettere all'ordine del giorno di questa seduta. Puoi poi completare l'OdG con punti liberi qui sotto."
+            : "Richiama le delibere/determine già preparate (con il loro fascicolo di supporto) da mettere all'ordine del giorno di questa seduta. Puoi poi completare l'OdG con punti liberi qui sotto."}
         </p>
         {!soloLettura && (
           <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
