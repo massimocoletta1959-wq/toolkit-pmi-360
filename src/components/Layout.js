@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../App'
-import { etichettaModulo } from '../lib/modalitaSolo'
+import { etichettaModulo, etichettaAttiGovernance } from '../lib/modalitaSolo'
 
 // Funzioni comuni, disponibili sia dalla Home sia dentro un modulo
 const COMUNI = [
@@ -68,7 +68,7 @@ export default function Layout({ children }) {
   const modLabel = mod ? etichettaModulo(modulo, mod.label, modalitaSolo) : null
 
   // Etichetta adattiva per la voce determine/delibere in base all'organo
-  const etichettaAtti = organoAmm === 'cda' ? 'Preparazione Delibere CdA' : 'Preparazione Determine AU'
+  const etichettaAtti = etichettaAttiGovernance(organoAmm, azienda?.tipo_soggetto)
   const etichettaModelli = organoAmm === 'cda' ? 'Modelli delibere' : 'Modelli determine'
   const vociMod = (mod && modulo === 'governance'
     ? mod.voci.map(v => {

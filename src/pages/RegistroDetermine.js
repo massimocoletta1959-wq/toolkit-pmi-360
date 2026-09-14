@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../App'
+import { etichettaAttiGovernance } from '../lib/modalitaSolo'
 
 // Etichette leggibili per i tipi di determina (coerenti con lo schema della migrazione 54)
 const TIPO_LABEL = {
@@ -93,7 +94,7 @@ export default function RegistroDetermine() {
 
   // Etichette adattive in base all'organo attuale
   const isCda = organoAzienda === 'cda'
-  const titoloRegistro = isCda ? 'Preparazione Delibere CdA' : 'Preparazione Determine AU'
+  const titoloRegistro = etichettaAttiGovernance(organoAzienda, azienda?.tipo_soggetto)
   const sottotitoloRegistro = isCda
     ? 'Delibere del Consiglio di Amministrazione di'
     : "Determine dell'Amministratore Unico di"
