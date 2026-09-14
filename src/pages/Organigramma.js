@@ -585,12 +585,12 @@ function OrganigrammaVista({ ruoli, membri, team = [], azienda, organoAmm = null
         body { font-family: -apple-system, Arial, sans-serif; color: #1A3A5C; margin: 0; }
         h1 { font-size: 18px; margin: 0 0 2px; }
         .sub { font-size: 12px; color: #8A94A0; margin-bottom: 16px; }
-        .banda { border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; page-break-inside: avoid; }
-        .banda-tit { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; margin-bottom: 10px; }
+        .banda { border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
+        .banda-tit { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; margin-bottom: 10px; page-break-after: avoid; break-after: avoid; }
         .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
         .riga { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; }
         .nodo { display: flex; flex-direction: column; align-items: center; }
-        .box { border: 1.5px solid #CBD5E1; background: #fff; border-radius: 10px; padding: 8px 12px; min-width: 150px; max-width: 210px; text-align: center; }
+        .box { border: 1.5px solid #CBD5E1; background: #fff; border-radius: 10px; padding: 8px 12px; min-width: 150px; max-width: 210px; text-align: center; page-break-inside: avoid; break-inside: avoid; }
         .box.vuoto { border-color: #E5B84B; }
         .sigla { display: inline-block; font-size: 9px; font-weight: 700; background: #1A3A5C; color: #fff; padding: 2px 8px; border-radius: 10px; margin-bottom: 4px; }
         .nome { font-size: 12px; font-weight: 600; line-height: 1.2; }
