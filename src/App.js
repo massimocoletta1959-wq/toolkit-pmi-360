@@ -1,6 +1,7 @@
 import React, { useState, useEffect, createContext, useContext } from 'react'
 import { supabase } from './lib/supabase'
 import Login from './pages/Login'
+import ResetPassword from './pages/ResetPassword'
 import Setup from './pages/Setup'
 import Cruscotto from './pages/Cruscotto'
 import RegistroRischi from './pages/RegistroRischi'
@@ -40,6 +41,7 @@ export default function App() {
   const [adunanzaId, setAdunanzaId] = useState(null)   // id adunanza da aprire nel dettaglio
   const [pagMembro, setPagMembro]  = useState('task') // vista membro: 'task' | 'procedure'
   const [showSetup, setShowSetup]  = useState(false)
+  const [recoveryMode, setRecoveryMode] = useState(false) // true = utente ha cliccato il link "recupera password"
 
   // Leggi token invito dall'URL e salvalo in localStorage per sopravvivere al redirect
   const urlParams = new URLSearchParams(window.location.search)
@@ -52,11 +54,14 @@ export default function App() {
       setSession(session)
       if (session) loadDati(session.user.id)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session)
+      if (event === 'PASSWORD_RECOVERY') { setRecoveryMode(true); return }
       if (session) {
         // Se c'è un token invito, collegalo dopo il login/registrazione
         if (tokenInvito) await accettaInvito(session.user.id, tokenInvito)
+        // Se questa email era stata pre-registrata come gestore, collega l'account
+        await claimGestorePendente(session.user.id, session.user.email)
         await loadDati(session.user.id)
         // Pulisci URL dopo aver processato l'invito
         if (tokenInvito) {
@@ -121,6 +126,14 @@ export default function App() {
     await supabase.from('inviti').update({ accettato: true }).eq('id', invito.id)
 
     localStorage.setItem('azienda_attiva', invito.azienda_id)
+  }
+
+  // Se un gestore è stato pre-registrato (dal portale licenze) con questa email,
+  // collega la riga in attesa al nuovo account non appena si registra/accede.
+  async function claimGestorePendente(userId, email) {
+    if (!email) return
+    await supabase.from('gestori').update({ user_id: userId })
+      .is('user_id', null).ilike('email', email)
   }
 
   async function loadDati(userId) {
@@ -237,6 +250,9 @@ export default function App() {
       <div className="spinner" />
     </div>
   )
+
+  // Link "recupera password" cliccato: mostra il form per impostare la nuova password
+  if (recoveryMode) return <ResetPassword onFatto={() => { setRecoveryMode(false); supabase.auth.signOut() }} />
 
   // Mostra login — se c'è token invito, lo gestiremo dopo il login
   if (!session) return <Login tokenInvito={tokenInvito} />
