@@ -213,6 +213,17 @@ export default function App() {
     setSession(null); setProfilo(null); setAziende([]); setAziendaState(null)
   }
 
+  // Apre il wizard di creazione azienda, rispettando il limite max_aziende del gestore (null = illimitato)
+  async function onNuovaAzienda() {
+    const { data: gestore } = await supabase.from('gestori')
+      .select('max_aziende').eq('user_id', session.user.id).maybeSingle()
+    if (gestore?.max_aziende != null && aziende.length >= gestore.max_aziende) {
+      alert(`Hai raggiunto il limite di ${gestore.max_aziende} aziende previsto dal tuo piano. Contatta l'assistenza per aumentarlo.`)
+      return
+    }
+    setShowSetup(true)
+  }
+
   async function onNuovaAziendaDone(newId) {
     setShowSetup(false)
     if (newId) localStorage.setItem('azienda_attiva', newId)
@@ -270,7 +281,7 @@ export default function App() {
     nuovaDetermina: (organo) => { setDeterminaId(null); setDeterminaOrgano(organo || null); setPage('au_nuova') },
     adunanzaId,
     apriAdunanza: (id) => { setAdunanzaId(id); setPage('adunanza') },
-    onNuovaAzienda: () => setShowSetup(true),
+    onNuovaAzienda,
   }
 
   // ── Vista MEMBRO OPERATIVO ──────────────────────────────────────────────
