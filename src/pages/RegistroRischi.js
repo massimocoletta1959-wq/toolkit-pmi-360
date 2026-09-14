@@ -146,6 +146,7 @@ export default function RegistroRischi() {
 
   const tier1 = rischi.filter(r => r.probabilita && r.impatto && getTier(r.probabilita, r.impatto).tier === 'Tier 1').length
   const tier2 = rischi.filter(r => r.probabilita && r.impatto && getTier(r.probabilita, r.impatto).tier === 'Tier 2').length
+  const tier3 = rischi.filter(r => r.probabilita && r.impatto && getTier(r.probabilita, r.impatto).tier === 'Tier 3').length
 
   return (
     <div>
@@ -163,6 +164,7 @@ export default function RegistroRischi() {
         <div className="stat-card"><div className="stat-num">{rischi.length}</div><div className="stat-label">Rischi totali</div></div>
         <div className="stat-card"><div className="stat-num" style={{ color: '#C0392B' }}>{tier1}</div><div className="stat-label">Tier 1 — Critici</div></div>
         <div className="stat-card"><div className="stat-num" style={{ color: '#E67E22' }}>{tier2}</div><div className="stat-label">Tier 2 — Significativi</div></div>
+        <div className="stat-card"><div className="stat-num" style={{ color: '#856404' }}>{tier3}</div><div className="stat-label">Tier 3 — Moderati</div></div>
         <div className="stat-card"><div className="stat-num" style={{ color: '#27AE60' }}>{rischi.filter(r => r.probabilita && r.impatto && getTier(r.probabilita, r.impatto).tier === 'Tier 4').length}</div><div className="stat-label">Tier 4 — Accettabili</div></div>
       </div>
 
