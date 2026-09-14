@@ -580,7 +580,7 @@ function OrganigrammaVista({ ruoli, membri, team = [], azienda, organoAmm = null
     if (!w) return
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Organigramma ${esc(azienda?.nome || '')}</title>
       <style>
-        @page { size: A4 landscape; margin: 1.2cm; }
+        @page { size: A4 landscape; margin: 0.7cm; }
         * { box-sizing: border-box; }
         body { font-family: -apple-system, Arial, sans-serif; color: #1A3A5C; margin: 0; }
         h1 { font-size: 18px; margin: 0 0 2px; }
@@ -600,7 +600,7 @@ function OrganigrammaVista({ ruoli, membri, team = [], azienda, organoAmm = null
         .team-membro { font-size: 10px; color: #8A94A0; line-height: 1.4; }
         .linea-tra { width: 1.5px; height: 20px; background: #CBD5E1; margin: 0 auto; }
         .albero { display: block; text-align: center; }
-        .albero .banda { width: auto; max-width: 100%; display: inline-block; text-align: center; }
+        .albero .banda { text-align: center; }
         .albero .riga { justify-content: center; }
         .linea-v { width: 1.5px; height: 12px; background: #CBD5E1; }
         .figli { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; border-top: 1.5px solid #CBD5E1; padding-top: 10px; }
