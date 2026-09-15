@@ -42,6 +42,7 @@ export default function App() {
   const [pagMembro, setPagMembro]  = useState('task') // vista membro: 'task' | 'procedure'
   const [showSetup, setShowSetup]  = useState(false)
   const [recoveryMode, setRecoveryMode] = useState(false) // true = utente ha cliccato il link "recupera password"
+  const [licenzaBloccata, setLicenzaBloccata] = useState(null) // null = ok; altrimenti motivo del blocco per un consulente
 
   // Leggi token invito dall'URL e salvalo in localStorage per sopravvivere al redirect
   const urlParams = new URLSearchParams(window.location.search)
@@ -166,6 +167,18 @@ export default function App() {
       setProfilo(null); setAziende([]); setAziendaState(null)
       return
     }
+
+    // Un consulente (non un membro invitato) deve avere una licenza attiva per operare:
+    // nessuna riga gestori, o stato diverso da "attivo", blocca l'accesso.
+    if (prof.ruolo !== 'membro') {
+      const { data: gestore } = await supabase.from('gestori').select('stato').eq('user_id', userId).maybeSingle()
+      if (!gestore || gestore.stato !== 'attivo') {
+        setLicenzaBloccata(gestore ? gestore.stato : 'nessuna_licenza')
+        setProfilo(null); setAziende([]); setAziendaState(null)
+        return
+      }
+    }
+    setLicenzaBloccata(null)
     setProfilo(prof)
 
     // Carica aziende tramite utente_aziende
@@ -256,6 +269,25 @@ export default function App() {
 
   // Mostra login — se c'è token invito, lo gestiremo dopo il login
   if (!session) return <Login tokenInvito={tokenInvito} />
+
+  if (licenzaBloccata) {
+    const messaggi = {
+      sospeso: 'Il tuo account è stato sospeso.',
+      scaduto: 'La tua licenza è scaduta.',
+      cessato: 'Il tuo account non è più attivo.',
+      nessuna_licenza: 'Il tuo account non ha ancora una licenza attiva.',
+    }
+    return (
+      <div className="login-page">
+        <div className="login-card" style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>⛔</div>
+          <h2 style={{ marginBottom: 8 }}>Accesso non disponibile</h2>
+          <p style={{ color: '#666', marginBottom: 20 }}>{messaggi[licenzaBloccata] || 'Il tuo account non può operare.'} Contatta l'assistenza per maggiori informazioni.</p>
+          <button className="btn" onClick={async () => { await supabase.auth.signOut(); setLicenzaBloccata(null) }}>Esci</button>
+        </div>
+      </div>
+    )
+  }
 
   // Se c'è un token invito nell'URL e non c'è ancora il profilo,
   // mostra un loader — accettaInvito creerà il profilo automaticamente
