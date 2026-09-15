@@ -116,7 +116,7 @@ export default function Home() {
               {(lic.ragione_sociale || '?').slice(0, 2).toUpperCase()}
             </div>
             <div style={{ lineHeight: 1.3 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#1A3A5C' }}>{lic.ragione_sociale || 'Licenza'} <span style={{ color: '#A0AAB5', fontWeight: 500, textTransform: 'capitalize' }}>· {lic.piano}</span></div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#1A3A5C' }}>{lic.ragione_sociale || 'Licenza'}</div>
               {lic.data_scadenza && <div style={{ fontSize: 11.5, color: '#8A94A0' }}>valida fino al {fmtL(lic.data_scadenza)}</div>}
             </div>
           </div>
