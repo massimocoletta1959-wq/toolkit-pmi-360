@@ -15,15 +15,15 @@ serve(async (req) => {
       method: 'POST',
       headers: { 'api-key': BREVO_API_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        sender: { name: 'Toolkit Rischio 360', email: 'massimocoletta1959@gmail.com' },
+        sender: { name: 'Toolkit Pmi 360°', email: 'massimocoletta1959@gmail.com' },
         to: [{ email, name: ragione_sociale || email }],
-        subject: 'Sei stato invitato al Toolkit Rischio 360°',
+        subject: 'Sei stato invitato al Toolkit Pmi 360°',
         htmlContent: `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:20px;">
 <div style="max-width:600px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.1);">
-<div style="background:#1A3A5C;padding:24px;text-align:center;"><h1 style="color:white;margin:0;font-size:18px;">🛡️ Toolkit Rischio 360°</h1></div>
+<div style="background:#1A3A5C;padding:24px;text-align:center;"><h1 style="color:white;margin:0;font-size:18px;">🛡️ Toolkit Pmi 360°</h1></div>
 <div style="padding:32px;">
 <p style="color:#555;">Ciao${ragione_sociale ? ' ' + ragione_sociale : ''},</p>
-<p style="color:#555;">sei stato invitato ad attivare il tuo account sul Toolkit Rischio 360°, il sistema di gestione rischi e governance aziendale.</p>
+<p style="color:#555;">sei stato invitato ad attivare il tuo account sul Toolkit Pmi 360°, il sistema di gestione rischi e governance aziendale.</p>
 <p style="color:#555;">Il tuo piano è già pronto: ti basta completare la registrazione con questa stessa email.</p>
 <div style="text-align:center;margin:24px 0;">
 <a href="${registerUrl}" style="background:#2B5FA5;color:white;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">Completa la registrazione →</a>

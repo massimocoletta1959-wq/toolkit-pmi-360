@@ -29,7 +29,7 @@ serve(async (req) => {
 <body style="font-family:-apple-system,sans-serif;background:#F7F8FA;margin:0;padding:20px;">
 <div style="max-width:600px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.1);">
 <div style="background:#1A3A5C;padding:24px 32px;text-align:center;"><div style="font-size:28px;">🛡️</div>
-<h1 style="color:white;margin:8px 0 0;font-size:18px;">Rischi 360 - task manager</h1></div>
+<h1 style="color:white;margin:8px 0 0;font-size:18px;">Toolkit Pmi 360°</h1></div>
 <div style="padding:32px;">
 ${isReminder ? '<div style="background:#FEF9E7;border:1px solid #FAC775;border-radius:8px;padding:12px 16px;margin-bottom:20px;"><strong style="color:#856404;">⏰ Promemoria scadenza</strong></div>' : ''}
 <p style="color:#555;">Ciao <strong>${membro.nome} ${membro.cognome}</strong>,<br>${isReminder ? 'ti ricordiamo che hai un task in scadenza:' : 'ti è stato assegnato un nuovo task:'}</p>
@@ -47,14 +47,14 @@ ${ticket.istruzioni ? `<p style="margin:0;font-size:13px;color:#444;line-height:
 <div style="text-align:center;margin-bottom:24px;">
 <a href="${APP_URL}" style="display:inline-block;background:#2B5FA5;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">Apri il portale →</a>
 </div>
-<p style="font-size:12px;color:#aaa;text-align:center;">Email inviata automaticamente dal Toolkit Rischio 360°</p>
+<p style="font-size:12px;color:#aaa;text-align:center;">Email inviata automaticamente dal Toolkit Pmi 360°</p>
 </div></div></body></html>`
 
     const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: { 'api-key': BREVO_API_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        sender: { name: 'Rischi 360 - task manager', email: 'massimocoletta1959@gmail.com' },
+        sender: { name: 'Toolkit Pmi 360°', email: 'massimocoletta1959@gmail.com' },
         to: [{ email: membro.email, name: `${membro.nome} ${membro.cognome}` }],
         subject,
         htmlContent: html,

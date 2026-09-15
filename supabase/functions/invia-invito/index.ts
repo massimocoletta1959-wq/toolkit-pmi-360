@@ -31,12 +31,12 @@ serve(async (req) => {
       method: 'POST',
       headers: { 'api-key': BREVO_API_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        sender: { name: 'Rischi 360 - task manager', email: 'massimocoletta1959@gmail.com' },
+        sender: { name: 'Toolkit Pmi 360°', email: 'massimocoletta1959@gmail.com' },
         to: [{ email: membro.email, name: `${membro.nome} ${membro.cognome}` }],
         subject: `Invito al portale — ${azienda.nome}`,
         htmlContent: `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:20px;">
 <div style="max-width:600px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.1);">
-<div style="background:#1A3A5C;padding:24px;text-align:center;"><h1 style="color:white;margin:0;font-size:18px;">🛡️ Rischi 360 - task manager</h1></div>
+<div style="background:#1A3A5C;padding:24px;text-align:center;"><h1 style="color:white;margin:0;font-size:18px;">🛡️ Toolkit Pmi 360°</h1></div>
 <div style="padding:32px;">
 <p style="color:#555;">Ciao <strong>${membro.nome} ${membro.cognome}</strong>,</p>
 <p style="color:#555;">sei stato invitato ad accedere al portale di gestione rischi dell'azienda <strong>${azienda.nome}</strong>.</p>
