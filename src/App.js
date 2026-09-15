@@ -164,6 +164,16 @@ export default function App() {
     }
 
     if (!prof) {
+      // Nessun profilo e nessun membro da riparare: è un consulente al primo
+      // utilizzo. Anche qui serve una licenza gestore già attiva (creata dal
+      // portale licenze) prima di poter procedere al wizard di creazione azienda.
+      const { data: gestore } = await supabase.from('gestori').select('stato').eq('user_id', userId).maybeSingle()
+      if (!gestore || gestore.stato !== 'attivo') {
+        setLicenzaBloccata(gestore ? gestore.stato : 'nessuna_licenza')
+        setProfilo(null); setAziende([]); setAziendaState(null)
+        return
+      }
+      setLicenzaBloccata(null)
       setProfilo(null); setAziende([]); setAziendaState(null)
       return
     }
