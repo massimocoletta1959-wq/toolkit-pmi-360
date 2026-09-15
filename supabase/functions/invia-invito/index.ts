@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
 const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY') || ''
-const APP_URL = 'https://massimocoletta1959-wq.github.io/toolkit-rischio-360'
+const APP_URL = 'https://massimocoletta1959-wq.github.io/toolkit-pmi-360'
 
 serve(async (req) => {
   const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Content-Type': 'application/json' }

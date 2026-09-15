@@ -1,8 +1,8 @@
 {
-  "name": "toolkit-rischio-360",
+  "name": "toolkit-pmi-360",
   "version": "1.0.0",
   "private": true,
-  "homepage": "https://massimocoletta1959-wq.github.io/toolkit-rischio-360",
+  "homepage": "https://massimocoletta1959-wq.github.io/toolkit-pmi-360",
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
     "lucide-react": "^0.303.0",

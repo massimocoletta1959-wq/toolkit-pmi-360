@@ -1,11 +1,11 @@
-# 🛡️ Toolkit Rischio 360°
+# 🛡️ Toolkit Pmi 360°
 
 Sistema multiaziendale di mappatura e gestione dei rischi aziendali.
 
 ## 🚀 Come usare
 
 L'app è disponibile online su:
-**https://massimocoletta1959-wq.github.io/toolkit-rischio-360**
+**https://massimocoletta1959-wq.github.io/toolkit-pmi-360**
 
 ## ✨ Funzionalità
 
