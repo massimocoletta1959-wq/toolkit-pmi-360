@@ -91,9 +91,14 @@ export default function Setup({ onDone, onAnnulla, userId, userEmail, nuovaAzien
       if (!conferma) { setLoading(false); return }
     }
 
+    // Genero l'id lato client: appena creata, l'azienda non è ancora collegata a
+    // nessun utente in utente_aziende, quindi non sarebbe visibile per un
+    // .select() successivo (RLS) — evitando il round-trip non serve rileggerla.
+    const azId = crypto.randomUUID()
     const a = visuraData?.azienda || {}
-    const { data: az, error: e1 } = await supabase.from('aziende')
+    const { error: e1 } = await supabase.from('aziende')
       .insert({
+        id: azId,
         nome: nome.trim(), settore, dimensione, piva: pivaClean || null,
         codice_fiscale: a.codice_fiscale || null,
         forma_giuridica: a.forma_giuridica || null,
@@ -110,22 +115,22 @@ export default function Setup({ onDone, onAnnulla, userId, userEmail, nuovaAzien
         oggetto_sociale: a.oggetto_sociale || null,
         modalita_solo: modalitaSolo,
         tipo_soggetto: tipoSoggetto,
-      }).select().single()
+      })
     if (e1) { setError(e1.message); setLoading(false); return }
 
     if (!nuovaAzienda) {
       const { error: e2 } = await supabase.from('profili')
-        .insert({ id: userId, email: userEmail, nome: nomeProfilo, azienda_id: az.id })
+        .insert({ id: userId, email: userEmail, nome: nomeProfilo, azienda_id: azId })
       if (e2) { setError(e2.message); setLoading(false); return }
     }
 
     const { error: e3 } = await supabase.from('utente_aziende')
-      .insert({ utente_id: userId, azienda_id: az.id })
+      .insert({ utente_id: userId, azienda_id: azId })
     if (e3 && !e3.message.includes('unique')) {
       setError(e3.message); setLoading(false); return
     }
 
-    setAziendaId(az.id)
+    setAziendaId(azId)
     setLoading(false)
     setStep(2)
   }
