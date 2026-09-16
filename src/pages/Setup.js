@@ -6,6 +6,15 @@ import { etichettaModulo } from '../lib/modalitaSolo'
 const SETTORI = ['Manifatturiero','Servizi','Commercio','Edilizia','Hotel','Sanità','Tecnologia','Agricoltura','Trasporti','Altro']
 const DIMENSIONI = ['Micro (< 10 dipendenti)','Piccola (10-49)','Media (50-249)','Grande (250+)']
 
+// Riconosce il settore dal codice ATECO della visura (più affidabile del solo
+// suggerimento edilizia/servizi), con lo stesso fallback di prima per tutto il resto.
+function settoreDaAteco(ateco, suggerito) {
+  const cod = (ateco || '').replace(/\D/g, '')
+  if (cod.startsWith('55')) return 'Hotel'                                   // Alloggio (alberghi)
+  if (cod.startsWith('41') || cod.startsWith('42') || cod.startsWith('43')) return 'Edilizia' // Costruzioni
+  return suggerito === 'edilizia' ? 'Edilizia' : 'Servizi'
+}
+
 function pivaValida(p) {
   if (!/^[0-9]{11}$/.test(p)) return false
   let s = 0
@@ -152,7 +161,7 @@ export default function Setup({ onDone, onAnnulla, userId, userEmail, nuovaAzien
       const a = data.azienda || {}
       setNome(a.denominazione || '')
       setPiva((a.partita_iva || '').replace(/[^0-9]/g, ''))
-      setSettore(a.settore_suggerito === 'edilizia' ? 'Edilizia' : 'Servizi')
+      setSettore(settoreDaAteco(a.ateco, a.settore_suggerito))
       setVisuraData(data)
     } catch (err) {
       setVisuraError('Non sono riuscito a leggere la visura: ' + (err.message || String(err)))
