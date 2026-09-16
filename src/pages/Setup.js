@@ -175,12 +175,16 @@ export default function Setup({ onDone, onAnnulla, userId, userEmail, nuovaAzien
     setLoading(true); setError(null)
     try {
       // 1) salva i moduli attivi sull'azienda (stesse colonne usate dalle Impostazioni)
-      const { error: eM } = await supabase.from('aziende').update({
+      const moduliScelti = {
         mod_rischi:     modRischi && incl('rischi'),
         mod_procedure:  modProcedure && incl('procedure'),
         mod_governance: modGovernance && incl('governance'),
-      }).eq('id', aziendaId)
+      }
+      const { error: eM } = await supabase.from('aziende').update(moduliScelti).eq('id', aziendaId)
       if (eM) throw eM
+      // stessi moduli anche sul proprio collegamento utente-azienda: è l'unico finora,
+      // ma il portale licenze puo' in seguito darne un sottoinsieme ad altri gestori
+      await supabase.from('utente_aziende').update(moduliScelti).eq('utente_id', userId).eq('azienda_id', aziendaId)
 
       // 2) RISCHI: carica la lista scelta (se il modulo e' attivo)
       if (modRischi && scelta && scelta !== 'nessuno') {

@@ -142,7 +142,7 @@ export default function App() {
     const gestoreId = (gestori || [])[0]?.id
     if (!gestoreId) return
     const { data: preassegnate } = await supabase.from('gestori_preassegnazioni')
-      .select('azienda_id').eq('gestore_id', gestoreId)
+      .select('azienda_id, mod_rischi, mod_procedure, mod_governance').eq('gestore_id', gestoreId)
     if (!preassegnate || preassegnate.length === 0) return
     const { data: esiste } = await supabase.from('profili').select('id').eq('id', userId).maybeSingle()
     if (!esiste) {
@@ -150,7 +150,10 @@ export default function App() {
       await supabase.from('profili').insert({ id: userId, email: user?.email || email, nome: '', azienda_id: preassegnate[0].azienda_id })
     }
     for (const p of preassegnate) {
-      await supabase.from('utente_aziende').upsert({ utente_id: userId, azienda_id: p.azienda_id }, { onConflict: 'utente_id,azienda_id' })
+      await supabase.from('utente_aziende').upsert({
+        utente_id: userId, azienda_id: p.azienda_id,
+        mod_rischi: p.mod_rischi, mod_procedure: p.mod_procedure, mod_governance: p.mod_governance,
+      }, { onConflict: 'utente_id,azienda_id' })
     }
     await supabase.from('gestori_preassegnazioni').delete().eq('gestore_id', gestoreId)
   }
@@ -209,12 +212,20 @@ export default function App() {
     setLicenzaBloccata(null)
     setProfilo(prof)
 
-    // Carica aziende tramite utente_aziende
+    // Carica aziende tramite utente_aziende. I moduli visibili sono l'incrocio tra
+    // quelli attivi sull'azienda e quelli concessi a QUESTO specifico collegamento
+    // utente-azienda: permette di dare a un gestore, su una stessa azienda condivisa
+    // con altri, un sottoinsieme di moduli (es. solo Procedure) indipendentemente da
+    // cosa vedono gli altri utenti collegati alla stessa azienda.
     const { data: ua } = await supabase
-      .from('utente_aziende').select('aziende(*)').eq('utente_id', userId)
+      .from('utente_aziende').select('aziende(*), mod_rischi, mod_procedure, mod_governance').eq('utente_id', userId)
 
-    const tutteAziende = (ua || []).map(r => r.aziende).filter(Boolean)
-      .filter((az, idx, arr) => arr.findIndex(a => a.id === az.id) === idx)
+    const tutteAziende = (ua || []).filter(r => r.aziende).map(r => ({
+      ...r.aziende,
+      mod_rischi:     !!r.aziende.mod_rischi     && r.mod_rischi     !== false,
+      mod_procedure:  !!r.aziende.mod_procedure  && r.mod_procedure  !== false,
+      mod_governance: !!r.aziende.mod_governance && r.mod_governance !== false,
+    })).filter((az, idx, arr) => arr.findIndex(a => a.id === az.id) === idx)
 
     setAziende(tutteAziende)
 
