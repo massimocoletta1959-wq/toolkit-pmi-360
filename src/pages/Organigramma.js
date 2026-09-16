@@ -496,6 +496,8 @@ const FASCE_VISTA = [
 
 function OrganigrammaVista({ ruoli, membri, team = [], azienda, organoAmm = null, componentiAmm = [] }) {
   const [vista, setVista] = useState('fasce')   // 'fasce' | 'albero'
+  const [nascondiScoperti, setNascondiScoperti] = useState(false)   // nasconde i ruoli senza responsabile (vista + stampa)
+  const ruoliMostrati = nascondiScoperti ? ruoli.filter(r => r.membro_id) : ruoli
   const nomeMembro = (id) => {
     const m = membri.find(x => x.id === id)
     return m ? `${m.nome || ''} ${m.cognome || ''}`.trim() : null
@@ -539,7 +541,7 @@ function OrganigrammaVista({ ruoli, membri, team = [], azienda, organoAmm = null
     const casellaHtml = (r) => {
       const persona = r.membro_id ? nomeMembro(r.membro_id) : null
       const teamMembri = team.filter(t => t.ruolo_id === r.id).map(t => nomeMembro(t.membro_id)).filter(Boolean)
-      const figli = ruoli.filter(x => x.parent_id === r.id)
+      const figli = ruoliMostrati.filter(x => x.parent_id === r.id)
       const box = `<div class="box${persona ? '' : ' vuoto'}">
         <div class="sigla">${esc(r.sigla)}</div>
         <div class="nome">${esc(r.nome)}</div>
@@ -560,10 +562,10 @@ function OrganigrammaVista({ ruoli, membri, team = [], azienda, organoAmm = null
           componentiAmm.map(c => `<div class="persona">${esc(`${c.membri?.nome || ''} ${c.membri?.cognome || ''}`.trim())}${c.ruolo ? ` — ${esc(c.ruolo)}` : ''}</div>`).join('')}
       </div></div>`
 
-    const primaFascia = FASCE_VISTA.find(x => (x.key === 'governance' && organoAmm) || ruoli.some(r => r.fascia === x.key))?.key
+    const primaFascia = FASCE_VISTA.find(x => (x.key === 'governance' && organoAmm) || ruoliMostrati.some(r => r.fascia === x.key))?.key
     const bande = FASCE_VISTA.map(f => {
       const mostraOrgano = f.key === 'governance' && !!organoAmm
-      const nella = ruoli.filter(r => r.fascia === f.key && !escludiDaOrganigramma(r))
+      const nella = ruoliMostrati.filter(r => r.fascia === f.key && !escludiDaOrganigramma(r))
       const radici = nella.filter(r => !r.parent_id || !nella.some(x => x.id === r.parent_id))
       if (nella.length === 0 && !mostraOrgano) return ''
       const connettore = (vista === 'albero' && f.key !== primaFascia) ? '<div class="linea-tra"></div>' : ''
@@ -617,7 +619,7 @@ function OrganigrammaVista({ ruoli, membri, team = [], azienda, organoAmm = null
   const Casella = ({ r, livello }) => {
     const persona = r.membro_id ? nomeMembro(r.membro_id) : null
     const teamMembri = team.filter(t => t.ruolo_id === r.id).map(t => nomeMembro(t.membro_id)).filter(Boolean)
-    const figli = ruoli.filter(x => x.parent_id === r.id)
+    const figli = ruoliMostrati.filter(x => x.parent_id === r.id)
     return (
       <div className="og-node">
         <div style={{
@@ -665,7 +667,11 @@ function OrganigrammaVista({ ruoli, membri, team = [], azienda, organoAmm = null
       `}</style>
       <div className="card-header">
         <span className="card-title">📊 Organigramma</span>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: '#5B6673', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            <input type="checkbox" checked={nascondiScoperti} onChange={e => setNascondiScoperti(e.target.checked)} />
+            Nascondi ruoli non assegnati
+          </label>
           <div style={{ display: 'flex', border: '1px solid #D5DCE6', borderRadius: 8, overflow: 'hidden' }}>
             <button className="btn btn-sm" style={{ borderRadius: 0, background: vista === 'fasce' ? '#7F77DD' : '#fff', color: vista === 'fasce' ? '#fff' : '#1A3A5C' }} onClick={() => setVista('fasce')}>Fasce</button>
             <button className="btn btn-sm" style={{ borderRadius: 0, background: vista === 'albero' ? '#7F77DD' : '#fff', color: vista === 'albero' ? '#fff' : '#1A3A5C' }} onClick={() => setVista('albero')}>Albero</button>
@@ -675,12 +681,12 @@ function OrganigrammaVista({ ruoli, membri, team = [], azienda, organoAmm = null
       </div>
 
       {vista === 'albero' ? (
-        <AlberoVista ruoli={ruoli} Casella={Casella} organoAmm={organoAmm} CasellaOrgano={CasellaOrgano} escludiDaOrganigramma={escludiDaOrganigramma} />
+        <AlberoVista ruoli={ruoliMostrati} Casella={Casella} organoAmm={organoAmm} CasellaOrgano={CasellaOrgano} escludiDaOrganigramma={escludiDaOrganigramma} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {FASCE_VISTA.map(f => {
             const mostraOrgano = f.key === 'governance' && !!organoAmm
-            const nella = ruoli.filter(r => r.fascia === f.key && !escludiDaOrganigramma(r))
+            const nella = ruoliMostrati.filter(r => r.fascia === f.key && !escludiDaOrganigramma(r))
             const radici = nella.filter(r => !r.parent_id || !nella.some(x => x.id === r.parent_id))
             if (nella.length === 0 && !mostraOrgano) return null
             return (
@@ -698,6 +704,9 @@ function OrganigrammaVista({ ruoli, membri, team = [], azienda, organoAmm = null
           })}
           {ruoli.every(r => !r.fascia) && (
             <div style={{ fontSize: 13, color: '#999' }}>Assegna una fascia ai ruoli (qui sotto) per vederli comparire nell'organigramma.</div>
+          )}
+          {ruoliMostrati.length === 0 && ruoli.some(r => r.fascia) && (
+            <div style={{ fontSize: 13, color: '#999' }}>Tutti i ruoli sono senza responsabile: togli il filtro "Nascondi ruoli non assegnati" per vederli.</div>
           )}
         </div>
       )}
