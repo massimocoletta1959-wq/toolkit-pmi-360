@@ -131,10 +131,22 @@ export default function App() {
 
   // Se un gestore è stato pre-registrato (dal portale licenze) con questa email,
   // collega la riga in attesa al nuovo account non appena si registra/accede.
+  // Se al momento della pre-registrazione gli era già stata assegnata un'azienda
+  // (creata in anticipo per lui), lo collega direttamente ad essa: la vede subito,
+  // senza dover ripassare dal wizard "Nuova azienda".
   async function claimGestorePendente(userId, email) {
     if (!email) return
-    await supabase.from('gestori').update({ user_id: userId })
+    const { data: gestori } = await supabase.from('gestori').update({ user_id: userId })
       .is('user_id', null).ilike('email', email)
+      .select('azienda_preassegnata_id')
+    const azId = (gestori || [])[0]?.azienda_preassegnata_id
+    if (!azId) return
+    const { data: esiste } = await supabase.from('profili').select('id').eq('id', userId).maybeSingle()
+    if (!esiste) {
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('profili').insert({ id: userId, email: user?.email || email, nome: '', azienda_id: azId })
+    }
+    await supabase.from('utente_aziende').upsert({ utente_id: userId, azienda_id: azId }, { onConflict: 'utente_id,azienda_id' })
   }
 
   async function loadDati(userId) {
