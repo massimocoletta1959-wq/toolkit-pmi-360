@@ -606,11 +606,32 @@ function OrganigrammaVista({ ruoli, membri, team = [], azienda, organoAmm = null
         .albero .riga { justify-content: center; }
         .linea-v { width: 1.5px; height: 12px; background: #CBD5E1; }
         .figli { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; border-top: 1.5px solid #CBD5E1; padding-top: 10px; }
+        #pagebox { overflow: hidden; }
+        #content { width: 1600px; }
       </style></head><body>
-      <h1>Organigramma — ${esc(azienda?.nome || '')}</h1>
-      <div class="sub">Aggiornato al ${dataStr}</div>
-      ${contenuto}
-      <script>window.onload = function(){ window.print(); }</script>
+      <div id="intestazione">
+        <h1>Organigramma — ${esc(azienda?.nome || '')}</h1>
+        <div class="sub">Aggiornato al ${dataStr}</div>
+      </div>
+      <div id="pagebox"><div id="content">${contenuto}</div></div>
+      <script>
+        window.onload = function () {
+          // Larghezza/altezza utili di una A4 orizzontale con margini 0.7cm, a 96dpi:
+          // riduce in scala l'intero organigramma per farlo entrare in una sola pagina,
+          // senza mai ingrandirlo oltre la dimensione naturale (scala massima 1).
+          var pageW = 1069, pageH = 741;
+          var intestazione = document.getElementById('intestazione');
+          var pagebox = document.getElementById('pagebox');
+          var content = document.getElementById('content');
+          var altezzaDisponibile = pageH - intestazione.offsetHeight - 10;
+          var scala = Math.min(pageW / content.scrollWidth, altezzaDisponibile / content.scrollHeight, 1);
+          content.style.transformOrigin = 'top left';
+          content.style.transform = 'scale(' + scala + ')';
+          pagebox.style.width = (content.scrollWidth * scala) + 'px';
+          pagebox.style.height = (content.scrollHeight * scala) + 'px';
+          window.print();
+        };
+      </script>
       </body></html>`)
     w.document.close()
   }
