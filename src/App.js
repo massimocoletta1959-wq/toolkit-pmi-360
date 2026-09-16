@@ -131,22 +131,28 @@ export default function App() {
 
   // Se un gestore è stato pre-registrato (dal portale licenze) con questa email,
   // collega la riga in attesa al nuovo account non appena si registra/accede.
-  // Se al momento della pre-registrazione gli era già stata assegnata un'azienda
-  // (creata in anticipo per lui), lo collega direttamente ad essa: la vede subito,
-  // senza dover ripassare dal wizard "Nuova azienda".
+  // Se al momento della pre-registrazione gli erano già state assegnate una o più
+  // aziende (create in anticipo per lui), lo collega direttamente ad esse: le vede
+  // subito, senza dover ripassare dal wizard "Nuova azienda".
   async function claimGestorePendente(userId, email) {
     if (!email) return
     const { data: gestori } = await supabase.from('gestori').update({ user_id: userId })
       .is('user_id', null).ilike('email', email)
-      .select('azienda_preassegnata_id')
-    const azId = (gestori || [])[0]?.azienda_preassegnata_id
-    if (!azId) return
+      .select('id')
+    const gestoreId = (gestori || [])[0]?.id
+    if (!gestoreId) return
+    const { data: preassegnate } = await supabase.from('gestori_preassegnazioni')
+      .select('azienda_id').eq('gestore_id', gestoreId)
+    if (!preassegnate || preassegnate.length === 0) return
     const { data: esiste } = await supabase.from('profili').select('id').eq('id', userId).maybeSingle()
     if (!esiste) {
       const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('profili').insert({ id: userId, email: user?.email || email, nome: '', azienda_id: azId })
+      await supabase.from('profili').insert({ id: userId, email: user?.email || email, nome: '', azienda_id: preassegnate[0].azienda_id })
     }
-    await supabase.from('utente_aziende').upsert({ utente_id: userId, azienda_id: azId }, { onConflict: 'utente_id,azienda_id' })
+    for (const p of preassegnate) {
+      await supabase.from('utente_aziende').upsert({ utente_id: userId, azienda_id: p.azienda_id }, { onConflict: 'utente_id,azienda_id' })
+    }
+    await supabase.from('gestori_preassegnazioni').delete().eq('gestore_id', gestoreId)
   }
 
   async function loadDati(userId) {
