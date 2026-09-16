@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../App'
 import { RUOLI_STANDARD_PER_SETTORE } from './Organigramma'
+import { repartiConMembri } from '../lib/reparti'
 
 // Qualifiche generiche valide per ogni settore (in coda ai ruoli del settore)
 const QUALIFICHE_GENERICHE = [
@@ -147,6 +148,25 @@ function MembroModal({ membro, aziendaId, onSave, onClose }) {
   )
 }
 
+// Chiamata condivisa tra l'invito singolo (per riga) e quello multiplo (per selezione)
+async function inviaInvitoRichiesta(membroId, aziendaId) {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(
+      `https://vwbixmbbcutjcplskjvg.supabase.co/functions/v1/invia-invito`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ membro_id: membroId, azienda_id: aziendaId }),
+      }
+    )
+    const data = await res.json()
+    return !!data.successo
+  } catch {
+    return false
+  }
+}
+
 function InvioInvito({ membro, aziendaId }) {
   const [stato, setStato] = React.useState(null) // null | 'loading' | 'ok' | 'error'
 
@@ -154,21 +174,8 @@ function InvioInvito({ membro, aziendaId }) {
 
   async function invia() {
     setStato('loading')
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch(
-        `https://vwbixmbbcutjcplskjvg.supabase.co/functions/v1/invia-invito`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
-          body: JSON.stringify({ membro_id: membro.id, azienda_id: aziendaId }),
-        }
-      )
-      const data = await res.json()
-      setStato(data.successo ? 'ok' : 'error')
-    } catch {
-      setStato('error')
-    }
+    const ok = await inviaInvitoRichiesta(membro.id, aziendaId)
+    setStato(ok ? 'ok' : 'error')
     setTimeout(() => setStato(null), 3000)
   }
 
@@ -203,6 +210,10 @@ export default function GestioneMembri() {
   const [modal, setModal]       = useState(null)
   const [delConfirm, setDelConfirm] = useState(null)
   const [search, setSearch]     = useState('')
+  const [selezionati, setSelezionati] = useState(new Set())   // id membri selezionati per l'invito multiplo
+  const [reparti, setReparti]   = useState([])
+  const [invitando, setInvitando] = useState(false)
+  const [esitoInvito, setEsitoInvito] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -212,6 +223,35 @@ export default function GestioneMembri() {
   }, [azienda.id])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => { repartiConMembri(azienda.id).then(setReparti) }, [azienda.id])
+
+  function toggleSel(id) {
+    setSelezionati(s => {
+      const next = new Set(s)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+  function selezionaReparto(membroIds, valore) {
+    setSelezionati(s => {
+      const next = new Set(s)
+      membroIds.forEach(id => { valore ? next.add(id) : next.delete(id) })
+      return next
+    })
+  }
+
+  async function invitaSelezionati() {
+    const dest = membri.filter(m => selezionati.has(m.id) && m.email)
+    if (!dest.length) return
+    setInvitando(true); setEsitoInvito(null)
+    const risultati = await Promise.all(dest.map(m => inviaInvitoRichiesta(m.id, azienda.id)))
+    const ok = risultati.filter(Boolean).length
+    const saltati = selezionati.size - dest.length
+    setInvitando(false)
+    setEsitoInvito(`${ok}/${dest.length} inviti inviati con successo.${saltati > 0 ? ` ${saltati} saltati (nessuna email).` : ''}`)
+    setSelezionati(new Set())
+    setTimeout(() => setEsitoInvito(null), 8000)
+  }
 
   async function deleteMembro(id) {
     await supabase.from('membri').delete().eq('id', id)
@@ -252,6 +292,29 @@ export default function GestioneMembri() {
           <input className="form-control" style={{ maxWidth: 300 }} placeholder="🔍 Cerca per nome, email o qualifica..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
 
+        {reparti.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+            <span style={{ fontSize: 12, color: '#999', alignSelf: 'center' }}>Seleziona per reparto:</span>
+            {reparti.map(r => (
+              <button key={r.sigla} className="btn btn-sm" style={{ fontSize: 11.5 }}
+                onClick={() => selezionaReparto(r.membroIds, !Array.from(r.membroIds).every(id => selezionati.has(id)))}>
+                {Array.from(r.membroIds).every(id => selezionati.has(id)) ? '✓ ' : '+ '}{r.sigla} ({r.membroIds.size})
+              </button>
+            ))}
+          </div>
+        )}
+
+        {selezionati.size > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#EBF4FC', border: '1px solid #CFE3F7', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>
+            <span style={{ fontSize: 13, color: '#1A3A5C' }}><strong>{selezionati.size}</strong> selezionati</span>
+            <button className="btn btn-sm btn-primary" onClick={invitaSelezionati} disabled={invitando}>
+              {invitando ? 'Invio…' : '📧 Invita selezionati'}
+            </button>
+            <button className="btn btn-sm" onClick={() => setSelezionati(new Set())}>Annulla selezione</button>
+          </div>
+        )}
+        {esitoInvito && <div className="alert alert-info" style={{ marginBottom: 12 }}>{esitoInvito}</div>}
+
         {loading ? <div className="spinner" /> : filtered.length === 0 ? (
           <div className="empty-state">
             <div style={{ fontSize: 36 }}>👥</div>
@@ -261,6 +324,7 @@ export default function GestioneMembri() {
           <div className="table-wrap">
             <table>
               <thead><tr>
+                <th></th>
                 <th>Nome</th>
                 <th>Qualifica / Ruolo</th>
                 <th>Email</th>
@@ -272,6 +336,7 @@ export default function GestioneMembri() {
               <tbody>
                 {filtered.map(m => (
                   <tr key={m.id}>
+                    <td><input type="checkbox" checked={selezionati.has(m.id)} onChange={() => toggleSel(m.id)} /></td>
                     <td>
                       <div style={{ fontWeight: 600 }}>{m.nome} {m.cognome}</div>
                     </td>

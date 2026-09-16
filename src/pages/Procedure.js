@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useApp } from '../App'
 import { AREE_PROCEDURE, MAPPA_SIGLE } from '../lib/procedure'
 import { generaProcedura } from '../lib/generaProcedura'
+import { repartiConMembri } from '../lib/reparti'
 import EditorProcedura from './EditorProcedura'
 
 const STATI = ['Bozza', 'Approvata', 'Adottata', 'Personalizzata', 'Non applicabile']
@@ -15,67 +16,102 @@ const STATO_STYLE = {
 }
 
 // ---------------------------------------------------------------------
-// Modale: distribuisci una procedura per presa visione
+// Modale: distribuisci una o più procedure per presa visione. Ogni persona
+// selezionata riceve un ticket per ciascuna procedura, ma UNA SOLA email
+// riassuntiva (non una a procedura) — se non ha ancora un account, la stessa
+// email vale anche da invito a registrarsi.
 // ---------------------------------------------------------------------
-function DistribuzioneModal({ proc, defaultMembroId, membri, aziendaId, onClose, onDone }) {
+function DistribuzioneModal({ procs, suggeritiIds, membri, aziendaId, onClose, onDone }) {
   const [sel, setSel] = useState(() => {
     const init = {}
-    if (defaultMembroId) init[defaultMembroId] = true
+    suggeritiIds.forEach(id => { init[id] = true })
     return init
   })
+  const [reparti, setReparti] = useState([])
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState(null)
   const [avvisaEmail, setAvvisaEmail] = useState(true)
 
+  useEffect(() => { repartiConMembri(aziendaId).then(setReparti) }, [aziendaId])
+
   const nomeMembro = m => `${m.nome || ''} ${m.cognome || ''}`.trim() || m.email || '—'
   const toggle = id => setSel(s => ({ ...s, [id]: !s[id] }))
+  const selezionaReparto = (membroIds, valore) => setSel(s => {
+    const next = { ...s }
+    membroIds.forEach(id => { next[id] = valore })
+    return next
+  })
   const nSel = Object.values(sel).filter(Boolean).length
 
   async function invia() {
     const dest = membri.filter(m => sel[m.id])
     if (!dest.length) { setErr('Seleziona almeno una persona.'); return }
     setLoading(true); setErr(null)
-    const righe = dest.map(m => ({
+    const righe = []
+    dest.forEach(m => procs.forEach(p => righe.push({
       azienda_id: aziendaId,
       membro_id: m.id,
-      titolo: `Presa visione ${proc.codice}: ${proc.titolo}`,
-      istruzioni: `Prendi visione della procedura ${proc.codice} — ${proc.titolo}, poi segna il ticket come "Completato" per confermare.`,
+      titolo: `Presa visione ${p.codice}: ${p.titolo}`,
+      istruzioni: `Prendi visione della procedura ${p.codice} — ${p.titolo}, poi segna il ticket come "Completato" per confermare.`,
       tipo: 'presa_visione',
       priorita: 'Media',
       stato: 'Aperto',
-    }))
-    const { data: creati, error } = await supabase.from('ticket').insert(righe).select('id')
+    })))
+    const { data: creati, error } = await supabase.from('ticket').insert(righe).select('id, membro_id')
     if (error) { setLoading(false); setErr(error.message); return }
 
-    // Avvisa via email (stesso meccanismo dei ticket manuali)
+    // Un'unica email per membro con l'elenco di tutte le procedure, non una a procedura
     if (avvisaEmail && creati?.length) {
       try {
+        const perMembro = {}
+        creati.forEach(t => { (perMembro[t.membro_id] ||= []).push(t.id) })
         const { data: { session } } = await supabase.auth.getSession()
-        await Promise.all(creati.map(t =>
-          fetch('https://vwbixmbbcutjcplskjvg.supabase.co/functions/v1/invia-email', {
+        await Promise.all(Object.entries(perMembro).map(([membro_id, ticket_ids]) =>
+          fetch('https://vwbixmbbcutjcplskjvg.supabase.co/functions/v1/invia-presa-visione', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
-            body: JSON.stringify({ ticket_id: t.id, tipo: 'assegnazione' }),
+            body: JSON.stringify({ membro_id, azienda_id: aziendaId, ticket_ids, procedure: procs.map(p => ({ codice: p.codice, titolo: p.titolo })) }),
           }).catch(() => {})
         ))
       } catch (e) { /* l'email e' best-effort */ }
     }
 
     setLoading(false)
-    onDone(dest.length)
+    onDone(dest.length, procs.length)
   }
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300 }}>
-      <div className="card" style={{ width: 460, maxWidth: '92%', margin: 0, maxHeight: '85vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
+      <div className="card" style={{ width: 480, maxWidth: '92%', margin: 0, maxHeight: '85vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
         <div className="card-header">
           <span className="card-title">📤 Distribuisci per presa visione</span>
           <button className="btn btn-sm" onClick={onClose}>✕</button>
         </div>
         <div style={{ fontSize: 13, color: '#555', marginBottom: 12 }}>
-          <strong>{proc.codice}</strong> — {proc.titolo}<br />
-          Seleziona le persone che devono prenderne visione: a ciascuna arriverà un ticket.
+          {procs.length === 1 ? (
+            <><strong>{procs[0].codice}</strong> — {procs[0].titolo}</>
+          ) : (
+            <>
+              <strong>{procs.length} procedure selezionate</strong>
+              <ul style={{ margin: '6px 0 0', paddingLeft: 18, color: '#777' }}>
+                {procs.map(p => <li key={p.codice}>{p.codice} — {p.titolo}</li>)}
+              </ul>
+            </>
+          )}
+          <div style={{ marginTop: 8 }}>Seleziona le persone che devono prenderne visione: a ciascuna arriverà {procs.length === 1 ? 'un ticket' : `${procs.length} ticket, ma una sola email`}.</div>
         </div>
+
+        {reparti.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+            {reparti.map(r => (
+              <button key={r.sigla} className="btn btn-sm" style={{ fontSize: 11.5 }}
+                onClick={() => selezionaReparto(r.membroIds, !Array.from(r.membroIds).every(id => sel[id]))}>
+                {Array.from(r.membroIds).every(id => sel[id]) ? '✓ ' : '+ '}{r.sigla} ({r.membroIds.size})
+              </button>
+            ))}
+          </div>
+        )}
+
         {membri.length === 0 ? (
           <div className="alert alert-info">Non ci sono ancora persone in <strong>Membri</strong>: aggiungile prima di distribuire.</div>
         ) : (
@@ -84,7 +120,7 @@ function DistribuzioneModal({ proc, defaultMembroId, membri, aziendaId, onClose,
               <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, background: sel[m.id] ? '#EBF4FC' : '#FBFCFD', border: '1px solid #E8EAED', cursor: 'pointer' }}>
                 <input type="checkbox" checked={!!sel[m.id]} onChange={() => toggle(m.id)} />
                 <span style={{ fontSize: 13 }}>{nomeMembro(m)}</span>
-                {m.id === defaultMembroId && <span className="badge" style={{ background: '#FEF9E7', color: '#856404', fontSize: 10 }}>responsabile</span>}
+                {suggeritiIds.has(m.id) && <span className="badge" style={{ background: '#FEF9E7', color: '#856404', fontSize: 10 }}>responsabile</span>}
               </label>
             ))}
           </div>
@@ -93,12 +129,12 @@ function DistribuzioneModal({ proc, defaultMembroId, membri, aziendaId, onClose,
         {membri.length > 0 && (
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#555', marginBottom: 12 }}>
             <input type="checkbox" checked={avvisaEmail} onChange={e => setAvvisaEmail(e.target.checked)} />
-            Avvisa via email chi ha un indirizzo
+            Avvisa via email chi ha un indirizzo (una sola email, con tutte le procedure elencate)
           </label>
         )}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button className="btn" onClick={onClose}>Annulla</button>
-          <button className="btn btn-primary" onClick={invia} disabled={loading || nSel === 0}>{loading ? 'Invio…' : `Invia ${nSel || ''} prese visione`}</button>
+          <button className="btn btn-primary" onClick={invia} disabled={loading || nSel === 0}>{loading ? 'Invio…' : `Invia a ${nSel || ''} persone`}</button>
         </div>
       </div>
     </div>
@@ -111,12 +147,13 @@ export default function Procedure() {
   const [adozioni, setAdozioni] = useState({})   // codice -> record procedure_azienda
   const [ruoli, setRuoli]       = useState([])
   const [membri, setMembri]     = useState([])
-  const [distProc, setDistProc] = useState(null)   // { proc, defaultMembroId }
+  const [distProc, setDistProc] = useState(null)   // { procs, suggeritiIds }
   const [editProc, setEditProc] = useState(null)   // { proc, modo: 'azienda'|'standard' }
   const [msg, setMsg]           = useState(null)
   const [loading, setLoading]   = useState(true)
   const [areaSel, setAreaSel]   = useState('')
   const [error, setError]       = useState(null)
+  const [selezionate, setSelezionate] = useState(new Set())   // codici procedura selezionati per la distribuzione multipla
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -151,6 +188,21 @@ export default function Procedure() {
   function ruoloSuggerito(proc) {
     const sigla = MAPPA_SIGLE[proc.funzioni[0]] || proc.funzioni[0]
     return ruoli.find(r => r.sigla === sigla)?.id || null
+  }
+
+  // Responsabili (assegnati o, in mancanza, suggeriti) di un gruppo di procedure:
+  // pre-selezionati nella finestra di distribuzione, evidenziati col badge.
+  function suggeritiPer(procs) {
+    const ids = procs.map(p => ruoli.find(r => r.id === (adozioni[p.codice]?.ruolo_id ?? ruoloSuggerito(p)))?.membro_id)
+    return new Set(ids.filter(Boolean))
+  }
+
+  function toggleSelezione(codice) {
+    setSelezionate(s => {
+      const next = new Set(s)
+      next.has(codice) ? next.delete(codice) : next.add(codice)
+      return next
+    })
   }
 
   async function setCampo(proc, campo, valore) {
@@ -226,6 +278,17 @@ export default function Procedure() {
           </div>
         </div>
 
+        {selezionate.size > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#EBF4FC', border: '1px solid #CFE3F7', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>
+            <span style={{ fontSize: 13, color: '#1A3A5C' }}><strong>{selezionate.size}</strong> procedure selezionate</span>
+            <button className="btn btn-sm btn-primary" onClick={() => {
+              const procs = lista.filter(p => selezionate.has(p.codice))
+              setDistProc({ procs, suggeritiIds: suggeritiPer(procs) })
+            }}>📤 Distribuisci le selezionate</button>
+            <button className="btn btn-sm" onClick={() => setSelezionate(new Set())}>Annulla selezione</button>
+          </div>
+        )}
+
         {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
         {msg && <div className="alert alert-info" style={{ marginBottom: 12 }}>{msg}</div>}
         {ruoli.length === 0 && !loading && (
@@ -243,7 +306,8 @@ export default function Procedure() {
               const st = a?.stato || 'Bozza'
               const stile = STATO_STYLE[st] || { bg: '#FDF6E7', color: '#B7791F' }
               return (
-                <div key={p.codice} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: '#FBFCFD', border: '1px solid #E8EAED', opacity: st === 'Non applicabile' ? 0.55 : 1 }}>
+                <div key={p.codice} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: selezionate.has(p.codice) ? '#EBF4FC' : '#FBFCFD', border: '1px solid #E8EAED', opacity: st === 'Non applicabile' ? 0.55 : 1 }}>
+                  <input type="checkbox" checked={selezionate.has(p.codice)} disabled={st === 'Non applicabile'} onChange={() => toggleSelezione(p.codice)} />
                   <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: '#1A3A5C', minWidth: 96 }}>{p.codice}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 500 }}>{p.titolo}</div>
@@ -270,7 +334,7 @@ export default function Procedure() {
                           onClick={() => generaProcedura(p, azienda)}>📄</button>
                   <button className="btn btn-sm btn-icon" title="Distribuisci per presa visione"
                           disabled={st === 'Non applicabile'}
-                          onClick={() => setDistProc({ proc: p, defaultMembroId: ruoli.find(r => r.id === a?.ruolo_id)?.membro_id || null })}>📤</button>
+                          onClick={() => setDistProc({ procs: [p], suggeritiIds: suggeritiPer([p]) })}>📤</button>
                 </div>
               )
             })}
@@ -280,14 +344,16 @@ export default function Procedure() {
 
       {distProc && (
         <DistribuzioneModal
-          proc={distProc.proc}
-          defaultMembroId={distProc.defaultMembroId}
+          procs={distProc.procs}
+          suggeritiIds={distProc.suggeritiIds}
           membri={membri}
           aziendaId={azienda.id}
           onClose={() => setDistProc(null)}
-          onDone={n => {
-            setDistProc(null)
-            setMsg(`Distribuita "${distProc.proc.titolo}": create ${n} prese visione. Le trovi in Procedure → Ticket.`)
+          onDone={(nPersone, nProcs) => {
+            setDistProc(null); setSelezionate(new Set())
+            setMsg(nProcs === 1
+              ? `Distribuita "${distProc.procs[0].titolo}" a ${nPersone} persone: ${nPersone} email inviate. Le trovi in Procedure → Ticket.`
+              : `Distribuite ${nProcs} procedure a ${nPersone} persone: ${nPersone} email inviate (una a testa, con tutte le procedure elencate).`)
             setTimeout(() => setMsg(null), 6000)
           }}
         />
