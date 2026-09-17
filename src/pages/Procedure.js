@@ -21,18 +21,21 @@ const STATO_STYLE = {
 // riassuntiva (non una a procedura) — se non ha ancora un account, la stessa
 // email vale anche da invito a registrarsi.
 // ---------------------------------------------------------------------
-function DistribuzioneModal({ procs, suggeritiIds, membri, aziendaId, onClose, onDone }) {
+function DistribuzioneModal({ procs, suggeritiIds, sigleRilevanti, membri, aziendaId, onClose, onDone }) {
   const [sel, setSel] = useState(() => {
     const init = {}
     suggeritiIds.forEach(id => { init[id] = true })
     return init
   })
-  const [reparti, setReparti] = useState([])
+  const [tuttiReparti, setTuttiReparti] = useState([])
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState(null)
   const [avvisaEmail, setAvvisaEmail] = useState(true)
 
-  useEffect(() => { repartiConMembri(aziendaId).then(setReparti) }, [aziendaId])
+  useEffect(() => { repartiConMembri(aziendaId).then(setTuttiReparti) }, [aziendaId])
+  // Solo i reparti coinvolti dalle procedure selezionate: con tante procedure
+  // di aree diverse, mostrare tutto l'organigramma sarebbe solo rumore.
+  const reparti = tuttiReparti.filter(r => sigleRilevanti.has(r.sigla))
 
   const nomeMembro = m => `${m.nome || ''} ${m.cognome || ''}`.trim() || m.email || '—'
   const toggle = id => setSel(s => ({ ...s, [id]: !s[id] }))
@@ -197,6 +200,15 @@ export default function Procedure() {
     return new Set(ids.filter(Boolean))
   }
 
+  // Sigle di reparto coinvolte da un gruppo di procedure (tutte le loro funzioni,
+  // non solo la prima): filtra i pulsanti "seleziona per reparto" della distribuzione,
+  // così con procedure di una sola area non compare l'intero organigramma.
+  function sigleCoinvolte(procs) {
+    const sigle = new Set()
+    procs.forEach(p => p.funzioni.forEach(f => sigle.add(MAPPA_SIGLE[f] || f)))
+    return sigle
+  }
+
   function toggleSelezione(codice) {
     setSelezionate(s => {
       const next = new Set(s)
@@ -283,7 +295,7 @@ export default function Procedure() {
             <span style={{ fontSize: 13, color: '#1A3A5C' }}><strong>{selezionate.size}</strong> procedure selezionate</span>
             <button className="btn btn-sm btn-primary" onClick={() => {
               const procs = lista.filter(p => selezionate.has(p.codice))
-              setDistProc({ procs, suggeritiIds: suggeritiPer(procs) })
+              setDistProc({ procs, suggeritiIds: suggeritiPer(procs), sigleRilevanti: sigleCoinvolte(procs) })
             }}>📤 Distribuisci le selezionate</button>
             <button className="btn btn-sm" onClick={() => setSelezionate(new Set())}>Annulla selezione</button>
           </div>
@@ -334,7 +346,7 @@ export default function Procedure() {
                           onClick={() => generaProcedura(p, azienda)}>📄</button>
                   <button className="btn btn-sm btn-icon" title="Distribuisci per presa visione"
                           disabled={st === 'Non applicabile'}
-                          onClick={() => setDistProc({ procs: [p], suggeritiIds: suggeritiPer([p]) })}>📤</button>
+                          onClick={() => setDistProc({ procs: [p], suggeritiIds: suggeritiPer([p]), sigleRilevanti: sigleCoinvolte([p]) })}>📤</button>
                 </div>
               )
             })}
@@ -346,6 +358,7 @@ export default function Procedure() {
         <DistribuzioneModal
           procs={distProc.procs}
           suggeritiIds={distProc.suggeritiIds}
+          sigleRilevanti={distProc.sigleRilevanti}
           membri={membri}
           aziendaId={azienda.id}
           onClose={() => setDistProc(null)}
