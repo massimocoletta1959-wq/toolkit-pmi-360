@@ -1,7 +1,7 @@
 import React from 'react'
 import { useApp } from '../App'
 export default function LayoutMembro({ children, page = 'task', setPage }) {
-  const { azienda, profilo, logout } = useApp()
+  const { azienda, profilo, logout, puoTornareGestore, tornaGestore } = useApp()
   const voci = [
     { id: 'task',       icona: '🎫', label: 'I miei task' },
     { id: 'procedure',  icona: '📋', label: 'Le mie procedure' },
@@ -30,6 +30,15 @@ export default function LayoutMembro({ children, page = 'task', setPage }) {
         <div className="sidebar-footer">
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 4 }}>{profilo?.email}</div>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 8 }}>Membro operativo</div>
+          {puoTornareGestore && (
+            <button
+              className="btn btn-sm"
+              style={{ width: '100%', justifyContent: 'center', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', marginBottom: 8 }}
+              onClick={tornaGestore}
+            >
+              ← Torna alla vista gestore
+            </button>
+          )}
           <button
             className="btn btn-sm"
             style={{ width: '100%', justifyContent: 'center', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)' }}

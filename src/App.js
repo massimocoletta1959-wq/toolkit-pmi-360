@@ -50,6 +50,12 @@ export default function App() {
   if (tokenDaUrl) localStorage.setItem('token_invito', tokenDaUrl)
   const tokenInvito = tokenDaUrl || localStorage.getItem('token_invito')
 
+  // Un consulente/gestore che è ANCHE membro da qualche parte (tipico di chi si
+  // assegna un task per provarlo) resta comunque un consulente a tutti gli
+  // effetti: il link nella mail del task lo porta qui in vista membro solo
+  // temporaneamente, senza toccare il suo ruolo vero.
+  const [vistaMembroForzata, setVistaMembroForzata] = useState(urlParams.get('vista') === 'membro')
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
@@ -369,10 +375,15 @@ export default function App() {
     adunanzaId,
     apriAdunanza: (id) => { setAdunanzaId(id); setPage('adunanza') },
     onNuovaAzienda,
+    puoTornareGestore: profilo.ruolo !== 'membro' && vistaMembroForzata,
+    tornaGestore: () => {
+      setVistaMembroForzata(false)
+      window.history.replaceState({}, '', window.location.pathname)
+    },
   }
 
   // ── Vista MEMBRO OPERATIVO ──────────────────────────────────────────────
-  if (profilo.ruolo === 'membro') {
+  if (profilo.ruolo === 'membro' || vistaMembroForzata) {
     return (
       <AppContext.Provider value={ctx}>
         <LayoutMembro page={pagMembro} setPage={setPagMembro}>

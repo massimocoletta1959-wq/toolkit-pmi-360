@@ -27,7 +27,10 @@ serve(async (req) => {
     if (!membro || !membro.email) return new Response(JSON.stringify({ error: 'Membro o email non trovati' }), { status: 404, headers })
 
     // Non ha ancora un account: la stessa email vale anche da invito a registrarsi.
-    let ctaUrl = APP_URL
+    // Se ce l'ha già, il link porta dritto alla vista "I miei task/procedure":
+    // utile anche a un consulente che si assegna un task per provarlo, che
+    // altrimenti aprendo il portale vedrebbe la propria vista da gestore.
+    let ctaUrl = `${APP_URL}?vista=membro`
     let ctaLabel = 'Accedi e leggi le procedure →'
     let introRegistrazione = ''
     if (!membro.user_id) {
