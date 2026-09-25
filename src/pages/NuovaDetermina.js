@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useApp } from '../App'
 import { FASCICOLI } from '../lib/fascicoli'
 import { nomeAtto } from '../lib/modalitaSolo'
+import SimulazioneImpatto, { VOCE_SIMULAZIONE } from '../components/SimulazioneImpatto'
 
 // ── Costanti ────────────────────────────────────────────────────────────
 const TIPI = [
@@ -722,6 +723,10 @@ export default function NuovaDetermina() {
       {/* STEP 2 — Analisi */}
       {step === 2 && (
         <div className="card">
+          <SimulazioneImpatto
+            attoId={attoId} assicuraBozza={assicuraBozzaProvvisoria} soloLettura={soloLettura}
+            oggetto={oggetto} valore={valore}
+            onRiporta={testo => setAnalisiFin(prev => prev && prev.trim() ? `${prev.trim()}\n\n${testo}` : testo)} />
           <div className="form-group">
             <label className="form-label">Descrizione dell'operazione</label>
             <textarea className="form-control" value={descrizione} onChange={e => setDescrizione(e.target.value)}
@@ -983,7 +988,9 @@ function FascicoloChecklist({ tipo, vociExtra, checklist, setChecklist, soloLett
     caricaAllegati()
   }
 
-  if (voci.length === 0) {
+  const fileSimulazione = allegatiDiVoce(VOCE_SIMULAZIONE)
+
+  if (voci.length === 0 && fileSimulazione.length === 0) {
     return <div style={{ fontSize: 13, color: '#999' }}>Nessun giustificativo previsto per questo tipo.</div>
   }
 
@@ -995,6 +1002,20 @@ function FascicoloChecklist({ tipo, vociExtra, checklist, setChecklist, soloLett
         </div>
       )}
       {msg && <div className="alert alert-error" style={{ fontSize: 12.5 }}>{msg}</div>}
+      {/* PDF della simulazione EasyPMI: si sostituiscono rifacendo la simulazione (step Analisi), non si eliminano a mano */}
+      {fileSimulazione.length > 0 && (
+        <div style={{ border: '1px solid #D6E4F0', borderRadius: 8, padding: '10px 12px', background: '#F7FAFD' }}>
+          <div style={{ fontSize: 13.5, color: '#1A3A5C' }}>📊 {VOCE_SIMULAZIONE}</div>
+          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {fileSimulazione.map(a => (
+              <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, background: '#fff', borderRadius: 6, padding: '5px 8px' }}>
+                <span style={{ flex: 1, color: '#1A3A5C' }}>📎 {a.nome_file}</span>
+                <button type="button" className="btn btn-sm" onClick={() => scaricaFile(a)}>Apri</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {voci.map((voce, i) => {
         const st = stato(voce)
         const files = allegatiDiVoce(voce)
