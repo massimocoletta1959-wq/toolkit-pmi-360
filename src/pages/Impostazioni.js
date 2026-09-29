@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { INQUADRAMENTI_INPS, CCNL_COMUNI } from '../lib/lavoro'
 import { useApp } from '../App'
 import { RISCHI_DEFAULT, RISCHI_PER_SETTORE, RISCHI_231_EDILIZIA, RISCHI_231_GENERICO } from '../lib/constants'
 import { etichettaModulo } from '../lib/modalitaSolo'
@@ -25,7 +26,7 @@ export default function Impostazioni() {
   const [loading, setLoading]       = useState(false)
   const [error, setError]           = useState(null)
   const [editMode, setEditMode]     = useState(false)
-  const [editForm, setEditForm]     = useState({ nome: '', piva: '', settore: '', dimensione: '' })
+  const [editForm, setEditForm]     = useState({ nome: '', piva: '', settore: '', dimensione: '', ccnl: '', mensilita: '', inquadramento_inps: '', numero_dipendenti: '', tasso_inail_pct: '', aliquota_inps_datore_pct: '' })
   const [lic, setLic]               = useState(null)
   const [modLoading, setModLoading] = useState(null)
   const [soloLoading, setSoloLoading] = useState(false)
@@ -135,7 +136,12 @@ export default function Impostazioni() {
       }
     }
     const { error: err } = await supabase.from('aziende')
-      .update({ nome: nomeClean, settore: editForm.settore || null, dimensione: editForm.dimensione || null, piva: pivaClean || null, logo_url: editForm.logo_url || null })
+      .update({ nome: nomeClean, settore: editForm.settore || null, dimensione: editForm.dimensione || null, piva: pivaClean || null, logo_url: editForm.logo_url || null,
+        ccnl: editForm.ccnl.trim() || null, mensilita: editForm.mensilita ? Number(editForm.mensilita) : null,
+        inquadramento_inps: editForm.inquadramento_inps || null,
+        numero_dipendenti: editForm.numero_dipendenti === '' ? null : parseInt(editForm.numero_dipendenti, 10),
+        tasso_inail_pct: editForm.tasso_inail_pct === '' ? null : Number(String(editForm.tasso_inail_pct).replace(',', '.')),
+        aliquota_inps_datore_pct: editForm.aliquota_inps_datore_pct === '' ? null : Number(String(editForm.aliquota_inps_datore_pct).replace(',', '.')) })
       .eq('id', azienda.id)
     if (err) { setError(err.message); setLoading(false); return }
     setLoading(false); setEditMode(false)
@@ -208,7 +214,9 @@ export default function Impostazioni() {
           <span className="card-title">ℹ️ Dettagli azienda attiva</span>
           {!editMode && (
             <button className="btn btn-sm" onClick={() => {
-              setEditForm({ nome: azienda?.nome || '', piva: azienda?.piva || '', settore: azienda?.settore || '', dimensione: azienda?.dimensione || '', logo_url: azienda?.logo_url || '' })
+              setEditForm({ nome: azienda?.nome || '', piva: azienda?.piva || '', settore: azienda?.settore || '', dimensione: azienda?.dimensione || '', logo_url: azienda?.logo_url || '',
+                ccnl: azienda?.ccnl || '', mensilita: azienda?.mensilita ?? '', inquadramento_inps: azienda?.inquadramento_inps || '',
+                numero_dipendenti: azienda?.numero_dipendenti ?? '', tasso_inail_pct: azienda?.tasso_inail_pct ?? '', aliquota_inps_datore_pct: azienda?.aliquota_inps_datore_pct ?? '' })
               setEditMode(true); setError(null)
             }}>✏️ Modifica</button>
           )}
@@ -238,6 +246,11 @@ export default function Impostazioni() {
                 <div style={{ fontSize: 13, color: '#555', lineHeight: 1.5 }}>{azienda.oggetto_sociale}</div>
               </div>
             )}
+            <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #EEE', paddingTop: 10, fontSize: 12, color: '#1A3A5C', fontWeight: 600 }}>Lavoro dipendente</div>
+            <div><span style={{ color: '#888', fontSize: 12 }}>CCNL applicato</span><div>{azienda?.ccnl || '—'}{azienda?.mensilita ? ` · ${azienda.mensilita} mensilità` : ''}</div></div>
+            <div><span style={{ color: '#888', fontSize: 12 }}>Inquadramento INPS</span><div>{INQUADRAMENTI_INPS[azienda?.inquadramento_inps] || '—'}</div></div>
+            <div><span style={{ color: '#888', fontSize: 12 }}>Dipendenti</span><div>{azienda?.numero_dipendenti ?? '—'}</div></div>
+            <div><span style={{ color: '#888', fontSize: 12 }}>Contributi a carico azienda</span><div>{azienda?.aliquota_inps_datore_pct != null ? `INPS ${String(azienda.aliquota_inps_datore_pct).replace('.', ',')}%` : 'INPS —'} · {azienda?.tasso_inail_pct != null ? `INAIL ${String(azienda.tasso_inail_pct).replace('.', ',')}%` : 'INAIL —'}</div></div>
             <div><span style={{ color: '#888', fontSize: 12 }}>Logo</span><div>{azienda?.logo_url ? <img src={azienda.logo_url} alt="logo" style={{ maxHeight: 36, marginTop: 2 }} /> : '—'}</div></div>
           </div>
         ) : (
@@ -265,6 +278,43 @@ export default function Impostazioni() {
                   <option value="">Seleziona...</option>
                   {DIMENSIONI.map(d => <option key={d}>{d}</option>)}
                 </select>
+              </div>
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#1A3A5C', margin: '6px 0 2px' }}>Lavoro dipendente</div>
+            <div style={{ fontSize: 12, color: '#999', marginBottom: 8 }}>
+              Servono alla simulazione d'impatto delle assunzioni. Le aliquote effettive si leggono sul cedolino o si chiedono al consulente del lavoro; il tasso INAIL è sull'avviso di pagamento INAIL.
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className="form-group">
+                <label className="form-label">CCNL applicato</label>
+                <input className="form-control" list="ccnl-comuni" value={editForm.ccnl} onChange={e => setEditForm({ ...editForm, ccnl: e.target.value })} placeholder="Scegli o scrivi…" />
+                <datalist id="ccnl-comuni">{CCNL_COMUNI.map(c => <option key={c} value={c} />)}</datalist>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Mensilità</label>
+                <select className="form-control" value={editForm.mensilita} onChange={e => setEditForm({ ...editForm, mensilita: e.target.value })}>
+                  <option value="">Seleziona...</option>
+                  {[13, 14, 15].map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Inquadramento INPS</label>
+                <select className="form-control" value={editForm.inquadramento_inps} onChange={e => setEditForm({ ...editForm, inquadramento_inps: e.target.value })}>
+                  <option value="">Seleziona...</option>
+                  {Object.entries(INQUADRAMENTI_INPS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Numero dipendenti</label>
+                <input className="form-control" type="number" min="0" step="1" value={editForm.numero_dipendenti} onChange={e => setEditForm({ ...editForm, numero_dipendenti: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Aliquota INPS a carico azienda (%)</label>
+                <input className="form-control" type="number" min="0" max="50" step="0.01" value={editForm.aliquota_inps_datore_pct} onChange={e => setEditForm({ ...editForm, aliquota_inps_datore_pct: e.target.value })} placeholder="es. 29,98" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Tasso INAIL (%)</label>
+                <input className="form-control" type="number" min="0" max="30" step="0.001" value={editForm.tasso_inail_pct} onChange={e => setEditForm({ ...editForm, tasso_inail_pct: e.target.value })} placeholder="es. 0,85" />
               </div>
             </div>
             <div className="form-group" style={{ marginTop: 4 }}>
