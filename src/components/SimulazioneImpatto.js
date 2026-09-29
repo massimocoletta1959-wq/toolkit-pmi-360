@@ -392,7 +392,7 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
               <div style={{ fontWeight: 600, color: '#1A3A5C', marginBottom: 4 }}>Contributo di ciascun componente (scenario worst)</div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
-                  <tr style={{ background: '#EAF1F8', color: '#1A3A5C' }}>
+                  <tr>
                     <th style={{ textAlign: 'left', padding: '5px 8px' }}>Componente</th>
                     <th style={{ textAlign: 'right', padding: '5px 8px' }}>Δ EBITDA</th>
                     <th style={{ textAlign: 'right', padding: '5px 8px' }}>Δ Utile</th>
@@ -448,7 +448,7 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                   <thead>
-                    <tr style={{ background: '#EAF1F8', color: '#1A3A5C' }}>
+                    <tr>
                       <th style={{ ...th, textAlign: 'left' }}></th>
                       <th style={th}>Senza la decisione</th><th style={th}>Con la decisione</th><th style={th}>Variazione</th>
                     </tr>
@@ -476,7 +476,7 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
-                      <tr style={{ background: '#EAF1F8', color: '#1A3A5C' }}>
+                      <tr>
                         <th style={{ ...th, textAlign: 'left' }}>Mese</th>
                         <th style={th}>Senza la decisione</th><th style={th}>Con la decisione</th><th style={th}>Differenza</th>
                         <th style={{ ...th, textAlign: 'center' }}></th>
