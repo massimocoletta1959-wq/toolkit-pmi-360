@@ -210,8 +210,8 @@ function validaSingolo(f) {
     if (!(num(x.contributi_pct) > 0)) return 'Inserisci l\'aliquota contributiva a carico azienda (INPS + INAIL): la trovi sul cedolino, oppure compilala una volta in Impostazioni → Dettagli azienda.'
     if (!(intero(x.numero_persone) > 0)) return 'Inserisci il numero di persone.'
     if (pieno(x.bonus_importo) && !x.bonus_mese) return 'Indica il mese di pagamento del bonus.'
-    if (pieno(x.sgravio_pct) !== pieno(x.sgravio_mesi)) return 'Per lo sgravio indica sia la riduzione (punti %) sia la durata in mesi.'
-    if (pieno(x.sgravio_pct) && num(x.sgravio_pct) > num(x.contributi_pct)) return 'Lo sgravio (in punti percentuali) non può superare l\'aliquota contributiva.'
+    if (pieno(x.sgravio_pct) !== pieno(x.sgravio_mesi)) return 'Per lo sgravio indica sia la riduzione (% dei contributi) sia la durata in mesi.'
+    if (pieno(x.sgravio_pct) && num(x.sgravio_pct) > 100) return 'Lo sgravio è una percentuale dei contributi: al massimo 100 (esonero totale).'
   }
   return null
 }
@@ -688,7 +688,7 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
                 {pieno(t.bonus_importo) && <Campo label="Mese pagamento bonus"><Data type="month" value={t.bonus_mese} onChange={setT('bonus_mese')} /></Campo>}
               </div>
               <div className="grid-3">
-                <Campo label="Sgravio contributi (punti %)"><Num value={t.sgravio_pct} onChange={setT('sgravio_pct')} /></Campo>
+                <Campo label="Sgravio (% dei contributi, 100 = esonero)"><Num value={t.sgravio_pct} onChange={setT('sgravio_pct')} /></Campo>
                 {pieno(t.sgravio_pct) && <Campo label="Durata sgravio (mesi)"><Num value={t.sgravio_mesi} onChange={setT('sgravio_mesi')} step="1" min="1" /></Campo>}
               </div>
               <div style={{ fontSize: 12.5, fontWeight: 600, color: '#1A3A5C', margin: '4px 0 6px' }}>Costi una tantum (selezione, formazione… importo totale)</div>
