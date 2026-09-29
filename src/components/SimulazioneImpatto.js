@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { useApp } from '../App'
 
 // ============================================================
 // Simulazione d'impatto EasyPMI (contratto v7 + schema v8) nello step Analisi.
@@ -18,6 +19,7 @@ const TIPI_IMPATTO = {
   finanziamento:    'Finanziamento rateale (mutuo, prestito)',
   costo_ricorrente: 'Costo ricorrente (servizi, consulenze, canoni, locazioni)',
   costo_una_tantum: 'Costo una tantum (evento, adeguamento, manutenzione…)',
+  personale:        'Personale (assunzione o uscita)',
 }
 const TUTTI = Object.keys(TIPI_IMPATTO)
 
@@ -27,8 +29,8 @@ const IMPATTI_PER_TIPO = {
   beni_strumentali:       ['acquisto_bene', 'leasing', 'finanziamento'],
   contratto:              ['costo_ricorrente', 'costo_una_tantum'],
   operazione_finanziaria: ['finanziamento', 'leasing'],
-  personale:              ['costo_una_tantum', 'costo_ricorrente'],
-  assunzione:             [],   // tipo "personale" in attesa lato EasyPMI
+  personale:              ['personale', 'costo_una_tantum', 'costo_ricorrente'],
+  assunzione:             ['personale'],
   consulenza:             ['costo_ricorrente', 'costo_una_tantum'],
   contenzioso:            ['costo_una_tantum'],
   rs_innovazione:         ['acquisto_bene', 'costo_una_tantum', 'costo_ricorrente', 'leasing'],
@@ -43,6 +45,20 @@ const CATEGORIE_RICORRENTE = { servizi: 'Servizi', consulenza: 'Consulenza', loc
 const CATEGORIE_UNA_TANTUM = { evento: 'Evento', sponsorizzazione: 'Sponsorizzazione', adeguamento: 'Adeguamento normativo', manutenzione: 'Manutenzione', spese_legali: 'Spese legali', altro: 'Altro' }
 const CATEGORIA_DEFAULT = { consulenza: 'altro', marketing: 'evento', contenzioso: 'spese_legali', compliance: 'adeguamento', immobiliare: 'manutenzione' }
 const RICORRENTE_DEFAULT = { consulenza: 'consulenza', marketing: 'marketing', immobiliare: 'locazione_passiva', rs_innovazione: 'canone_software' }
+const INQUADRAMENTI = { impiegato: 'Impiegato', operaio: 'Operaio', quadro: 'Quadro', dirigente: 'Dirigente' }
+// Tipi senza IVA su nessun movimento: il regime IVA non si chiede né si invia
+const SENZA_IVA = ['finanziamento', 'personale']
+
+// Default del tipo "personale" dai dati lavoro della scheda azienda (Impostazioni)
+function datiLavoro(azienda) {
+  const inps = azienda?.aliquota_inps_datore_pct, inail = azienda?.tasso_inail_pct
+  return {
+    mensilita: [13, 14].includes(azienda?.mensilita) ? azienda.mensilita : 13,
+    contributi_pct: inps != null ? Math.round((Number(inps) + Number(inail || 0)) * 100) / 100 : '',
+    completi: inps != null && inail != null,
+  }
+}
+
 const PERIODICITA = { mensile: 'Mensile', trimestrale: 'Trimestrale', semestrale: 'Semestrale' }
 
 const eur = (n) => (n == null || isNaN(n)) ? '—' : Number(n).toLocaleString('it-IT', { maximumFractionDigits: 0 }) + ' €'
@@ -60,7 +76,8 @@ function primoDelMeseProssimo() {
 
 // Stato di UNA operazione: campi comuni + un blocco per tipo (si passa da un
 // tipo all'altro senza perdere quanto già compilato)
-function singoloVuoto({ oggetto, valore, tipoAtto, impatti }) {
+function singoloVuoto({ oggetto, valore, tipoAtto, impatti, azienda }) {
+  const lav = datiLavoro(azienda)
   return {
     tipo_impatto: impatti[0] || 'leasing',
     descrizione: oggetto || '', data_decorrenza: primoDelMeseProssimo(), iva_regime: 'ordinaria',
@@ -70,6 +87,7 @@ function singoloVuoto({ oggetto, valore, tipoAtto, impatti }) {
     finanziamento: { importo: valore || '', data_erogazione: '', tasso: '', numero_rate: 60, periodicita: 'mensile', piano: 'francese', preammortamento_mesi: 0, spese_istruttoria: 0 },
     costo_ricorrente: { categoria: RICORRENTE_DEFAULT[tipoAtto] || 'servizi', importo_periodico: '', periodicita_fatturazione: 'mensile', pagamento_anticipato: false, durata_mesi: 12, indicizzazione: 0, una_tantum_iniziale: 0, deposito_cauzionale: 0, fee_importo: '', fee_data: '' },
     costo_una_tantum: { categoria: CATEGORIA_DEFAULT[tipoAtto] || 'altro', importo: valore || '', piano: [] },
+    personale: { movimento: 'ingresso', numero_persone: 1, inquadramento: 'impiegato', ral_annua: '', mensilita: lav.mensilita, contributi_pct: lav.contributi_pct, durata_mesi: '', benefit_annui: 0, bonus_importo: '', bonus_mese: '', costi_una_tantum: [], incentivo_esodo: '', sgravio_pct: '', sgravio_mesi: '' },
   }
 }
 
@@ -89,6 +107,8 @@ function singoloDaRichiesta(r, base) {
     f.costo_ricorrente = { categoria: r.categoria || 'servizi', importo_periodico: r.importo_periodico ?? '', periodicita_fatturazione: r.periodicita_fatturazione || 'mensile', pagamento_anticipato: !!r.pagamento_anticipato, durata_mesi: r.durata_mesi ?? 12, indicizzazione: r.indicizzazione_annua_pct ?? 0, una_tantum_iniziale: r.una_tantum_iniziale ?? 0, deposito_cauzionale: r.deposito_cauzionale ?? 0, fee_importo: r.success_fee?.importo ?? '', fee_data: r.success_fee?.data_prevista || '' }
   } else if (r.tipo_impatto === 'costo_una_tantum') {
     f.costo_una_tantum = { categoria: r.categoria || 'altro', importo: r.importo ?? '', piano: r.piano_pagamenti || [] }
+  } else if (r.tipo_impatto === 'personale') {
+    f.personale = { movimento: r.movimento || 'ingresso', numero_persone: r.numero_persone ?? 1, inquadramento: r.inquadramento || 'impiegato', ral_annua: r.ral_annua ?? '', mensilita: r.mensilita ?? 13, contributi_pct: r.contributi_pct ?? '', durata_mesi: r.durata_mesi ?? '', benefit_annui: r.benefit_annui ?? 0, bonus_importo: r.bonus_variabile?.importo_annuo ?? '', bonus_mese: (r.bonus_variabile?.mese_pagamento || '').slice(0, 7), costi_una_tantum: r.costi_una_tantum || [], incentivo_esodo: r.incentivo_esodo ?? '', sgravio_pct: r.sgravi?.riduzione_contributi_pct ?? '', sgravio_mesi: r.sgravi?.durata_mesi ?? '' }
   }
   return f
 }
@@ -96,7 +116,7 @@ function singoloDaRichiesta(r, base) {
 // Costruisce la `decisione` con i soli campi ammessi dallo schema rigido di EasyPMI
 function costruisciDecisione(f) {
   const d = { tipo_impatto: f.tipo_impatto, descrizione: f.descrizione.trim(), data_decorrenza: f.data_decorrenza }
-  if (f.iva_regime !== 'ordinaria' && f.tipo_impatto !== 'finanziamento') d.iva_regime = f.iva_regime
+  if (f.iva_regime !== 'ordinaria' && !SENZA_IVA.includes(f.tipo_impatto)) d.iva_regime = f.iva_regime
 
   if (f.tipo_impatto === 'leasing') {
     const x = f.leasing
@@ -138,6 +158,19 @@ function costruisciDecisione(f) {
     Object.assign(d, { categoria: x.categoria, importo: num(x.importo) })
     const piano = x.piano.filter(p => p.data && pieno(p.importo)).map(p => ({ data: p.data, importo: num(p.importo) }))
     if (piano.length) d.piano_pagamenti = piano
+  } else if (f.tipo_impatto === 'personale') {
+    const x = f.personale, uscita = x.movimento === 'uscita'
+    Object.assign(d, {
+      movimento: x.movimento, numero_persone: intero(x.numero_persone || 1), inquadramento: x.inquadramento,
+      ral_annua: num(x.ral_annua), mensilita: intero(x.mensilita), contributi_pct: num(x.contributi_pct),
+    })
+    if (!uscita && pieno(x.durata_mesi)) d.durata_mesi = intero(x.durata_mesi)
+    if (num(x.benefit_annui) > 0) d.benefit_annui = num(x.benefit_annui)
+    if (pieno(x.bonus_importo)) d.bonus_variabile = { importo_annuo: num(x.bonus_importo), mese_pagamento: `${x.bonus_mese}-01` }
+    const ut = x.costi_una_tantum.filter(k => pieno(k.importo)).map(k => ({ descrizione: (k.descrizione || '').trim() || 'Costo una tantum', importo: num(k.importo) }))
+    if (ut.length) d.costi_una_tantum = ut
+    if (uscita && num(x.incentivo_esodo) > 0) d.incentivo_esodo = num(x.incentivo_esodo)
+    if (pieno(x.sgravio_pct) && pieno(x.sgravio_mesi)) d.sgravi = { riduzione_contributi_pct: num(x.sgravio_pct), durata_mesi: intero(x.sgravio_mesi) }
   }
   if (f.ricavi_modalita) d.ipotesi_ricavi = { modalita: f.ricavi_modalita, valore: num(f.ricavi_valore), mese_partenza: `${f.ricavi_mese}-01` }
   return d
@@ -172,6 +205,13 @@ function validaSingolo(f) {
     if (pieno(x.fee_importo) && !x.fee_data) return 'Indica la data prevista della success fee.'
   } else if (f.tipo_impatto === 'costo_una_tantum') {
     if (!(num(x.importo) > 0)) return 'Inserisci l\'importo.'
+  } else if (f.tipo_impatto === 'personale') {
+    if (!(num(x.ral_annua) > 0)) return 'Inserisci la RAL annua per persona.'
+    if (!(num(x.contributi_pct) > 0)) return 'Inserisci l\'aliquota contributiva a carico azienda (INPS + INAIL): la trovi sul cedolino, oppure compilala una volta in Impostazioni → Dettagli azienda.'
+    if (!(intero(x.numero_persone) > 0)) return 'Inserisci il numero di persone.'
+    if (pieno(x.bonus_importo) && !x.bonus_mese) return 'Indica il mese di pagamento del bonus.'
+    if (pieno(x.sgravio_pct) !== pieno(x.sgravio_mesi)) return 'Per lo sgravio indica sia la riduzione (punti %) sia la durata in mesi.'
+    if (pieno(x.sgravio_pct) && num(x.sgravio_pct) > num(x.contributi_pct)) return 'Lo sgravio (in punti percentuali) non può superare l\'aliquota contributiva.'
   }
   return null
 }
@@ -235,6 +275,7 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
   const [err, setErr] = useState(null)          // { codice, messaggio, dettagli? }
   const [form, setForm] = useState(null)
 
+  const { azienda } = useApp()
   const impatti = impattiPerTipo(tipoAtto)
 
   const carica = useCallback(async () => {
@@ -245,7 +286,7 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
   useEffect(() => { carica() }, [carica])
 
   function apri() {
-    const opz = { oggetto, valore, tipoAtto, impatti }
+    const opz = { oggetto, valore, tipoAtto, impatti, azienda }
     setForm(sim?.richiesta?.tipo_impatto ? formDaRichiesta(sim.richiesta, opz) : formVuoto(opz))
     setErr(null); setAperto(true)
   }
@@ -272,7 +313,7 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
   }
   function aggiungiComponente() {
     setForm(F => F.componenti.length >= MAX_COMPONENTI ? F : {
-      ...F, componenti: [...F.componenti, singoloVuoto({ oggetto: '', valore: '', tipoAtto, impatti })], attivo: F.componenti.length,
+      ...F, componenti: [...F.componenti, singoloVuoto({ oggetto: '', valore: '', tipoAtto, impatti, azienda })], attivo: F.componenti.length,
     })
   }
   function togliComponente(i) {
@@ -500,7 +541,7 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
             </Campo>
             <div className="grid-2">
               <Campo label="Decorrenza"><Data value={c.data_decorrenza} onChange={setC('data_decorrenza')} /></Campo>
-              {c.tipo_impatto !== 'finanziamento' && (
+              {!SENZA_IVA.includes(c.tipo_impatto) && (
                 <Campo label="Regime IVA">
                   <Scelta value={c.iva_regime} onChange={setC('iva_regime')}
                     opzioni={{ ordinaria: 'Ordinaria (aliquota EasyPMI)', esente: 'Esente', non_soggetta: 'Non soggetta' }} />
@@ -617,6 +658,49 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
                 </div>
               ))}
               <button type="button" className="btn btn-sm" onClick={() => aggiungiRiga('piano', { data: '', importo: '' })}>+ Pagamento</button>
+            </>)}
+
+            {/* ── Personale ── */}
+            {c.tipo_impatto === 'personale' && (<>
+              <div className="grid-3">
+                <Campo label="Movimento"><Scelta value={t.movimento} onChange={setT('movimento')} opzioni={{ ingresso: 'Assunzione (ingresso)', uscita: 'Uscita' }} /></Campo>
+                <Campo label="N. persone"><Num value={t.numero_persone} onChange={setT('numero_persone')} step="1" min="1" /></Campo>
+                <Campo label="Inquadramento"><Scelta value={t.inquadramento} onChange={setT('inquadramento')} opzioni={INQUADRAMENTI} /></Campo>
+              </div>
+              <div className="grid-3">
+                <Campo label="RAL annua per persona (€)"><Num value={t.ral_annua} onChange={setT('ral_annua')} /></Campo>
+                <Campo label="Mensilità"><Scelta value={String(t.mensilita)} onChange={setT('mensilita')} opzioni={{ 13: '13', 14: '14' }} /></Campo>
+                <Campo label="Contributi azienda % (INPS+INAIL)"><Num value={t.contributi_pct} onChange={setT('contributi_pct')} /></Campo>
+              </div>
+              {!datiLavoro(azienda).completi && (
+                <div style={{ fontSize: 11.5, color: '#B9770E', marginTop: -6, marginBottom: 8 }}>
+                  Aliquota INPS e/o tasso INAIL dell'azienda non compilati in Impostazioni → Dettagli azienda: inserisci qui l'aliquota complessiva dal cedolino.
+                </div>
+              )}
+              <div className="grid-3">
+                {t.movimento === 'ingresso'
+                  ? <Campo label="Durata mesi (vuoto = indeterminato)"><Num value={t.durata_mesi} onChange={setT('durata_mesi')} step="1" min="1" /></Campo>
+                  : <Campo label="Incentivo all'esodo (€, totale)"><Num value={t.incentivo_esodo} onChange={setT('incentivo_esodo')} /></Campo>}
+                <Campo label="Benefit annui per persona (€)"><Num value={t.benefit_annui} onChange={setT('benefit_annui')} /></Campo>
+              </div>
+              <div className="grid-3">
+                <Campo label="Bonus annuo per persona (€, facolt.)"><Num value={t.bonus_importo} onChange={setT('bonus_importo')} /></Campo>
+                {pieno(t.bonus_importo) && <Campo label="Mese pagamento bonus"><Data type="month" value={t.bonus_mese} onChange={setT('bonus_mese')} /></Campo>}
+              </div>
+              <div className="grid-3">
+                <Campo label="Sgravio contributi (punti %)"><Num value={t.sgravio_pct} onChange={setT('sgravio_pct')} /></Campo>
+                {pieno(t.sgravio_pct) && <Campo label="Durata sgravio (mesi)"><Num value={t.sgravio_mesi} onChange={setT('sgravio_mesi')} step="1" min="1" /></Campo>}
+              </div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: '#1A3A5C', margin: '4px 0 6px' }}>Costi una tantum (selezione, formazione… importo totale)</div>
+              {t.costi_una_tantum.map((k, i) => (
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: 6, marginBottom: 6 }}>
+                  <input className="form-control" placeholder="Descrizione" value={k.descrizione} onChange={e => setRiga('costi_una_tantum', i, 'descrizione')(e.target.value)} />
+                  <Num value={k.importo} onChange={setRiga('costi_una_tantum', i, 'importo')} />
+                  <button type="button" className="btn btn-sm" onClick={() => togliRiga('costi_una_tantum', i)}>✕</button>
+                </div>
+              ))}
+              <button type="button" className="btn btn-sm" onClick={() => aggiungiRiga('costi_una_tantum', { descrizione: '', importo: '' })}>+ Costo una tantum</button>
+              {t.movimento === 'uscita' && <div style={{ fontSize: 11.5, color: '#999', marginTop: 6 }}>Il TFR già maturato da liquidare all'uscita non è incluso nella simulazione.</div>}
             </>)}
 
             {/* ── Ipotesi di ricavi: comune a tutti i tipi (worst 0% · base 50% · best 100%) ── */}
