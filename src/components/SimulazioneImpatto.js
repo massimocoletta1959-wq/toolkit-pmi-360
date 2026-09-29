@@ -64,7 +64,8 @@ function formVuoto({ oggetto, valore, tipoAtto, impatti }) {
   return {
     tipo_impatto: impatti[0] || 'leasing',
     descrizione: oggetto || '', data_decorrenza: primoDelMeseProssimo(), iva_regime: 'ordinaria',
-    leasing: { metodo: 'patrimoniale', imponibile: valore || '', maxicanone: 0, numero_rate: 60, riscatto: 0, canone: '', tasso: '', durata_ammortamento: '', costi_esercizio: 0, ricavi_modalita: '', ricavi_valore: '', ricavi_mese: '' },
+    ricavi_modalita: '', ricavi_valore: '', ricavi_mese: '',   // ipotesi_ricavi: campo comune a tutti i tipi
+    leasing: { metodo: 'patrimoniale', imponibile: valore || '', maxicanone: 0, numero_rate: 60, riscatto: 0, canone: '', tasso: '', durata_ammortamento: '', costi_esercizio: 0 },
     acquisto_bene: { imponibile: valore || '', pag_modalita: 'unico', acconto_pct: 30, numero_rate: 12, periodicita: 'mensile', amm_tipo: 'durata', amm_valore: 60, data_entrata: '', costi_esercizio: 0, contributi: [] },
     finanziamento: { importo: valore || '', data_erogazione: '', tasso: '', numero_rate: 60, periodicita: 'mensile', piano: 'francese', preammortamento_mesi: 0, spese_istruttoria: 0 },
     costo_ricorrente: { categoria: RICORRENTE_DEFAULT[tipoAtto] || 'servizi', importo_periodico: '', periodicita_fatturazione: 'mensile', pagamento_anticipato: false, durata_mesi: 12, indicizzazione: 0, una_tantum_iniziale: 0, deposito_cauzionale: 0, fee_importo: '', fee_data: '' },
@@ -74,10 +75,11 @@ function formVuoto({ oggetto, valore, tipoAtto, impatti }) {
 
 // Ricostruisce il modulo dalla richiesta salvata (per "Rifai simulazione")
 function formDaRichiesta(r, base) {
-  const f = { ...base, tipo_impatto: r.tipo_impatto, descrizione: r.descrizione || '', data_decorrenza: r.data_decorrenza || base.data_decorrenza, iva_regime: r.iva_regime || 'ordinaria' }
+  const f = { ...base, tipo_impatto: r.tipo_impatto, descrizione: r.descrizione || '', data_decorrenza: r.data_decorrenza || base.data_decorrenza, iva_regime: r.iva_regime || 'ordinaria',
+    ricavi_modalita: r.ipotesi_ricavi?.modalita || '', ricavi_valore: r.ipotesi_ricavi?.valore ?? '', ricavi_mese: (r.ipotesi_ricavi?.mese_partenza || '').slice(0, 7) }
   if (r.tipo_impatto === 'leasing') {
     const l = r.leasing || {}
-    f.leasing = { metodo: l.metodo_contabile || 'patrimoniale', imponibile: r.imponibile ?? '', maxicanone: l.maxicanone ?? 0, numero_rate: l.numero_rate ?? 60, riscatto: l.riscatto ?? 0, canone: l.canone ?? '', tasso: l.tasso_annuo_pct ?? '', durata_ammortamento: r.ammortamento?.durata_mesi ?? '', costi_esercizio: r.costi_esercizio_mensili ?? 0, ricavi_modalita: r.ipotesi_ricavi?.modalita || '', ricavi_valore: r.ipotesi_ricavi?.valore ?? '', ricavi_mese: (r.ipotesi_ricavi?.mese_partenza || '').slice(0, 7) }
+    f.leasing = { metodo: l.metodo_contabile || 'patrimoniale', imponibile: r.imponibile ?? '', maxicanone: l.maxicanone ?? 0, numero_rate: l.numero_rate ?? 60, riscatto: l.riscatto ?? 0, canone: l.canone ?? '', tasso: l.tasso_annuo_pct ?? '', durata_ammortamento: r.ammortamento?.durata_mesi ?? '', costi_esercizio: r.costi_esercizio_mensili ?? 0 }
   } else if (r.tipo_impatto === 'acquisto_bene') {
     const p = r.pagamento || {}, a = r.ammortamento || {}
     f.acquisto_bene = { imponibile: r.imponibile ?? '', pag_modalita: p.modalita || 'unico', acconto_pct: p.acconto_pct ?? 30, numero_rate: p.numero_rate ?? 12, periodicita: p.periodicita || 'mensile', amm_tipo: a.aliquota_annua_pct != null ? 'aliquota' : 'durata', amm_valore: a.aliquota_annua_pct ?? a.durata_mesi ?? 60, data_entrata: r.data_entrata_in_funzione || '', costi_esercizio: r.costi_esercizio_mensili ?? 0, contributi: r.contributi || [] }
@@ -102,7 +104,6 @@ function costruisciDecisione(f) {
     if (pieno(x.tasso)) leasing.tasso_annuo_pct = num(x.tasso)
     Object.assign(d, { imponibile: num(x.imponibile), leasing, costi_esercizio_mensili: num(x.costi_esercizio || 0) })
     if (x.metodo === 'finanziario') d.ammortamento = { durata_mesi: intero(x.durata_ammortamento) }
-    if (x.ricavi_modalita) d.ipotesi_ricavi = { modalita: x.ricavi_modalita, valore: num(x.ricavi_valore), mese_partenza: `${x.ricavi_mese}-01` }
   } else if (f.tipo_impatto === 'acquisto_bene') {
     const x = f.acquisto_bene
     const pagamento = { modalita: x.pag_modalita }
@@ -138,12 +139,17 @@ function costruisciDecisione(f) {
     const piano = x.piano.filter(p => p.data && pieno(p.importo)).map(p => ({ data: p.data, importo: num(p.importo) }))
     if (piano.length) d.piano_pagamenti = piano
   }
+  if (f.ricavi_modalita) d.ipotesi_ricavi = { modalita: f.ricavi_modalita, valore: num(f.ricavi_valore), mese_partenza: `${f.ricavi_mese}-01` }
   return d
 }
 
 function validaForm(f) {
   if (!f.descrizione.trim()) return 'Inserisci una descrizione.'
   if (!f.data_decorrenza) return 'Inserisci la data di decorrenza.'
+  if (f.ricavi_modalita) {
+    if (!(num(f.ricavi_valore) > 0) || !f.ricavi_mese) return 'Completa l\'ipotesi di ricavi (valore e mese di partenza) o rimuovila.'
+    if (f.ricavi_mese < f.data_decorrenza.slice(0, 7)) return 'I ricavi ipotizzati non possono partire prima del mese di decorrenza.'
+  }
   const x = f[f.tipo_impatto]
   if (f.tipo_impatto === 'leasing') {
     if (!(num(x.imponibile) > 0)) return 'Inserisci il valore del bene (IVA esclusa).'
@@ -151,10 +157,6 @@ function validaForm(f) {
     if (!(num(x.canone) > 0)) return 'Inserisci il canone mensile (IVA esclusa).'
     if (x.metodo === 'finanziario' && (!pieno(x.tasso) || !(intero(x.durata_ammortamento) > 0)))
       return 'Con il metodo finanziario servono tasso annuo e durata dell\'ammortamento.'
-    if (x.ricavi_modalita) {
-      if (!(num(x.ricavi_valore) > 0) || !x.ricavi_mese) return 'Completa l\'ipotesi di ricavi (valore e mese di partenza) o rimuovila.'
-      if (x.ricavi_mese < f.data_decorrenza.slice(0, 7)) return 'I ricavi ipotizzati non possono partire prima del mese di decorrenza.'
-    }
   } else if (f.tipo_impatto === 'acquisto_bene') {
     if (!(num(x.imponibile) > 0)) return 'Inserisci il valore del bene (IVA esclusa).'
     if (!(num(x.amm_valore) > 0)) return 'Indica la durata o l\'aliquota di ammortamento.'
@@ -419,15 +421,6 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
                 <Campo label={`Tasso annuo %${t.metodo === 'finanziario' ? '' : ' (facoltativo)'}`}><Num value={t.tasso} onChange={setT('tasso')} /></Campo>
                 {t.metodo === 'finanziario' && <Campo label="Ammortamento (mesi)"><Num value={t.durata_ammortamento} onChange={setT('durata_ammortamento')} step="1" min="1" /></Campo>}
               </div>
-              <div className="grid-3">
-                <Campo label="Ipotesi ricavi">
-                  <Scelta value={t.ricavi_modalita} onChange={setT('ricavi_modalita')} opzioni={{ '': 'Nessuna', incremento_pct: 'Incremento % ricavi', euro_mese: '€ in più al mese' }} />
-                </Campo>
-                {t.ricavi_modalita && (<>
-                  <Campo label={t.ricavi_modalita === 'incremento_pct' ? 'Incremento %' : '€ / mese'}><Num value={t.ricavi_valore} onChange={setT('ricavi_valore')} /></Campo>
-                  <Campo label="Dal mese"><Data type="month" value={t.ricavi_mese} onChange={setT('ricavi_mese')} /></Campo>
-                </>)}
-              </div>
             </>)}
 
             {/* ── Acquisto bene ── */}
@@ -521,6 +514,17 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
               ))}
               <button type="button" className="btn btn-sm" onClick={() => aggiungiRiga('piano', { data: '', importo: '' })}>+ Pagamento</button>
             </>)}
+
+            {/* ── Ipotesi di ricavi: comune a tutti i tipi (worst 0% · base 50% · best 100%) ── */}
+            <div className="grid-3" style={{ marginTop: 6 }}>
+              <Campo label="Ricavi attesi (facolt.)">
+                <Scelta value={form.ricavi_modalita} onChange={setC('ricavi_modalita')} opzioni={{ '': 'Nessuna ipotesi', incremento_pct: 'Incremento % ricavi', euro_mese: '€ in più al mese' }} />
+              </Campo>
+              {form.ricavi_modalita && (<>
+                <Campo label={form.ricavi_modalita === 'incremento_pct' ? 'Incremento %' : '€ / mese'}><Num value={form.ricavi_valore} onChange={setC('ricavi_valore')} /></Campo>
+                <Campo label="Dal mese"><Data type="month" value={form.ricavi_mese} onChange={setC('ricavi_mese')} /></Campo>
+              </>)}
+            </div>
 
             {sim && <div style={{ fontSize: 12, color: '#999', marginTop: 10 }}>La nuova simulazione sostituirà quella attuale (PDF compresi).</div>}
             <div className="modal-footer">
