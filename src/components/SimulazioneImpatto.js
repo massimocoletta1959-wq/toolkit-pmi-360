@@ -58,9 +58,9 @@ function primoDelMeseProssimo() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
 }
 
-// Stato del modulo: campi comuni + un blocco per tipo (si passa da un tipo
-// all'altro senza perdere quanto già compilato)
-function formVuoto({ oggetto, valore, tipoAtto, impatti }) {
+// Stato di UNA operazione: campi comuni + un blocco per tipo (si passa da un
+// tipo all'altro senza perdere quanto già compilato)
+function singoloVuoto({ oggetto, valore, tipoAtto, impatti }) {
   return {
     tipo_impatto: impatti[0] || 'leasing',
     descrizione: oggetto || '', data_decorrenza: primoDelMeseProssimo(), iva_regime: 'ordinaria',
@@ -73,8 +73,8 @@ function formVuoto({ oggetto, valore, tipoAtto, impatti }) {
   }
 }
 
-// Ricostruisce il modulo dalla richiesta salvata (per "Rifai simulazione")
-function formDaRichiesta(r, base) {
+// Ricostruisce un'operazione dalla richiesta salvata (per "Rifai simulazione")
+function singoloDaRichiesta(r, base) {
   const f = { ...base, tipo_impatto: r.tipo_impatto, descrizione: r.descrizione || '', data_decorrenza: r.data_decorrenza || base.data_decorrenza, iva_regime: r.iva_regime || 'ordinaria',
     ricavi_modalita: r.ipotesi_ricavi?.modalita || '', ricavi_valore: r.ipotesi_ricavi?.valore ?? '', ricavi_mese: (r.ipotesi_ricavi?.mese_partenza || '').slice(0, 7) }
   if (r.tipo_impatto === 'leasing') {
@@ -143,7 +143,7 @@ function costruisciDecisione(f) {
   return d
 }
 
-function validaForm(f) {
+function validaSingolo(f) {
   if (!f.descrizione.trim()) return 'Inserisci una descrizione.'
   if (!f.data_decorrenza) return 'Inserisci la data di decorrenza.'
   if (f.ricavi_modalita) {
@@ -172,6 +172,33 @@ function validaForm(f) {
     if (pieno(x.fee_importo) && !x.fee_data) return 'Indica la data prevista della success fee.'
   } else if (f.tipo_impatto === 'costo_una_tantum') {
     if (!(num(x.importo) > 0)) return 'Inserisci l\'importo.'
+  }
+  return null
+}
+
+// Modulo completo: una o più operazioni (composta, max 5 componenti).
+// Da sola, un'operazione si invia come tipo singolo.
+const MAX_COMPONENTI = 5
+function formVuoto(opz) {
+  return { composta: false, descrizione: opz.oggetto || '', componenti: [singoloVuoto(opz)], attivo: 0 }
+}
+function formDaRichiesta(r, opz) {
+  const base = singoloVuoto(opz)
+  if (r.tipo_impatto === 'composta') {
+    return { composta: true, descrizione: r.descrizione || '', componenti: (r.componenti || []).map(c => singoloDaRichiesta(c, base)), attivo: 0 }
+  }
+  return { composta: false, descrizione: r.descrizione || '', componenti: [singoloDaRichiesta(r, base)], attivo: 0 }
+}
+function costruisciRichiesta(F) {
+  if (!F.composta) return costruisciDecisione(F.componenti[0])
+  return { tipo_impatto: 'composta', descrizione: F.descrizione.trim(), componenti: F.componenti.map(costruisciDecisione) }
+}
+function validaForm(F) {
+  if (!F.composta) return validaSingolo(F.componenti[0])
+  if (!F.descrizione.trim()) return 'Inserisci la descrizione complessiva dell\'operazione.'
+  for (let i = 0; i < F.componenti.length; i++) {
+    const v = validaSingolo(F.componenti[i])
+    if (v) return { messaggio: `Componente ${i + 1}: ${v}`, indice: i }
   }
   return null
 }
@@ -218,28 +245,55 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
   useEffect(() => { carica() }, [carica])
 
   function apri() {
-    const base = formVuoto({ oggetto, valore, tipoAtto, impatti })
-    setForm(sim?.richiesta?.tipo_impatto ? formDaRichiesta(sim.richiesta, base) : base)
+    const opz = { oggetto, valore, tipoAtto, impatti }
+    setForm(sim?.richiesta?.tipo_impatto ? formDaRichiesta(sim.richiesta, opz) : formVuoto(opz))
     setErr(null); setAperto(true)
   }
 
-  const setC = (k) => (v) => setForm(f => ({ ...f, [k]: v }))                                   // campo comune
-  const setT = (k) => (v) => setForm(f => ({ ...f, [f.tipo_impatto]: { ...f[f.tipo_impatto], [k]: v } }))  // campo del tipo
-  const setRiga = (lista, i, k) => (v) => setForm(f => {
+  // Tutte le modifiche dell'editor agiscono sul componente attivo
+  const modifica = (fn) => setForm(F => {
+    const componenti = [...F.componenti]; componenti[F.attivo] = fn(componenti[F.attivo])
+    return { ...F, componenti }
+  })
+  const setC = (k) => (v) => modifica(f => ({ ...f, [k]: v }))                                   // campo comune
+  const setT = (k) => (v) => modifica(f => ({ ...f, [f.tipo_impatto]: { ...f[f.tipo_impatto], [k]: v } }))  // campo del tipo
+  const setRiga = (lista, i, k) => (v) => modifica(f => {
     const t = f[f.tipo_impatto]; const righe = [...t[lista]]; righe[i] = { ...righe[i], [k]: v }
     return { ...f, [f.tipo_impatto]: { ...t, [lista]: righe } }
   })
-  const aggiungiRiga = (lista, riga) => setForm(f => ({ ...f, [f.tipo_impatto]: { ...f[f.tipo_impatto], [lista]: [...f[f.tipo_impatto][lista], riga] } }))
-  const togliRiga = (lista, i) => setForm(f => ({ ...f, [f.tipo_impatto]: { ...f[f.tipo_impatto], [lista]: f[f.tipo_impatto][lista].filter((_, j) => j !== i) } }))
+  const aggiungiRiga = (lista, riga) => modifica(f => ({ ...f, [f.tipo_impatto]: { ...f[f.tipo_impatto], [lista]: [...f[f.tipo_impatto][lista], riga] } }))
+  const togliRiga = (lista, i) => modifica(f => ({ ...f, [f.tipo_impatto]: { ...f[f.tipo_impatto], [lista]: f[f.tipo_impatto][lista].filter((_, j) => j !== i) } }))
+
+  function impostaComposta(on) {
+    setErr(null)
+    setForm(F => on
+      ? { ...F, composta: true, descrizione: F.componenti[F.attivo].descrizione }
+      : { ...F, composta: false, componenti: [F.componenti[F.attivo]], attivo: 0 })
+  }
+  function aggiungiComponente() {
+    setForm(F => F.componenti.length >= MAX_COMPONENTI ? F : {
+      ...F, componenti: [...F.componenti, singoloVuoto({ oggetto: '', valore: '', tipoAtto, impatti })], attivo: F.componenti.length,
+    })
+  }
+  function togliComponente(i) {
+    setForm(F => {
+      const componenti = F.componenti.filter((_, j) => j !== i)
+      return { ...F, componenti, attivo: Math.min(F.attivo, componenti.length - 1) }
+    })
+  }
 
   async function esegui() {
     const v = validaForm(form)
-    if (v) { setErr({ codice: 'INPUT', messaggio: v }); return }
+    if (v) {
+      if (typeof v === 'object') { setForm(F => ({ ...F, attivo: v.indice })); setErr({ codice: 'INPUT', messaggio: v.messaggio }) }
+      else setErr({ codice: 'INPUT', messaggio: v })
+      return
+    }
     setBusy(true); setErr(null)
     const id = await assicuraBozza()
     if (!id) { setBusy(false); setAperto(false); return }
     const { data, error } = await supabase.functions.invoke('simulazione-impatto', {
-      body: { determina_id: id, decisione: costruisciDecisione(form) },
+      body: { determina_id: id, decisione: costruisciRichiesta(form) },
     })
     setBusy(false)
     if (error) { setErr(await leggiErrore(error)); return }
@@ -259,7 +313,8 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
   const s = sim?.sintesi
   const nomiScenari = [['worst', 'Worst'], ['base', 'Base'], ['best', 'Best']]
   const dettaglio = s?.ipotesi_usate?.dettaglio_tipo
-  const t = form?.[form?.tipo_impatto]
+  const c = form?.componenti[form.attivo]      // operazione in modifica
+  const t = c?.[c.tipo_impatto]
 
   return (
     <div style={{ border: '1px solid #D6E4F0', background: '#F7FAFD', borderRadius: 8, padding: '12px 14px', marginBottom: 16 }}>
@@ -280,12 +335,39 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
       {s && (
         <div style={{ marginTop: 12, fontSize: 12.5 }}>
           <div style={{ fontSize: 11.5, color: '#777', marginBottom: 6 }}>
-            Operazione simulata: <strong>{TIPI_IMPATTO[sim.richiesta?.tipo_impatto] || sim.richiesta?.tipo_impatto}</strong>
+            Operazione simulata: <strong>{sim.richiesta?.tipo_impatto === 'composta'
+              ? `composta da ${sim.richiesta.componenti?.length || 0} parti`
+              : (TIPI_IMPATTO[sim.richiesta?.tipo_impatto] || sim.richiesta?.tipo_impatto)}</strong>
           </div>
           {s.confronto_baseline?.testo && (
             <div style={{ color: '#333', marginBottom: 10, lineHeight: 1.5 }}>{s.confronto_baseline.testo}</div>
           )}
-          {dettaglio?.righe?.length > 0 && (
+          {(s.dettaglio_componenti || []).length > 0 && (
+            <div style={{ overflowX: 'auto', marginBottom: 10 }}>
+              <div style={{ fontWeight: 600, color: '#1A3A5C', marginBottom: 4 }}>Contributo di ciascun componente (scenario worst)</div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: '#EAF1F8', color: '#1A3A5C' }}>
+                    <th style={{ textAlign: 'left', padding: '5px 8px' }}>Componente</th>
+                    <th style={{ textAlign: 'right', padding: '5px 8px' }}>Δ EBITDA</th>
+                    <th style={{ textAlign: 'right', padding: '5px 8px' }}>Δ Utile</th>
+                    <th style={{ textAlign: 'right', padding: '5px 8px' }}>Δ Cassa</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {s.dettaglio_componenti.map(k => (
+                    <tr key={k.indice} style={{ borderTop: '1px solid #E8ECF2' }}>
+                      <td style={{ padding: '5px 8px' }}>{k.indice}. {k.descrizione} <span style={{ color: '#999' }}>({(TIPI_IMPATTO[k.tipo_impatto] || k.tipo_impatto).split(' (')[0]})</span></td>
+                      {[k.delta_ebitda_worst, k.delta_utile_worst, k.delta_cassa_finale_worst].map((d, j) => (
+                        <td key={j} style={{ textAlign: 'right', padding: '5px 8px', color: coloreDelta(d) }}>{eurDelta(d)}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {!(s.dettaglio_componenti || []).length && dettaglio?.righe?.length > 0 && (
             <div style={{ marginBottom: 10 }}>
               {dettaglio.titolo && <div style={{ fontWeight: 600, color: '#1A3A5C', marginBottom: 4 }}>{dettaglio.titolo}</div>}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '2px 16px' }}>
@@ -387,25 +469,47 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
               </div>
             )}
 
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#1A3A5C', marginBottom: 12, cursor: 'pointer' }}>
+              <input type="checkbox" checked={form.composta} onChange={e => impostaComposta(e.target.checked)} />
+              <span>Operazione composta da più parti (es. bene in leasing + mutuo + manutenzione, max {MAX_COMPONENTI})</span>
+            </label>
+            {form.composta && (<>
+              <Campo label="Descrizione complessiva">
+                <input className="form-control" value={form.descrizione} onChange={e => setForm(F => ({ ...F, descrizione: e.target.value }))} />
+              </Campo>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                {form.componenti.map((k, i) => (
+                  <button key={i} type="button" className={`btn btn-sm${i === form.attivo ? ' btn-primary' : ''}`}
+                    onClick={() => setForm(F => ({ ...F, attivo: i }))}>
+                    {i + 1}. {TIPI_IMPATTO[k.tipo_impatto].split(' (')[0]}
+                  </button>
+                ))}
+                {form.componenti.length < MAX_COMPONENTI && <button type="button" className="btn btn-sm" onClick={aggiungiComponente}>+ Componente</button>}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #E8ECF2', paddingTop: 10, marginBottom: 8 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: '#1A3A5C' }}>Componente {form.attivo + 1}</span>
+                {form.componenti.length > 1 && <button type="button" className="btn btn-sm btn-danger" onClick={() => togliComponente(form.attivo)}>Rimuovi componente</button>}
+              </div>
+            </>)}
             <Campo label="Tipo di operazione">
-              <Scelta value={form.tipo_impatto} onChange={v => { setC('tipo_impatto')(v); setErr(null) }}
+              <Scelta value={c.tipo_impatto} onChange={v => { setC('tipo_impatto')(v); setErr(null) }}
                 opzioni={Object.fromEntries(impatti.map(k => [k, TIPI_IMPATTO[k]]))} />
             </Campo>
-            <Campo label="Descrizione">
-              <input className="form-control" value={form.descrizione} onChange={e => setC('descrizione')(e.target.value)} />
+            <Campo label={form.composta ? 'Descrizione del componente' : 'Descrizione'}>
+              <input className="form-control" value={c.descrizione} onChange={e => setC('descrizione')(e.target.value)} />
             </Campo>
             <div className="grid-2">
-              <Campo label="Decorrenza"><Data value={form.data_decorrenza} onChange={setC('data_decorrenza')} /></Campo>
-              {form.tipo_impatto !== 'finanziamento' && (
+              <Campo label="Decorrenza"><Data value={c.data_decorrenza} onChange={setC('data_decorrenza')} /></Campo>
+              {c.tipo_impatto !== 'finanziamento' && (
                 <Campo label="Regime IVA">
-                  <Scelta value={form.iva_regime} onChange={setC('iva_regime')}
+                  <Scelta value={c.iva_regime} onChange={setC('iva_regime')}
                     opzioni={{ ordinaria: 'Ordinaria (aliquota EasyPMI)', esente: 'Esente', non_soggetta: 'Non soggetta' }} />
                 </Campo>
               )}
             </div>
 
             {/* ── Leasing ── */}
-            {form.tipo_impatto === 'leasing' && (<>
+            {c.tipo_impatto === 'leasing' && (<>
               <div className="grid-3">
                 <Campo label="Valore bene (€, IVA escl.)"><Num value={t.imponibile} onChange={setT('imponibile')} /></Campo>
                 <Campo label="Metodo contabile"><Scelta value={t.metodo} onChange={setT('metodo')} opzioni={{ patrimoniale: 'Patrimoniale', finanziario: 'Finanziario' }} /></Campo>
@@ -424,7 +528,7 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
             </>)}
 
             {/* ── Acquisto bene ── */}
-            {form.tipo_impatto === 'acquisto_bene' && (<>
+            {c.tipo_impatto === 'acquisto_bene' && (<>
               <div className="grid-3">
                 <Campo label="Valore bene (€, IVA escl.)"><Num value={t.imponibile} onChange={setT('imponibile')} /></Campo>
                 <Campo label="Pagamento"><Scelta value={t.pag_modalita} onChange={setT('pag_modalita')} opzioni={{ unico: 'Unica soluzione', acconto_saldo: 'Acconto + saldo', rate: 'A rate' }} /></Campo>
@@ -459,7 +563,7 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
             </>)}
 
             {/* ── Finanziamento ── */}
-            {form.tipo_impatto === 'finanziamento' && (<>
+            {c.tipo_impatto === 'finanziamento' && (<>
               <div className="grid-3">
                 <Campo label="Importo (€)"><Num value={t.importo} onChange={setT('importo')} /></Campo>
                 <Campo label="Erogazione (default decorrenza)"><Data value={t.data_erogazione} onChange={setT('data_erogazione')} /></Campo>
@@ -477,7 +581,7 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
             </>)}
 
             {/* ── Costo ricorrente ── */}
-            {form.tipo_impatto === 'costo_ricorrente' && (<>
+            {c.tipo_impatto === 'costo_ricorrente' && (<>
               <div className="grid-3">
                 <Campo label="Categoria"><Scelta value={t.categoria} onChange={setT('categoria')} opzioni={CATEGORIE_RICORRENTE} /></Campo>
                 <Campo label="Importo per periodo (€, IVA escl.)"><Num value={t.importo_periodico} onChange={setT('importo_periodico')} /></Campo>
@@ -499,7 +603,7 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
             </>)}
 
             {/* ── Costo una tantum ── */}
-            {form.tipo_impatto === 'costo_una_tantum' && (<>
+            {c.tipo_impatto === 'costo_una_tantum' && (<>
               <div className="grid-2">
                 <Campo label="Categoria"><Scelta value={t.categoria} onChange={setT('categoria')} opzioni={CATEGORIE_UNA_TANTUM} /></Campo>
                 <Campo label="Importo (€, IVA escl.)"><Num value={t.importo} onChange={setT('importo')} /></Campo>
@@ -518,11 +622,11 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
             {/* ── Ipotesi di ricavi: comune a tutti i tipi (worst 0% · base 50% · best 100%) ── */}
             <div className="grid-3" style={{ marginTop: 6 }}>
               <Campo label="Ricavi attesi (facolt.)">
-                <Scelta value={form.ricavi_modalita} onChange={setC('ricavi_modalita')} opzioni={{ '': 'Nessuna ipotesi', incremento_pct: 'Incremento % ricavi', euro_mese: '€ in più al mese' }} />
+                <Scelta value={c.ricavi_modalita} onChange={setC('ricavi_modalita')} opzioni={{ '': 'Nessuna ipotesi', incremento_pct: 'Incremento % ricavi', euro_mese: '€ in più al mese' }} />
               </Campo>
-              {form.ricavi_modalita && (<>
-                <Campo label={form.ricavi_modalita === 'incremento_pct' ? 'Incremento %' : '€ / mese'}><Num value={form.ricavi_valore} onChange={setC('ricavi_valore')} /></Campo>
-                <Campo label="Dal mese"><Data type="month" value={form.ricavi_mese} onChange={setC('ricavi_mese')} /></Campo>
+              {c.ricavi_modalita && (<>
+                <Campo label={c.ricavi_modalita === 'incremento_pct' ? 'Incremento %' : '€ / mese'}><Num value={c.ricavi_valore} onChange={setC('ricavi_valore')} /></Campo>
+                <Campo label="Dal mese"><Data type="month" value={c.ricavi_mese} onChange={setC('ricavi_mese')} /></Campo>
               </>)}
             </div>
 
