@@ -69,6 +69,9 @@ const num = (v) => Number(String(v ?? '').replace(',', '.'))
 const intero = (v) => parseInt(v, 10)
 const pieno = (v) => v !== '' && v != null
 
+const MESI = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic']
+const meseEsteso = (am) => { const [a, m] = String(am || '').split('-'); return m ? `${MESI[Number(m) - 1]} ${a}` : am }
+
 function primoDelMeseProssimo() {
   const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + 1)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
@@ -274,6 +277,7 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)          // { codice, messaggio, dettagli? }
   const [form, setForm] = useState(null)
+  const [vista, setVista] = useState('worst')   // scenario mostrato nell'esito
 
   const { azienda } = useApp()
   const impatti = impattiPerTipo(tipoAtto)
@@ -420,38 +424,93 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
               </div>
             </div>
           )}
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-              <thead>
-                <tr style={{ background: '#EAF1F8', color: '#1A3A5C' }}>
-                  <th style={{ textAlign: 'left', padding: '5px 8px' }}>Δ sui 12 mesi</th>
-                  {nomiScenari.map(([k, l]) => <th key={k} style={{ textAlign: 'right', padding: '5px 8px' }}>{l}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {[['ebitda', 'EBITDA'], ['ebit', 'EBIT'], ['oneri_finanziari', 'Oneri finanziari'], ['utile', 'Utile ante imposte']].map(([k, l]) => (
-                  <tr key={k} style={{ borderTop: '1px solid #E8ECF2' }}>
-                    <td style={{ padding: '5px 8px' }}>{l}</td>
-                    {nomiScenari.map(([sc]) => {
-                      const d = s.scenari?.[sc]?.conto_economico?.[k]?.delta
-                      return <td key={sc} style={{ textAlign: 'right', padding: '5px 8px', color: coloreDelta(d) }}>{eurDelta(d)}</td>
+          {(() => {
+            // Prima/dopo la decisione: CE sui 12 mesi e cassa mese per mese.
+            // Se i tre scenari coincidono (nessuna ipotesi di ricavi) se ne mostra uno solo.
+            const firma = (sc) => JSON.stringify([s.scenari?.[sc]?.conto_economico?.utile, (s.scenari?.[sc]?.mesi || []).map(m => m?.cassa_scenario)])
+            const distinti = firma('worst') !== firma('base') || firma('worst') !== firma('best')
+            const sc = distinti ? vista : 'worst'
+            const ce = s.scenari?.[sc]?.conto_economico || {}
+            const mesi = (s.scenari?.[sc]?.mesi || []).filter(m => m && typeof m === 'object')
+            const th = { textAlign: 'right', padding: '5px 8px' }, td = { textAlign: 'right', padding: '4px 8px' }
+            const cassa = (v) => <span style={{ color: v < 0 ? '#C0392B' : undefined, fontWeight: v < 0 ? 600 : undefined }}>{eur(v)}</span>
+            return (<>
+              {distinti && (
+                <div style={{ display: 'flex', gap: 6, marginBottom: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 11.5, color: '#777' }}>Scenario:</span>
+                  {nomiScenari.map(([k, l]) => (
+                    <button key={k} type="button" className={`btn btn-sm${k === sc ? ' btn-primary' : ''}`} onClick={() => setVista(k)}>{l}</button>
+                  ))}
+                  <span style={{ fontSize: 11, color: '#999' }}>Worst = solo effetti certi · Base = 50% dei ricavi ipotizzati · Best = 100%</span>
+                </div>
+              )}
+              <div style={{ fontWeight: 600, color: '#1A3A5C', marginBottom: 4 }}>Conto economico sui 12 mesi della proiezione</div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: '#EAF1F8', color: '#1A3A5C' }}>
+                      <th style={{ ...th, textAlign: 'left' }}></th>
+                      <th style={th}>Senza la decisione</th><th style={th}>Con la decisione</th><th style={th}>Variazione</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[['ebitda', 'EBITDA'], ['ebit', 'EBIT'], ['oneri_finanziari', 'Oneri finanziari'], ['utile', 'Utile ante imposte']].map(([k, l]) => {
+                      const v = ce[k] || {}
+                      const pct = v.baseline ? (v.delta / Math.abs(v.baseline)) * 100 : null
+                      return (
+                        <tr key={k} style={{ borderTop: '1px solid #E8ECF2' }}>
+                          <td style={{ padding: '4px 8px' }}>{l}</td>
+                          <td style={td}>{eur(v.baseline)}</td>
+                          <td style={{ ...td, fontWeight: 600 }}>{eur(v.scenario)}</td>
+                          <td style={{ ...td, color: coloreDelta(v.delta) }}>
+                            {eurDelta(v.delta)}{pct != null && k !== 'oneri_finanziari' && v.delta ? <span style={{ color: '#999' }}> ({pct > 0 ? '+' : ''}{pct.toFixed(1).replace('.', ',')}%)</span> : null}
+                          </td>
+                        </tr>
+                      )
                     })}
-                  </tr>
-                ))}
-                <tr style={{ borderTop: '1px solid #E8ECF2' }}>
-                  <td style={{ padding: '5px 8px' }}>Cassa a fine finestra</td>
-                  {nomiScenari.map(([sc]) => {
-                    const mesi = (s.scenari?.[sc]?.mesi || []).filter(m => m && typeof m === 'object')
-                    const d = mesi.length ? mesi[mesi.length - 1].delta_cassa : null
-                    return <td key={sc} style={{ textAlign: 'right', padding: '5px 8px', color: coloreDelta(d) }}>{eurDelta(d)}</td>
-                  })}
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>
-            Worst = solo effetti certi · Base = 50% dei ricavi ipotizzati · Best = 100%.
-          </div>
+                  </tbody>
+                </table>
+              </div>
+              {mesi.length > 0 && (<>
+                <div style={{ fontWeight: 600, color: '#1A3A5C', margin: '12px 0 4px' }}>Saldo di cassa mese per mese</div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ background: '#EAF1F8', color: '#1A3A5C' }}>
+                        <th style={{ ...th, textAlign: 'left' }}>Mese</th>
+                        <th style={th}>Senza la decisione</th><th style={th}>Con la decisione</th><th style={th}>Differenza</th>
+                        <th style={{ ...th, textAlign: 'center' }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {mesi.map((m, i) => {
+                        const cambio = i > 0 ? m.delta_cassa - mesi[i - 1].delta_cassa : m.delta_cassa
+                        return (
+                          <tr key={m.mese} style={{ borderTop: '1px solid #E8ECF2', background: cambio ? '#FBFCFE' : undefined }}>
+                            <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>{meseEsteso(m.mese)}</td>
+                            <td style={td}>{cassa(m.cassa_baseline)}</td>
+                            <td style={td}>{cassa(m.cassa_scenario)}</td>
+                            <td style={{ ...td, color: coloreDelta(m.delta_cassa) }}>
+                              {eurDelta(m.delta_cassa)}{cambio ? <span style={{ color: '#999' }}> ({eurDelta(cambio)} nel mese)</span> : null}
+                            </td>
+                            <td style={{ textAlign: 'center' }} title={m.buffer_minimo != null ? `Buffer minimo ${eur(m.buffer_minimo)}` : ''}>{SEMAFORO[m.semaforo_scenario] || ''}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {mesi[0]?.buffer_minimo != null && (
+                  <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>
+                    Semaforo sul saldo con la decisione rispetto al buffer minimo di cassa ({eur(mesi[0].buffer_minimo)}).
+                  </div>
+                )}
+              </>)}
+              {!distinti && (
+                <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>Senza ipotesi di ricavi i tre scenari (worst, base, best) coincidono.</div>
+              )}
+            </>)
+          })()}
 
           {(s.stress_test?.con_decisione || []).length > 0 && (
             <div style={{ marginTop: 10 }}>
