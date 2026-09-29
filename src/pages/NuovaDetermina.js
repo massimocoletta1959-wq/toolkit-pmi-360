@@ -725,7 +725,7 @@ export default function NuovaDetermina() {
         <div className="card">
           <SimulazioneImpatto
             attoId={attoId} assicuraBozza={assicuraBozzaProvvisoria} soloLettura={soloLettura}
-            oggetto={oggetto} valore={valore}
+            oggetto={oggetto} valore={valore} tipoAtto={tipo}
             onRiporta={testo => setAnalisiFin(prev => prev && prev.trim() ? `${prev.trim()}\n\n${testo}` : testo)} />
           <div className="form-group">
             <label className="form-label">Descrizione dell'operazione</label>
