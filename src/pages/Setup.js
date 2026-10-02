@@ -28,8 +28,10 @@ function pivaValida(p) {
 
 export default function Setup({ onDone, onAnnulla, userId, userEmail, nuovaAzienda = false }) {
   async function esci() {
-    try { await supabase.auth.signOut() } catch (_e) {}
-    localStorage.clear(); sessionStorage.clear(); window.location.reload()
+    try { await supabase.auth.signOut({ scope: 'local' }) } catch (_e) {}
+    localStorage.clear(); sessionStorage.clear()
+    // indirizzo pulito: senza eventuali token di accesso arrivati da un link email
+    window.location.replace(window.location.origin + window.location.pathname)
   }
   const [step, setStep]         = useState(1)
   const [nome, setNome]         = useState('')

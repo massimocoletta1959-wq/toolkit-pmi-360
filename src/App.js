@@ -99,8 +99,16 @@ export default function App() {
   }
 
   async function loadDati(userId) {
-    let { data: prof } = await supabase
-      .from('profili').select('*').eq('id', userId).single()
+    // Un errore di lettura (es. token appena scaduto, non ancora rinnovato) non
+    // vuol dire "profilo inesistente": si rinnova la sessione e si riprova, invece
+    // di mandare un utente già configurato alla schermata "Configura la tua azienda".
+    let { data: prof, error: errProf } = await supabase
+      .from('profili').select('*').eq('id', userId).maybeSingle()
+    if (errProf) {
+      await supabase.auth.refreshSession().catch(() => {})
+      ;({ data: prof, error: errProf } = await supabase.from('profili').select('*').eq('id', userId).maybeSingle())
+      if (errProf) { console.error('Lettura profilo non riuscita:', errProf.message); return }
+    }
 
     if (!prof) {
       // Ripara un membro già collegato (membri.user_id = userId) ma senza
