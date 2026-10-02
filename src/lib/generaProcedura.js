@@ -1,12 +1,21 @@
 import { supabase } from './supabase'
 
-export async function generaProcedura(proc, azienda) {
-  const [tplRes, ruoliRes, adozRes] = await Promise.all([
-    supabase.from('procedure_template').select('*').eq('codice', proc.codice)
-      .in('settore', [azienda.settore, 'generico'].filter(Boolean)),
-    supabase.from('ruoli').select('sigla, nome, membri(nome, cognome)').eq('azienda_id', azienda.id),
-    supabase.from('procedure_azienda').select('id, data_emissione, stato, corpo_html, titolo').eq('azienda_id', azienda.id).eq('codice', proc.codice).maybeSingle(),
-  ])
+// Con `ticketId` (vista membro) i dati arrivano dalla funzione dati_procedura_task,
+// che li restituisce solo a chi ha quel task: i membri non leggono le tabelle.
+export async function generaProcedura(proc, azienda, { ticketId } = {}) {
+  let tplRes, ruoliRes, adozRes
+  if (ticketId) {
+    const { data, error } = await supabase.rpc('dati_procedura_task', { p_ticket: ticketId, p_codice: proc.codice })
+    if (error) { alert('Procedura non disponibile: ' + error.message); return }
+    tplRes = { data: data.tpl }; ruoliRes = { data: data.ruoli }; adozRes = { data: data.adoz }
+  } else {
+    ;[tplRes, ruoliRes, adozRes] = await Promise.all([
+      supabase.from('procedure_template').select('*').eq('codice', proc.codice)
+        .in('settore', [azienda.settore, 'generico'].filter(Boolean)),
+      supabase.from('ruoli').select('sigla, nome, membri(nome, cognome)').eq('azienda_id', azienda.id),
+      supabase.from('procedure_azienda').select('id, data_emissione, stato, corpo_html, titolo').eq('azienda_id', azienda.id).eq('codice', proc.codice).maybeSingle(),
+    ])
+  }
   // Preferisci il template del settore dell'azienda, poi il generico
   const tplList = tplRes.data || []
   const tpl = tplList.find(t => t.settore === azienda.settore) || tplList.find(t => t.settore === 'generico') || null
@@ -22,7 +31,7 @@ export async function generaProcedura(proc, azienda) {
   let dataEmiss = adozRes.data?.data_emissione
   if (!dataEmiss) {
     const oggiISO = new Date().toISOString().slice(0, 10)
-    if (adozRes.data?.id) {
+    if (adozRes.data?.id && !ticketId) {   // (per il membro la data la registra la funzione)
       await supabase.from('procedure_azienda').update({ data_emissione: oggiISO }).eq('id', adozRes.data.id)
     }
     dataEmiss = oggiISO

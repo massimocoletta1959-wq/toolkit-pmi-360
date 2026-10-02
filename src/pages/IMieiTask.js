@@ -168,7 +168,7 @@ function TicketCard({ t, onAggiorna, autore, onReload }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, alignItems: 'stretch' }}>
           {codiceProc && (
             <button className="btn btn-sm" style={{ background: '#EBF4FC', color: '#2B5FA5', whiteSpace: 'nowrap' }}
-              onClick={() => generaProcedura(CATALOGO_PROCEDURE.find(p => p.codice === codiceProc) || { codice: codiceProc }, t.aziende || {})}>
+              onClick={() => generaProcedura(CATALOGO_PROCEDURE.find(p => p.codice === codiceProc) || { codice: codiceProc }, t.aziende || {}, { ticketId: t.id })}>
               📄 Apri la procedura
             </button>
           )}
