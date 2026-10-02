@@ -133,11 +133,7 @@ export default function Setup({ onDone, onAnnulla, userId, userEmail, nuovaAzien
       if (e2) { setError(e2.message); setLoading(false); return }
     }
 
-    const { error: e3 } = await supabase.from('utente_aziende')
-      .insert({ utente_id: userId, azienda_id: azId })
-    if (e3 && !e3.message.includes('unique')) {
-      setError(e3.message); setLoading(false); return
-    }
+    // il collegamento gestore↔azienda lo crea il database (trigger sull'inserimento)
 
     setAziendaId(azId)
     setLoading(false)

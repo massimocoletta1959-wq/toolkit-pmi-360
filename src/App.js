@@ -82,86 +82,20 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  async function accettaInvito(userId, token) {
-    // Trova l'invito valido
-    const { data: inviti } = await supabase
-      .from('inviti').select('*').eq('token', token).eq('accettato', false)
-    if (!inviti || inviti.length === 0) return
-    const invito = inviti[0]
-    if (new Date(invito.expires_at) < new Date()) return
-
-    const { data: { user } } = await supabase.auth.getUser()
-
-    // Controlla se il profilo esiste già (membro già registrato in un'altra azienda)
-    const { data: existingProf } = await supabase
-      .from('profili').select('*').eq('id', userId).single()
-
-    if (!existingProf) {
-      // Prima registrazione — crea profilo con ruolo membro
-      await supabase.from('profili').insert({
-        id: userId,
-        email: user.email,
-        nome: '',
-        azienda_id: invito.azienda_id,  // azienda principale
-        ruolo: 'membro',
-        membro_id: invito.membro_id,
-      })
-    } else {
-      // Profilo già esistente — aggiunge solo il collegamento alla nuova azienda
-      // NON sovrascrive ruolo o azienda principale se è già consulente
-      if (existingProf.ruolo !== 'consulente') {
-        // Se è un membro, aggiorna il membro_id per includere questo invito
-        // Usiamo un array di membro_ids nella tabella utente_aziende
-        await supabase.from('profili').update({
-          ruolo: 'membro',
-        }).eq('id', userId)
-      }
-    }
-
-    // Collega utente <-> azienda (anche se già registrato altrove)
-    await supabase.from('utente_aziende').upsert({
-      utente_id: userId,
-      azienda_id: invito.azienda_id,
-      ruolo: 'membro',
-    }, { onConflict: 'utente_id,azienda_id' })
-
-    // Collega il record membro all'utente (per trovare i ticket)
-    await supabase.from('membri').update({ user_id: userId })
-      .eq('id', invito.membro_id)
-
-    // Marca invito come accettato
-    await supabase.from('inviti').update({ accettato: true }).eq('id', invito.id)
-
-    localStorage.setItem('azienda_attiva', invito.azienda_id)
+  // Accettazione invito e collegamento del gestore pre-registrato avvengono
+  // lato server (funzioni accetta_invito / claim_gestore): il browser non può
+  // più collegarsi da solo a un'azienda.
+  async function accettaInvito(_userId, token) {
+    const { data: aziendaId } = await supabase.rpc('accetta_invito', { p_token: token })
+    if (aziendaId) localStorage.setItem('azienda_attiva', aziendaId)
   }
 
   // Se un gestore è stato pre-registrato (dal portale licenze) con questa email,
-  // collega la riga in attesa al nuovo account non appena si registra/accede.
-  // Se al momento della pre-registrazione gli erano già state assegnate una o più
-  // aziende (create in anticipo per lui), lo collega direttamente ad esse: le vede
-  // subito, senza dover ripassare dal wizard "Nuova azienda".
-  async function claimGestorePendente(userId, email) {
+  // collega la riga in attesa al nuovo account e lo collega alle aziende già
+  // preparate per lui: le vede subito, senza ripassare dal wizard "Nuova azienda".
+  async function claimGestorePendente(_userId, email) {
     if (!email) return
-    const { data: gestori } = await supabase.from('gestori').update({ user_id: userId })
-      .is('user_id', null).ilike('email', email)
-      .select('id')
-    const gestoreId = (gestori || [])[0]?.id
-    if (!gestoreId) return
-    const { data: preassegnate } = await supabase.from('gestori_preassegnazioni')
-      .select('azienda_id, mod_rischi, mod_procedure, mod_governance').eq('gestore_id', gestoreId)
-    if (!preassegnate || preassegnate.length === 0) return
-    const { data: esiste } = await supabase.from('profili').select('id').eq('id', userId).maybeSingle()
-    if (!esiste) {
-      const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('profili').insert({ id: userId, email: user?.email || email, nome: '', azienda_id: preassegnate[0].azienda_id })
-    }
-    for (const p of preassegnate) {
-      await supabase.from('utente_aziende').upsert({
-        utente_id: userId, azienda_id: p.azienda_id,
-        mod_rischi: p.mod_rischi, mod_procedure: p.mod_procedure, mod_governance: p.mod_governance,
-      }, { onConflict: 'utente_id,azienda_id' })
-    }
-    await supabase.from('gestori_preassegnazioni').delete().eq('gestore_id', gestoreId)
+    await supabase.rpc('claim_gestore')
   }
 
   async function loadDati(userId) {
@@ -172,22 +106,8 @@ export default function App() {
       // Ripara un membro già collegato (membri.user_id = userId) ma senza
       // profilo/utente_aziende — es. profilo perso in passato — invece di
       // trattarlo come un consulente nuovo e mandarlo su Setup.
-      const { data: mieiMembri } = await supabase
-        .from('membri').select('id, azienda_id, email').eq('user_id', userId)
-      if (mieiMembri && mieiMembri.length > 0) {
-        const { data: { user } } = await supabase.auth.getUser()
-        const primo = mieiMembri[0]
-        await supabase.from('profili').insert({
-          id: userId, email: user?.email || primo.email || '', nome: '',
-          azienda_id: primo.azienda_id, ruolo: 'membro', membro_id: primo.id,
-        })
-        for (const m of mieiMembri) {
-          await supabase.from('utente_aziende').upsert({
-            utente_id: userId, azienda_id: m.azienda_id, ruolo: 'membro',
-          }, { onConflict: 'utente_id,azienda_id' })
-        }
-        ;({ data: prof } = await supabase.from('profili').select('*').eq('id', userId).single())
-      }
+      await supabase.rpc('ripara_membro')
+      ;({ data: prof } = await supabase.from('profili').select('*').eq('id', userId).maybeSingle())
     }
 
     if (!prof) {

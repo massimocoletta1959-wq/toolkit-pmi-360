@@ -1,1 +1,4 @@
 node_modules/
+
+# impostazioni locali di Claude Code
+.claude/settings.local.json
