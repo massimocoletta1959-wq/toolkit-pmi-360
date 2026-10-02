@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { INQUADRAMENTI_INPS, CCNL_COMUNI } from '../lib/lavoro'
+import AggiornaDaVisura from '../components/AggiornaDaVisura'
 import { useApp } from '../App'
 import { RISCHI_DEFAULT, RISCHI_PER_SETTORE, RISCHI_231_EDILIZIA, RISCHI_231_GENERICO } from '../lib/constants'
 import { etichettaModulo } from '../lib/modalitaSolo'
@@ -26,6 +27,7 @@ export default function Impostazioni() {
   const [loading, setLoading]       = useState(false)
   const [error, setError]           = useState(null)
   const [editMode, setEditMode]     = useState(false)
+  const [daVisura, setDaVisura]     = useState(false)   // finestra "Aggiorna da visura"
   const [editForm, setEditForm]     = useState({ nome: '', piva: '', settore: '', dimensione: '', ccnl: '', mensilita: '', inquadramento_inps: '', numero_dipendenti: '', tasso_inail_pct: '', aliquota_inps_datore_pct: '' })
   const [lic, setLic]               = useState(null)
   const [modLoading, setModLoading] = useState(null)
@@ -148,32 +150,6 @@ export default function Impostazioni() {
     await reload()
   }
 
-  // Numero dipendenti dalla visura camerale (sezione "Addetti", dato INPS trimestrale)
-  const [visuraStato, setVisuraStato] = useState(null)   // null | 'lettura' | { ok, txt }
-  async function dipendentiDaVisura(file) {
-    if (!file) return
-    setVisuraStato('lettura')
-    try {
-      const b64 = await new Promise((res, rej) => {
-        const r = new FileReader()
-        r.onload = () => res(String(r.result).split(',')[1])
-        r.onerror = () => rej(new Error('lettura del file fallita'))
-        r.readAsDataURL(file)
-      })
-      const { data, error: err } = await supabase.functions.invoke('extract-visura', { body: { pdf_base64: b64 } })
-      if (err) throw err
-      if (data?.error) throw new Error(data.error)
-      const a = data.azienda || {}
-      if (!Number.isInteger(a.addetti_dipendenti)) { setVisuraStato({ ok: false, txt: 'La visura non riporta il numero di addetti.' }); return }
-      setEditForm(f => ({ ...f, numero_dipendenti: a.addetti_dipendenti }))
-      const quando = a.addetti_data ? ` al ${new Date(a.addetti_data + 'T00:00:00').toLocaleDateString('it-IT')}` : ''
-      const indip = Number.isInteger(a.addetti_indipendenti) ? ` (più ${a.addetti_indipendenti} indipendenti)` : ''
-      setVisuraStato({ ok: true, txt: `Dalla visura: ${a.addetti_dipendenti} dipendenti${quando}${indip}. Salva per confermare.` })
-    } catch (e) {
-      setVisuraStato({ ok: false, txt: 'Non sono riuscito a leggere la visura: ' + (e.message || String(e)) })
-    }
-  }
-
   async function caricaLogo(file) {
     if (!file) return
     setError(null)
@@ -238,13 +214,20 @@ export default function Impostazioni() {
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header">
           <span className="card-title">ℹ️ Dettagli azienda attiva</span>
+          {daVisura && azienda && (
+            <AggiornaDaVisura azienda={azienda} onChiudi={() => setDaVisura(false)}
+              onAggiornata={async () => { setDaVisura(false); await reload() }} />
+          )}
           {!editMode && (
+            <div style={{ display: 'flex', gap: 6 }}>
+            <button className="btn btn-sm" onClick={() => setDaVisura(true)}>📄 Aggiorna da visura</button>
             <button className="btn btn-sm" onClick={() => {
               setEditForm({ nome: azienda?.nome || '', piva: azienda?.piva || '', settore: azienda?.settore || '', dimensione: azienda?.dimensione || '', logo_url: azienda?.logo_url || '',
                 ccnl: azienda?.ccnl || '', mensilita: azienda?.mensilita ?? '', inquadramento_inps: azienda?.inquadramento_inps || '',
                 numero_dipendenti: azienda?.numero_dipendenti ?? '', tasso_inail_pct: azienda?.tasso_inail_pct ?? '', aliquota_inps_datore_pct: azienda?.aliquota_inps_datore_pct ?? '' })
               setEditMode(true); setError(null)
             }}>✏️ Modifica</button>
+            </div>
           )}
         </div>
         {!editMode ? (
@@ -333,14 +316,6 @@ export default function Impostazioni() {
               <div className="form-group">
                 <label className="form-label">Numero dipendenti</label>
                 <input className="form-control" type="number" min="0" step="1" value={editForm.numero_dipendenti} onChange={e => setEditForm({ ...editForm, numero_dipendenti: e.target.value })} />
-                <label className="btn btn-sm" style={{ marginTop: 6, cursor: visuraStato === 'lettura' ? 'default' : 'pointer' }}>
-                  {visuraStato === 'lettura' ? 'Lettura visura…' : '📄 Aggiorna da visura (PDF)'}
-                  <input type="file" accept="application/pdf" style={{ display: 'none' }} disabled={visuraStato === 'lettura'}
-                    onChange={e => { dipendentiDaVisura(e.target.files?.[0]); e.target.value = '' }} />
-                </label>
-                {visuraStato && visuraStato !== 'lettura' && (
-                  <div style={{ fontSize: 11.5, marginTop: 4, color: visuraStato.ok ? '#1E8449' : '#C0392B' }}>{visuraStato.txt}</div>
-                )}
               </div>
               <div className="form-group">
                 <label className="form-label">Aliquota INPS a carico azienda (%)</label>
