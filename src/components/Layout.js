@@ -47,7 +47,7 @@ const MODULI = {
 }
 
 export default function Layout({ children }) {
-  const { azienda, aziende, profilo, page, setPage, logout, switchAzienda, onNuovaAzienda, modulo, tornaHome } = useApp()
+  const { azienda, aziende, profilo, page, setPage, logout, switchAzienda, onNuovaAzienda, modulo, tornaHome, mieiOrgani, vaiAIncarichi } = useApp()
   const [showSwitch, setShowSwitch] = useState(false)
   const [organoAmm, setOrganoAmm] = useState(null) // 'amministratore_unico' | 'cda' | null
 
@@ -153,6 +153,11 @@ export default function Layout({ children }) {
 
         <div className="sidebar-footer">
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>{profilo?.email}</div>
+          {(mieiOrgani || []).length > 0 && (
+            <button className="btn btn-sm" style={{ width: '100%', justifyContent: 'center', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', marginBottom: 8 }} onClick={vaiAIncarichi}>
+              🏛️ I miei organi (incarichi)
+            </button>
+          )}
           <button className="btn btn-sm" style={{ width: '100%', justifyContent: 'center', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)' }} onClick={logout}>
             Esci
           </button>

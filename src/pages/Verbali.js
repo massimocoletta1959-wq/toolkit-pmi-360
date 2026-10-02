@@ -164,7 +164,7 @@ function NuovaAdunanzaModal({ aziendaId, organi, onSaved, onClose }) {
 
 // ── Pagina: elenco adunanze ───────────────────────────────────────────
 export default function Verbali() {
-  const { azienda, apriAdunanza } = useApp()
+  const { azienda, apriAdunanza, modoIncaricato, organoIncarico } = useApp()
   const [adunanze, setAdunanze] = useState([])
   const [organi, setOrgani] = useState([])
   const [orgById, setOrgById] = useState({})
@@ -175,14 +175,19 @@ export default function Verbali() {
   const load = useCallback(async () => {
     if (!azienda?.id) return
     setLoading(true)
-    const { data: orgs } = await supabase.from('organi').select('id,nome,tipo').eq('azienda_id', azienda.id).order('created_at')
-    const { data: ad } = await supabase.from('adunanze').select('*').eq('azienda_id', azienda.id)
+    let qOrg = supabase.from('organi').select('id,nome,tipo').eq('azienda_id', azienda.id).order('created_at')
+    let qAd = supabase.from('adunanze').select('*').eq('azienda_id', azienda.id)
+    if (modoIncaricato) {   // incaricato: solo l'organo dell'incarico
+      qOrg = qOrg.eq('id', organoIncarico.organo_id); qAd = qAd.eq('organo_id', organoIncarico.organo_id)
+    }
+    const { data: orgs } = await qOrg
+    const { data: ad } = await qAd
       .order('anno', { ascending: false }).order('data_ora', { ascending: false, nullsFirst: true }).order('created_at', { ascending: false })
     setOrgani(orgs || [])
     setOrgById(Object.fromEntries((orgs || []).map(o => [o.id, o])))
     setAdunanze(ad || [])
     setLoading(false)
-  }, [azienda])
+  }, [azienda, modoIncaricato, organoIncarico])
 
   useEffect(() => { load() }, [load])
 

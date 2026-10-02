@@ -1,11 +1,12 @@
 import React from 'react'
 import { useApp } from '../App'
 export default function LayoutMembro({ children, page = 'task', setPage }) {
-  const { azienda, profilo, logout, puoTornareGestore, tornaGestore } = useApp()
+  const { azienda, profilo, logout, puoTornareGestore, tornaGestore, mieiOrgani } = useApp()
   const voci = [
     { id: 'task',       icona: '🎫', label: 'I miei task' },
     { id: 'procedure',  icona: '📋', label: 'Le mie procedure' },
     { id: 'governance', icona: '⚖️', label: 'Governance' },
+    ...((mieiOrgani || []).length > 0 ? [{ id: 'organi', icona: '🏛️', label: 'I miei organi' }] : []),
   ]
   const titoloCorrente = (voci.find(v => v.id === page) || voci[0]).label
   return (

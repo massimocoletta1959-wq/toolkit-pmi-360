@@ -161,7 +161,7 @@ function ScegliAssembleaModal({ azienda, organi = [], filtroOrgano = '', onScelt
 }
 
 export default function ModelliVerbale() {
-  const { azienda } = useApp()
+  const { azienda, modoIncaricato, organoIncarico } = useApp()
   const [modelli, setModelli] = useState([])
   const [loading, setLoading] = useState(true)
   const [edit, setEdit] = useState(null)  // null | {} (nuovo) | {…} (esistente)
@@ -172,13 +172,14 @@ export default function ModelliVerbale() {
   const load = useCallback(async () => {
     if (!azienda?.id) return
     setLoading(true)
-    const { data: orgs } = await supabase.from('organi')
-      .select('id, nome, tipo').eq('azienda_id', azienda.id).order('created_at')
+    let qOrg = supabase.from('organi').select('id, nome, tipo').eq('azienda_id', azienda.id).order('created_at')
+    if (modoIncaricato) qOrg = qOrg.eq('id', organoIncarico.organo_id)
+    const { data: orgs } = await qOrg
     setOrgani(orgs || [])
     const { data } = await supabase.from('verbale_template').select('*').eq('azienda_id', azienda.id).order('created_at')
     setModelli(data || [])
     setLoading(false)
-  }, [azienda])
+  }, [azienda, modoIncaricato, organoIncarico])
 
   useEffect(() => { load() }, [load])
 
@@ -241,8 +242,10 @@ export default function ModelliVerbale() {
                     <td>{m.predefinito ? <span className="badge" style={{ background: '#E9F7EF', color: '#1E8449' }}>Predefinito</span> : <span style={{ color: '#bbb' }}>—</span>}</td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                        <button className="btn btn-sm" onClick={() => setEdit(m)}>Modifica</button>
-                        <button className="btn btn-sm btn-danger" onClick={() => elimina(m)}>Elimina</button>
+                        {(!modoIncaricato || m.organo_id === organoIncarico.organo_id) ? (<>
+                          <button className="btn btn-sm" onClick={() => setEdit(m)}>Modifica</button>
+                          <button className="btn btn-sm btn-danger" onClick={() => elimina(m)}>Elimina</button>
+                        </>) : <span style={{ fontSize: 11, color: '#999' }}>modello dell'azienda</span>}
                       </div>
                     </td>
                   </tr>
@@ -269,6 +272,7 @@ export default function ModelliVerbale() {
 
 // ── Editor modello ────────────────────────────────────────────────────
 function ModelloEditor({ azienda, organi = [], filtroOrgano = '', modello, onSaved, onClose }) {
+  const { modoIncaricato, organoIncarico } = useApp()
   const editing = !!modello?.id
   const [nome, setNome] = useState(modello?.nome || '')
   const [organoTipo, setOrganoTipo] = useState(modello?.organo_tipo || filtroOrgano || (organi[0]?.tipo) || '')
@@ -296,13 +300,17 @@ function ModelloEditor({ azienda, organi = [], filtroOrgano = '', modello, onSav
     setSaving(true); setErrore(null)
     // se questo diventa predefinito, tolgo il flag agli altri dello stesso organo_tipo
     if (predefinito) {
-      await supabase.from('verbale_template').update({ predefinito: false })
+      let q = supabase.from('verbale_template').update({ predefinito: false })
         .eq('azienda_id', azienda.id).eq('organo_tipo', organoTipo || null)
+      if (modoIncaricato) q = q.eq('organo_id', organoIncarico.organo_id)
+      await q
     }
     const payload = {
       azienda_id: azienda.id, nome: nome.trim(), organo_tipo: organoTipo || null,
       corpo_html: corpo, predefinito,
       intestazione: intestazione || null, odg, delibere,
+      // modello creato dall'incaricato: legato al suo organo (lo gestisce solo lui e il gestore)
+      ...(modoIncaricato ? { organo_id: organoIncarico.organo_id } : {}),
     }
     const { error } = editing
       ? await supabase.from('verbale_template').update(payload).eq('id', modello.id)

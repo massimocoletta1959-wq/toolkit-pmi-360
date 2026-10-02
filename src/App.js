@@ -25,6 +25,7 @@ import ModelliDetermina from './pages/ModelliDetermina'
 import Home from './pages/Home'
 import Layout from './components/Layout'
 import LayoutMembro from './components/LayoutMembro'
+import IncarichiOrgani from './pages/IncarichiOrgani'
 
 export const AppContext = createContext(null)
 export const useApp = () => useContext(AppContext)
@@ -39,7 +40,9 @@ export default function App() {
   const [determinaId, setDeterminaId] = useState(null) // id determina da aprire nel wizard (null = nuova)
   const [determinaOrgano, setDeterminaOrgano] = useState(null) // organo dell'atto in creazione
   const [adunanzaId, setAdunanzaId] = useState(null)   // id adunanza da aprire nel dettaglio
-  const [pagMembro, setPagMembro]  = useState('task') // vista membro: 'task' | 'procedure'
+  const [pagMembro, setPagMembro]  = useState(new URLSearchParams(window.location.search).get('vista') === 'organi' ? 'organi' : 'task') // vista membro: 'task' | 'procedure' | 'governance' | 'organi'
+  const [mieiOrgani, setMieiOrgani] = useState([])        // organi di cui l'utente è incaricato (elenco_miei_organi)
+  const [organoIncarico, setOrganoIncarico] = useState(null) // organo che l'incaricato sta gestendo
   const [showSetup, setShowSetup]  = useState(false)
   const [recoveryMode, setRecoveryMode] = useState(false) // true = utente ha cliccato il link "recupera password"
   const [licenzaBloccata, setLicenzaBloccata] = useState(null) // null = ok; altrimenti motivo del blocco per un consulente
@@ -54,7 +57,7 @@ export default function App() {
   // assegna un task per provarlo) resta comunque un consulente a tutti gli
   // effetti: il link nella mail del task lo porta qui in vista membro solo
   // temporaneamente, senza toccare il suo ruolo vero.
-  const [vistaMembroForzata, setVistaMembroForzata] = useState(urlParams.get('vista') === 'membro')
+  const [vistaMembroForzata, setVistaMembroForzata] = useState(['membro', 'organi'].includes(urlParams.get('vista')))
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -167,6 +170,10 @@ export default function App() {
     const saved   = tutteAziende.find(a => a.id === savedId)
     const attiva  = saved || tutteAziende[0] || null
     setAziendaState(attiva)
+
+    // Organi di cui è incaricato della gestione (voce "I miei organi")
+    const { data: mo } = await supabase.rpc('elenco_miei_organi')
+    setMieiOrgani(mo || [])
     if (attiva) localStorage.setItem('azienda_attiva', attiva.id)
     else localStorage.removeItem('azienda_attiva')
   }
@@ -304,9 +311,24 @@ export default function App() {
     apriAdunanza: (id) => { setAdunanzaId(id); setPage('adunanza') },
     onNuovaAzienda,
     puoTornareGestore: profilo.ruolo !== 'membro' && vistaMembroForzata,
+    // Incaricati d'organo
+    mieiOrgani, organoIncarico,
+    modoIncaricato: (profilo.ruolo === 'membro' || vistaMembroForzata) && pagMembro === 'organi' && !!organoIncarico,
+    apriOrganoIncarico: (o) => {
+      setAziendaState(aziende.find(a => a.id === o.azienda_id) || { id: o.azienda_id, nome: o.azienda_nome })
+      setOrganoIncarico(o); setPage('governance')
+    },
+    chiudiOrganoIncarico: () => setOrganoIncarico(null),
+    vaiAIncarichi: () => { setVistaMembroForzata(true); setPagMembro('organi'); setOrganoIncarico(null) },
     tornaGestore: () => {
       setVistaMembroForzata(false)
       window.history.replaceState({}, '', window.location.pathname)
+      // se gestiva un organo da incaricato, torna all'azienda attiva da gestore
+      if (organoIncarico) {
+        setOrganoIncarico(null); setPagMembro('task'); setPage('home')
+        const salvata = aziende.find(a => a.id === localStorage.getItem('azienda_attiva'))
+        if (salvata) setAziendaState(salvata)
+      }
     },
   }
 
@@ -314,8 +336,17 @@ export default function App() {
   if (profilo.ruolo === 'membro' || vistaMembroForzata) {
     return (
       <AppContext.Provider value={ctx}>
-        <LayoutMembro page={pagMembro} setPage={setPagMembro}>
-          <IMieiTask key={pagMembro} modo={pagMembro} />
+        <LayoutMembro page={pagMembro} setPage={p => { setPagMembro(p); if (p !== 'organi') setOrganoIncarico(null) }}>
+          {pagMembro === 'organi'
+            ? <IncarichiOrgani pagine={{
+                governance:      <Governance />,
+                verbali:         <Verbali />,
+                adunanza:        <DettaglioAdunanza key={adunanzaId || 'nuova'} />,
+                modelli_verbale: <ModelliVerbale />,
+                au_registro:     <RegistroDetermine />,
+                au_nuova:        <NuovaDetermina key={determinaId || 'nuova'} />,
+              }} />
+            : <IMieiTask key={pagMembro} modo={pagMembro} />}
         </LayoutMembro>
       </AppContext.Provider>
     )

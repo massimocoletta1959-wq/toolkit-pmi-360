@@ -170,10 +170,111 @@ function AggiungiComponente({ organo, membri, giaPresenti, onAdded }) {
 }
 
 // ---------------------------------------------------------------------
+// Incaricati della gestione di un organo (solo vista gestore)
+// Possono essere persone già in anagrafica o esterni: ricevono un'email
+// (o un invito a registrarsi) e gestiscono l'organo da "I miei organi".
+// ---------------------------------------------------------------------
+function IncaricatiOrgano({ organo, membri, onCambio }) {
+  const [incaricati, setIncaricati] = useState([])
+  const [aperto, setAperto] = useState(false)
+  const [scelta, setScelta] = useState('')
+  const [esterno, setEsterno] = useState({ nome: '', cognome: '', email: '' })
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState(null)
+
+  const carica = useCallback(async () => {
+    const { data } = await supabase.from('organo_incaricati')
+      .select('*, membri(nome,cognome,email,user_id)').eq('organo_id', organo.id).is('data_revoca', null).order('created_at')
+    setIncaricati(data || [])
+  }, [organo.id])
+  useEffect(() => { carica() }, [carica])
+
+  async function nomina() {
+    setBusy(true); setMsg(null)
+    let membroId = scelta
+    if (scelta === '__esterno__') {
+      const email = esterno.email.trim().toLowerCase()
+      if (!esterno.nome.trim() || !esterno.cognome.trim() || !/^\S+@\S+\.\S+$/.test(email)) {
+        setMsg({ err: true, txt: 'Inserisci nome, cognome ed email valida.' }); setBusy(false); return
+      }
+      const { data: nuovo, error } = await supabase.from('membri').insert({
+        azienda_id: organo.azienda_id, nome: esterno.nome.trim(), cognome: esterno.cognome.trim(), email, ruolo: 'Esterno',
+      }).select('id').single()
+      if (error) { setMsg({ err: true, txt: error.message }); setBusy(false); return }
+      membroId = nuovo.id
+    }
+    if (!membroId) { setMsg({ err: true, txt: 'Scegli una persona.' }); setBusy(false); return }
+    const { data, error } = await supabase.functions.invoke('nomina-incaricato', { body: { organo_id: organo.id, membro_id: membroId } })
+    setBusy(false)
+    if (error || data?.error) {
+      let txt = data?.error || error?.message
+      try { txt = (await error.context.json()).error || txt } catch (_e) { /* risposta non JSON */ }
+      setMsg({ err: true, txt }); return
+    }
+    setMsg({ err: false, txt: data.registrato
+      ? 'Nomina registrata: la persona ha ricevuto un\'email e trova l\'organo in "I miei organi".'
+      : 'Nomina registrata: la persona ha ricevuto l\'invito a registrarsi al portale.' })
+    setAperto(false); setScelta(''); setEsterno({ nome: '', cognome: '', email: '' })
+    carica(); onCambio && onCambio()
+  }
+
+  async function revoca(inc) {
+    const n = inc.membri ? `${inc.membri.nome || ''} ${inc.membri.cognome || ''}`.trim() : 'questa persona'
+    if (!window.confirm(`Revocare l'incarico di gestione di "${organo.nome}" a ${n}?`)) return
+    await supabase.from('organo_incaricati').update({ data_revoca: new Date().toISOString().slice(0, 10) }).eq('id', inc.id)
+    carica(); onCambio && onCambio()
+  }
+
+  const giaIncaricati = new Set(incaricati.map(i => i.membro_id))
+  return (
+    <div style={{ marginTop: 14, borderTop: '1px solid #E8ECF2', paddingTop: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <span style={{ fontSize: 12.5, fontWeight: 600, color: '#1A3A5C', flex: 1 }}>🔑 Incaricati della gestione</span>
+        {!aperto && <button className="btn btn-sm" onClick={() => { setAperto(true); setMsg(null) }}>+ Nomina incaricato</button>}
+      </div>
+      {incaricati.length === 0 && !aperto && (
+        <div style={{ fontSize: 12, color: '#999' }}>Nessuno: l'organo è gestito solo da te. Un incaricato lo gestisce in autonomia (componenti, adunanze, verbali), senza vedere il resto dell'azienda.</div>
+      )}
+      {incaricati.map(i => (
+        <div key={i.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '4px 0' }}>
+          <span style={{ flex: 1 }}>{nomeMembro(i.membri)} <span style={{ color: '#999', fontSize: 12 }}>· {i.membri?.email} · dal {new Date(i.data_nomina + 'T00:00:00').toLocaleDateString('it-IT')}</span>
+            {!i.membri?.user_id && <span className="badge" style={{ background: '#FEF9E7', color: '#856404', marginLeft: 6 }}>invito in attesa</span>}
+          </span>
+          <button className="btn btn-sm btn-danger" onClick={() => revoca(i)}>Revoca</button>
+        </div>
+      ))}
+      {aperto && (
+        <div style={{ background: '#F7F8FA', borderRadius: 8, padding: 10, marginTop: 6 }}>
+          <select className="form-control" value={scelta} onChange={e => setScelta(e.target.value)}>
+            <option value="">Scegli una persona…</option>
+            {membri.filter(m => !giaIncaricati.has(m.id)).map(m => (
+              <option key={m.id} value={m.id} disabled={!m.email}>{nomeMembro(m)}{m.email ? ` — ${m.email}` : ' (senza email)'}</option>
+            ))}
+            <option value="__esterno__">+ Persona esterna (non in anagrafica)…</option>
+          </select>
+          {scelta === '__esterno__' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gap: 6, marginTop: 6 }}>
+              <input className="form-control" placeholder="Nome" value={esterno.nome} onChange={e => setEsterno({ ...esterno, nome: e.target.value })} />
+              <input className="form-control" placeholder="Cognome" value={esterno.cognome} onChange={e => setEsterno({ ...esterno, cognome: e.target.value })} />
+              <input className="form-control" placeholder="Email" type="email" value={esterno.email} onChange={e => setEsterno({ ...esterno, email: e.target.value })} />
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+            <button className="btn btn-sm btn-primary" onClick={nomina} disabled={busy}>{busy ? 'Invio…' : 'Nomina e invia email'}</button>
+            <button className="btn btn-sm" onClick={() => setAperto(false)} disabled={busy}>Annulla</button>
+          </div>
+        </div>
+      )}
+      {msg && <div style={{ fontSize: 12, marginTop: 6, color: msg.err ? '#C0392B' : '#1E8449' }}>{msg.txt}</div>}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------
 // Pagina Governance — Organi & composizione
 // ---------------------------------------------------------------------
 export default function Governance() {
-  const { azienda } = useApp()
+  const { azienda, modoIncaricato, organoIncarico } = useApp()
   const [organi, setOrgani] = useState([])
   const [membri, setMembri] = useState([])
   const [comp, setComp] = useState([])       // organo_membri con membri joinati
@@ -184,7 +285,9 @@ export default function Governance() {
   const load = useCallback(async () => {
     if (!azienda?.id) return
     setLoading(true)
-    const { data: orgs } = await supabase.from('organi').select('*').eq('azienda_id', azienda.id).order('created_at')
+    let qOrg = supabase.from('organi').select('*').eq('azienda_id', azienda.id).order('created_at')
+    if (modoIncaricato) qOrg = qOrg.eq('id', organoIncarico.organo_id)   // incaricato: solo il suo organo
+    const { data: orgs } = await qOrg
     const { data: mem } = await supabase.from('membri').select('id,nome,cognome,email,ruolo').eq('azienda_id', azienda.id).order('cognome')
     let composizione = []
     if (orgs && orgs.length) {
@@ -195,7 +298,7 @@ export default function Governance() {
     }
     setOrgani(orgs || []); setMembri(mem || []); setComp(composizione)
     setLoading(false)
-  }, [azienda])
+  }, [azienda, modoIncaricato, organoIncarico])
 
   useEffect(() => { load() }, [load])
 
@@ -226,7 +329,7 @@ export default function Governance() {
           <h2 style={{ fontSize: 20, color: '#1A3A5C', marginBottom: 2 }}>Governance — Organi</h2>
           <p style={{ fontSize: 13, color: '#666' }}>Organi societari di <strong>{azienda?.nome}</strong> e loro composizione.</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowNuovo(true)}>+ Nuovo organo</button>
+        {!modoIncaricato && <button className="btn btn-primary" onClick={() => setShowNuovo(true)}>+ Nuovo organo</button>}
       </div>
 
       <div className="stats-grid">
@@ -269,7 +372,7 @@ export default function Governance() {
                 </span>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button className="btn btn-sm" onClick={() => setEditOrg(o)}>Modifica</button>
-                  <button className="btn btn-sm btn-danger" onClick={() => eliminaOrgano(o)}>Elimina</button>
+                  {!modoIncaricato && <button className="btn btn-sm btn-danger" onClick={() => eliminaOrgano(o)}>Elimina</button>}
                 </div>
               </div>
 
@@ -331,6 +434,7 @@ export default function Governance() {
                   : <AggiungiComponente organo={o} membri={membri} giaPresenti={idsPresenti} onAdded={load} />
               )}
               {pieno && <div style={{ fontSize: 12, color: '#999', marginTop: 10 }}>Organo monocratico: componente già assegnato.</div>}
+              {!modoIncaricato && <IncaricatiOrgano organo={o} membri={membri} />}
             </div>
           )
         })
