@@ -122,6 +122,7 @@ export default function Setup({ onDone, onAnnulla, userId, userEmail, nuovaAzien
         capitale_sociale: a.capitale_sociale || null,
         data_costituzione: a.data_costituzione || null,
         ateco: a.ateco || null,
+        numero_dipendenti: Number.isInteger(a.addetti_dipendenti) ? a.addetti_dipendenti : null,
         attivita: a.attivita || null,
         oggetto_sociale: a.oggetto_sociale || null,
         modalita_solo: modalitaSolo,
