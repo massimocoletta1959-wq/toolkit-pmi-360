@@ -148,6 +148,8 @@ export default function App() {
     }
     setLicenzaBloccata(null)
     setProfilo(prof)
+    // registro accessi (consultabile dal proprietario nel portale licenze; al massimo uno ogni 30 minuti)
+    supabase.rpc('registra_accesso').then(() => {}, () => {})
 
     // Carica aziende tramite utente_aziende. I moduli visibili sono l'incrocio tra
     // quelli attivi sull'azienda e quelli concessi a QUESTO specifico collegamento
@@ -215,6 +217,7 @@ export default function App() {
   }
 
   async function logout() {
+    await supabase.rpc('registra_accesso', { p_evento: 'uscita' }).then(() => {}, () => {})
     await supabase.auth.signOut()
     setSession(null); setProfilo(null); setAziende([]); setAziendaState(null)
   }
