@@ -111,3 +111,18 @@
   .mod-finanza @page { size: landscape; margin: 10mm; }
 }
 .mod-finanza .tesoreria-tab.active { font-weight: 600; color: #1a3a5c; border-bottom-color: #1a3a5c; }
+
+/* ── Adattamenti di impaginazione per Pmi 360° ── */
+/* il contenuto resta dentro la pagina: ciò che è troppo largo scorre nella propria card */
+.mod-finanza { min-width: 0; }
+.mod-finanza .card, .mod-finanza .card-body { min-width: 0; overflow-x: auto; }
+/* il selettore "Azienda" di EasyPMI non serve: l'azienda è quella attiva (menu a sinistra) */
+.mod-finanza .form-group:has(> select[title^="Azienda attiva"]) { display: none; }
+/* campi di larghezza ragionevole invece che a tutta riga */
+.mod-finanza input.form-control:not([type="checkbox"]):not([type="radio"]),
+.mod-finanza select.form-control { max-width: 360px; }
+/* testi più leggibili */
+.mod-finanza { font-size: 14px; line-height: 1.5; }
+.mod-finanza .table td { font-size: 13.5px; }
+.mod-finanza .table th { font-size: 11.5px; }
+.mod-finanza h3 { font-size: 17px; }

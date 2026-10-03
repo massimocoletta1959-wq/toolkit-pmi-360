@@ -40,7 +40,7 @@ export default function ManovreScorte({ aziendaId }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <div>
             <h3 style={{ color: '#1a3a5c', margin: 0, fontSize: 14 }}>Scorte e approvvigionamenti (CNDCEC §2.3)</h3>
-            <p style={{ fontSize: 12, color: '#9ca3af', margin: '4px 0 0' }}>Manovre sulle giacenze e acquisti a lotto: uscite (o minori uscite) non correlate alla produzione corrente.</p>
+            <p style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55, margin: '4px 0 0' }}>Manovre sulle giacenze e acquisti a lotto: uscite (o minori uscite) non correlate alla produzione corrente.</p>
           </div>
           {!form && (
             <button className="btn btn-primary btn-sm" onClick={() => setForm(vuota())}>

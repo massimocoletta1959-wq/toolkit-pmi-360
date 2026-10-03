@@ -70,7 +70,7 @@ export default function VistaSettimanale({ aziendaId, piano }) {
               </tbody>
             </table>
           </div>
-          <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 6 }}>
+          <div style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55, marginTop: 6 }}>
             Stessi flussi del piano mensile (incassi variabili pesati per probabilità) collocati nella settimana della loro data. I flussi da budget cadono al giorno 15 (pagamenti) e 28 (incassi) del mese:
             approssimazione dichiarata; IVA, F24, stipendi, rate e partite aperte hanno la data effettiva.
           </div>
@@ -95,7 +95,7 @@ export default function VistaSettimanale({ aziendaId, piano }) {
           </div>
           {errore && <div className="alert alert-error">{errore}</div>}
           {etaGiorni != null && etaGiorni > 2 && <div className="alert" style={{ background: '#fff7ed', color: '#9a3412' }}>⚠️ L'ultimo saldo registrato ha {etaGiorni} giorni: il controllo settimanale richiede dati di non oltre 48 ore.</div>}
-          {!ultimo && <div style={{ fontSize: 12, color: '#9ca3af' }}>Nessun saldo registrato: senza, il confronto reale/previsto non è possibile.</div>}
+          {!ultimo && <div style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55 }}>Nessun saldo registrato: senza, il confronto reale/previsto non è possibile.</div>}
           {saldi.length > 0 && (
             <table className="table" style={{ fontSize: 12 }}>
               <thead>

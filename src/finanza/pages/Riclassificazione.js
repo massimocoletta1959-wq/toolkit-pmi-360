@@ -667,7 +667,7 @@ export default function Riclassificazione() {
                   <div style={{ fontWeight: 600, fontSize: 13 }}>
                     {g.gruppo} — {g.descrizione}
                   </div>
-                  <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                  <div style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55 }}>
                     {conti.length} conti — €{fmt(g.importo)}
                     {nEccezioni > 0 && <span style={{ color: '#b45309' }}> — {nEccezioni} con voce diversa dal gruppo</span>}
                   </div>
@@ -693,7 +693,7 @@ export default function Riclassificazione() {
                     <div key={c.conto} style={{ padding: '8px 16px 8px 56px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', borderTop: '1px solid #f0f2f5', background: eccezione ? '#fffbeb' : '#fff' }}>
                       <div style={{ flex: 1, minWidth: 200 }}>
                         <div style={{ fontSize: 13 }}>{c.descrizione || c.conto}</div>
-                        <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                        <div style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55 }}>
                           {c.conto} — €{fmt(c.valore)}
                         </div>
                       </div>
@@ -803,7 +803,7 @@ export default function Riclassificazione() {
                   <div key={c.conto} style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', borderBottom: '1px solid #f0f2f5' }}>
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ fontWeight: 600, fontSize: 13 }}>{c.etichetta || c.conto}</div>
-                      <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                      <div style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55 }}>
                         {c.categoria ? `${LABEL_CATEGORIA[c.categoria] || c.categoria}` : 'categoria da assegnare'} — €{fmt(c.importo)}
                       </div>
                     </div>

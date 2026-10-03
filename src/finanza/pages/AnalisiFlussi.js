@@ -399,7 +399,7 @@ export default function AnalisiFlussi() {
                   Analisi dei flussi di cassa — {LABEL_TIPO_DOCUMENTO[documento?.tipo_documento] || documento?.tipo_documento} {documento?.anno}
                 </div>
               </div>
-              <div style={{ fontSize: 12, color: '#999' }}>Stampato il {new Date().toLocaleDateString('it-IT')}</div>
+              <div style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55 }}>Stampato il {new Date().toLocaleDateString('it-IT')}</div>
             </div>
             <table className="table" style={{ minWidth: 1200 }}>
               <thead>
@@ -453,7 +453,7 @@ export default function AnalisiFlussi() {
             </table>
 
             {risultato.diagnostica.segmentiNonBilanciati > 0 && (
-              <p className="no-print" style={{ color: '#999', fontSize: 12, marginTop: 10 }}>
+              <p className="no-print" style={{ color: '#5f6b7a', fontSize: 12.5, lineHeight: 1.55, marginTop: 10 }}>
                 {risultato.diagnostica.segmentiNonBilanciati} registrazioni su {risultato.diagnostica.segmenti} (
                 {((risultato.diagnostica.segmentiNonBilanciati / risultato.diagnostica.segmenti) * 100).toFixed(1)}%) non risultano perfettamente bilanciate
                 Dare/Avere: possono generare una piccola quota di movimenti non classificati.
@@ -464,7 +464,7 @@ export default function AnalisiFlussi() {
               <div className={stampaDsoDpo ? '' : 'no-print'}>
                 <TabellaDsoDpo titolo="Tempi medi di incasso (DSO) per cliente" dati={risultato.dsoDpo.dso} />
                 <TabellaDsoDpo titolo="Tempi medi di pagamento (DPO) per fornitore" dati={risultato.dsoDpo.dpo} />
-                <p className="no-print" style={{ color: '#999', fontSize: 12, marginTop: 10 }}>
+                <p className="no-print" style={{ color: '#5f6b7a', fontSize: 12.5, lineHeight: 1.55, marginTop: 10 }}>
                   Le partite aperte a inizio anno (saldo di apertura, senza riferimento alla fattura originale nel Libro Giornale dell'anno in corso) non
                   sono incluse nel calcolo.
                   {risultato.dsoDpo.opzioni?.escludiSottoSoglia &&

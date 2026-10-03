@@ -604,7 +604,7 @@ export default function CE() {
               <button className="btn btn-outline" onClick={salvaComeProvvisorio} disabled={salvandoProvv}>
                 {salvandoProvv ? 'Salvataggio...' : '💾 Salva come Bilancio Provvisorio'}
               </button>
-              <span style={{ fontSize: 12, color: '#9ca3af' }}>Crea un documento "provvisorio" con questo risultato, utilizzabile in Budget, Previsioni e Analisi Bilancio</span>
+              <span style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55 }}>Crea un documento "provvisorio" con questo risultato, utilizzabile in Budget, Previsioni e Analisi Bilancio</span>
               <button className="btn btn-outline" style={{ marginLeft: 'auto' }} onClick={() => window.print()}>
                 🖨️ Stampa / PDF
               </button>
@@ -821,7 +821,7 @@ export default function CE() {
               </tbody>
             </table>
           </div>
-          <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 10 }}>▶ Clicca su una voce per vedere il dettaglio conti per mese</p>
+          <p style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55, marginTop: 10 }}>▶ Clicca su una voce per vedere il dettaglio conti per mese</p>
         </>
       )}
     </div>

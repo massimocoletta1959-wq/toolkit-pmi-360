@@ -66,7 +66,7 @@ export default function ControlliTesoreria({ aziendaId }) {
           <h3 style={{ color: '#1a3a5c', marginTop: 0, fontSize: 14 }}>
             Revisione trimestrale delle ipotesi — {pT} {trimestrale?.completato && '✅'}
           </h3>
-          <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 0 }}>Revisione completa delle ipotesi di base e aggiornamento del forecast (§2.5h). Annota cosa hai rivisto e cosa hai cambiato.</p>
+          <p style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55, marginTop: 0 }}>Revisione completa delle ipotesi di base e aggiornamento del forecast (§2.5h). Annota cosa hai rivisto e cosa hai cambiato.</p>
           <textarea className="form-control" rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note della revisione" />
           <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
             <button className="btn btn-primary btn-sm" onClick={() => salvaTrimestrale(true)}>

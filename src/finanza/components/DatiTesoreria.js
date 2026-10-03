@@ -169,7 +169,7 @@ export default function DatiTesoreria({ aziendaId, onSalvato, etichettaSalva = '
             <input className="form-control" style={{ maxWidth: 200 }} placeholder="DIO in giorni (opzionale)" value={dio} onChange={(e) => setDio(e.target.value)} />
           )}
         </div>
-        <span style={{ fontSize: 11, color: '#9ca3af' }}>
+        <span style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55 }}>
           Serve al Cash Conversion Cycle (DSO + DIO − DPO). Senza magazzino il DIO è 0; se non dichiarato, il CCC è mostrato senza la componente scorte (§2.5e).
         </span>
       </div>
@@ -183,7 +183,7 @@ export default function DatiTesoreria({ aziendaId, onSalvato, etichettaSalva = '
             </label>
           ))}
         </div>
-        <span style={{ fontSize: 11, color: '#9ca3af' }}>
+        <span style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55 }}>
           Serve a verificare se liquidità + linee non utilizzate coprono il fabbisogno nello scenario stressato (§2.5g). Fido di conto: il saldo negativo di conto è già un utilizzo del fido; anticipi e
           factoring: indica l'importo già anticipato.
         </span>
@@ -247,7 +247,7 @@ export default function DatiTesoreria({ aziendaId, onSalvato, etichettaSalva = '
             </label>
           ))}
         </div>
-        <span style={{ fontSize: 11, color: '#9ca3af' }}>
+        <span style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55 }}>
           Le rate escono dal piano di ammortamento (capitale + interessi, §2.5a/§2.5b). Se non dichiarato, la Tesoreria stima le rate ripetendo gli importi storici dello stesso mese e lo segnala.
         </span>
       </div>
@@ -296,7 +296,7 @@ export default function DatiTesoreria({ aziendaId, onSalvato, etichettaSalva = '
           <input className="form-control" style={{ maxWidth: 220 }} placeholder="Incasso dai clienti" value={terminiInc} onChange={(e) => setTerminiInc(e.target.value)} />
           <input className="form-control" style={{ maxWidth: 220 }} placeholder="Pagamento ai fornitori" value={terminiPag} onChange={(e) => setTerminiPag(e.target.value)} />
         </div>
-        <span style={{ fontSize: 11, color: '#9ca3af' }}>Servono al confronto DSO/DPO misurati vs termini contrattuali (§2.5e, §2.5k: scostamento DSO entro 10 giorni). Facoltativi.</span>
+        <span style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55 }}>Servono al confronto DSO/DPO misurati vs termini contrattuali (§2.5e, §2.5k: scostamento DSO entro 10 giorni). Facoltativi.</span>
       </div>
 
       <div className="form-group">
@@ -315,7 +315,7 @@ export default function DatiTesoreria({ aziendaId, onSalvato, etichettaSalva = '
             <input type="date" className="form-control" style={{ maxWidth: 200 }} value={espAl} onChange={(e) => setEspAl(e.target.value)} />
           </div>
         )}
-        <span style={{ fontSize: 11, color: '#9ca3af' }}>Il Past Due a 30 giorni (EBA, CCII art. 3) non si ricava dai dati contabili: lo indichi tu dalla Centrale dei Rischi; l'indicatore segnala se il dato è vecchio.</span>
+        <span style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55 }}>Il Past Due a 30 giorni (EBA, CCII art. 3) non si ricava dai dati contabili: lo indichi tu dalla Centrale dei Rischi; l'indicatore segnala se il dato è vecchio.</span>
       </div>
 
       {errore && <div className="alert alert-error">{errore}</div>}

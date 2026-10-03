@@ -57,7 +57,7 @@ body {
 .nav-item:hover { background: rgba(255,255,255,0.08); color: white; }
 .nav-item.active { background: rgba(255,255,255,0.12); color: white; border-left-color: #7ABFFF; }
 .sidebar-footer { padding: 16px; border-top: 1px solid rgba(255,255,255,0.1); }
-.main-content { margin-left: 240px; flex: 1; padding: 24px; min-height: 100vh; }
+.main-content { margin-left: 240px; flex: 1; min-width: 0; padding: 24px; min-height: 100vh; }
 
 /* Cards */
 .card {

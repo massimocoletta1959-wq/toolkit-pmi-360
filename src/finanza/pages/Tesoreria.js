@@ -633,7 +633,7 @@ export default function Tesoreria() {
                   <div key={k.label} className={`kpi-tile ${k.warn ? 'kpi-orange' : ''}`} style={!k.warn ? { background: '#fff', border: '1px solid #e5e7eb' } : undefined}>
                     <div className="kpi-label">{k.label}</div>
                     <div className="kpi-value">{k.val}</div>
-                    <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>{k.sub}</div>
+                    <div style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55, marginTop: 4 }}>{k.sub}</div>
                     {k.warn && <div style={{ fontSize: 11, color: '#c2410c', marginTop: 2 }}>⚠️ Sopra soglia</div>}
                   </div>
                 ))}
@@ -653,7 +653,7 @@ export default function Tesoreria() {
                       <div key={k.label} className={`kpi-tile ${k.warn ? 'kpi-orange' : ''}`} style={!k.warn ? { background: '#fff', border: '1px solid #e5e7eb' } : undefined}>
                         <div className="kpi-label">{k.label}</div>
                         <div className="kpi-value">{k.val}</div>
-                        <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>{k.sub}</div>
+                        <div style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55, marginTop: 4 }}>{k.sub}</div>
                         {k.warn && <div style={{ fontSize: 11, color: '#c2410c', marginTop: 2 }}>⚠️ Sotto soglia</div>}
                       </div>
                     ))}
@@ -743,14 +743,14 @@ export default function Tesoreria() {
                       <span>{r.ok === null ? 'ℹ️' : r.ok ? '✅' : '⚠️'}</span>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 13, fontWeight: 500 }}>{r.label}</div>
-                        {r.desc && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{r.desc}</div>}
+                        {r.desc && <div style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55, marginTop: 2 }}>{r.desc}</div>}
                       </div>
                       <span className={`badge ${r.ok === null ? '' : r.ok ? 'badge-success' : 'badge-warning'}`}>{r.ok === null ? 'NON VERIFICATO' : r.ok ? 'OK' : 'ATTENZIONE'}</span>
                     </div>
                   ))}
                 </div>
               </div>
-              <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 10 }}>Ultimo aggiornamento: {new Date(kpi.ultimo_aggiornamento).toLocaleString('it-IT')}</p>
+              <p style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55, marginTop: 10 }}>Ultimo aggiornamento: {new Date(kpi.ultimo_aggiornamento).toLocaleString('it-IT')}</p>
             </>
           )}
         </div>
@@ -761,7 +761,7 @@ export default function Tesoreria() {
           <div className="card no-print" style={{ marginBottom: 16 }}>
             <div className="card-body">
               <h3 style={{ color: '#1a3a5c', marginTop: 0, marginBottom: 4 }}>Proiezione da Libro Giornale reale</h3>
-              <p style={{ fontSize: 12, color: '#9ca3af', marginBottom: 16 }}>
+              <p style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55, marginBottom: 16 }}>
                 Parte dal saldo reale dell'ultimo mese chiuso (Analisi dei flussi), colma il primo tratto con le fatture clienti/fornitori realmente ancora
                 aperte (DSO/DPO storico), poi proietta dal budget approvato — IVA scorporata e calendarizzata, personale certo, rate mutuo dallo storico.
                 Oltre dicembre {annoRiferimento}, in attesa del budget {annoRiferimento + 1}, replica lo stesso mese di calendario del budget{' '}
@@ -804,7 +804,7 @@ export default function Tesoreria() {
               <div className="form-group" style={{ marginTop: 12, maxWidth: 200 }}>
                 <label className="form-label">Buffer minimo (%)</label>
                 <input type="number" className="form-control" min={5} max={50} value={bufferPct} onChange={(e) => setBufferPct(Number(e.target.value))} />
-                <span style={{ fontSize: 11, color: '#9ca3af' }}>PMI manifatturiere: 15% · Servizi: 10%</span>
+                <span style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55 }}>PMI manifatturiere: 15% · Servizi: 10%</span>
               </div>
               <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={avviaGenerazione} disabled={!aziendaId || !meseChiusura || generandoReale}>
                 {generandoReale ? 'Genero...' : 'Genera proiezione'}
@@ -827,7 +827,7 @@ export default function Tesoreria() {
                   <div className="kpi-tile" style={{ background: '#fff', border: '1px solid #e5e7eb' }}>
                     <div className="kpi-label">Cassa disponibile</div>
                     <div className="kpi-value">{fmtSaldo(piano.ancora.saldo_reale_iniziale)}</div>
-                    <div style={{ fontSize: 11, color: '#9ca3af' }}>saldo reale a fine {MESI_NOMI[piano.ancora.ultimo_mese_reale - 1]} {piano.ancora.anno}</div>
+                    <div style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55 }}>saldo reale a fine {MESI_NOMI[piano.ancora.ultimo_mese_reale - 1]} {piano.ancora.anno}</div>
                   </div>
                   {[0, 1, 2].map((i) => {
                     const m = piano.mesi[i]
@@ -835,7 +835,7 @@ export default function Tesoreria() {
                       <div key={i} className="kpi-tile" style={{ background: '#fff', border: `1px solid ${semaforoColore(m.semaforo_base)}` }}>
                         <div className="kpi-label">Saldo previsto ~{(i + 1) * 30} gg</div>
                         <div className="kpi-value">{fmtSaldo(m.saldo_base)}</div>
-                        <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                        <div style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55 }}>
                           {semaforoEmoji(m.semaforo_base)} fine {MESI_NOMI[m.mese - 1]} {m.anno}
                         </div>
                       </div>
@@ -851,7 +851,7 @@ export default function Tesoreria() {
                   )}
                 </div>
                 {(piano.partite_aperte_lista || []).length === 0 ? (
-                  <div style={{ fontSize: 12, color: '#9ca3af' }}>{piano.partite_aperte_lista ? 'Nessuna partita aperta a fine mese chiuso.' : 'Rigenera la proiezione per vedere le partite aperte.'}</div>
+                  <div style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55 }}>{piano.partite_aperte_lista ? 'Nessuna partita aperta a fine mese chiuso.' : 'Rigenera la proiezione per vedere le partite aperte.'}</div>
                 ) : (
                   <div style={{ maxHeight: 360, overflowY: 'auto' }}>
                     <table className="table" style={{ fontSize: 12 }}>
@@ -890,7 +890,7 @@ export default function Tesoreria() {
                     </table>
                   </div>
                 )}
-                <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 6 }}>
+                <div style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55, marginTop: 6 }}>
                   Saldo a 30/60/90 giorni approssimato con la fine dei primi tre mesi della proiezione. Importi al 100%, non pesati per probabilità; ⚠️ = oltre 50.000 € (soglia di esempio del documento). Le partite
                   escluse (es. un credito in contenzioso, un debito rinegoziato) non entrano nel calcolo del cash flow, nella vista a 13 settimane né negli stress test, e restano escluse anche nelle proiezioni
                   successive finché non le riammetti.
@@ -917,7 +917,7 @@ export default function Tesoreria() {
                 <div className="kpi-tile kpi-blue">
                   <div className="kpi-label">Saldo di ancoraggio (reale)</div>
                   <div className="kpi-value">{fmtSaldo(piano.ancora.saldo_reale_iniziale)}</div>
-                  <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+                  <div style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55, marginTop: 4 }}>
                     fine {MESI_NOMI[piano.ancora.ultimo_mese_reale - 1]} {piano.ancora.anno}
                   </div>
                 </div>
@@ -1022,7 +1022,7 @@ export default function Tesoreria() {
                   </tbody>
                 </table>
               </div>
-              <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 10 }}>
+              <p style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55, marginTop: 10 }}>
                 Mesi reali (sfondo grigio) dal Libro Giornale — definitivi. Mesi di proiezione: partite aperte a fine chiusura ({piano.partite_aperte.n_crediti}{' '}
                 crediti per {fmtEur(piano.partite_aperte.crediti)}, {piano.partite_aperte.n_debiti} debiti per {fmtEur(piano.partite_aperte.debiti)},
                 scadenzati con il DSO/DPO storico reale) + budget {annoRiferimento} (IVA scorporata e calendarizzata, personale certo, rate mutuo da
@@ -1057,7 +1057,7 @@ export default function Tesoreria() {
                         <span>{semaforoEmoji(st.semaforo)}</span>
                         <span style={{ fontWeight: 700, fontSize: 13 }}>{st.scenario_nome}</span>
                       </div>
-                      <p style={{ fontSize: 12, color: '#9ca3af', marginBottom: 10 }}>{st.descrizione}</p>
+                      <p style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55, marginBottom: 10 }}>{st.descrizione}</p>
                       <div style={{ display: 'flex', gap: 20, fontSize: 12 }}>
                         <div>
                           <div style={{ color: '#9ca3af' }}>Saldo minimo</div>
@@ -1078,7 +1078,7 @@ export default function Tesoreria() {
                           </div>
                         )}
                       </div>
-                      <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 10, paddingTop: 8, borderTop: '1px solid #f0f2f5' }}>{st.messaggio}</p>
+                      <p style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55, marginTop: 10, paddingTop: 8, borderTop: '1px solid #f0f2f5' }}>{st.messaggio}</p>
                     </div>
                   </div>
                 ))}
@@ -1087,7 +1087,7 @@ export default function Tesoreria() {
               <div className="card" style={{ marginBottom: 16 }}>
                 <div className="card-body">
                   <h3 style={{ color: '#1a3a5c', marginTop: 0, fontSize: 14 }}>Priorità di pagamento in crisi (CNDCEC §2.4, §2.5i)</h3>
-                  <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 0 }}>Ordine rigido da stabilire in condizioni di normalità, non nel momento del bisogno. Le voci essenziali non sono mai dilazionabili.</p>
+                  <p style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55, marginTop: 0 }}>Ordine rigido da stabilire in condizioni di normalità, non nel momento del bisogno. Le voci essenziali non sono mai dilazionabili.</p>
                   <ol style={{ fontSize: 13, color: '#374151', margin: 0, paddingLeft: 20 }}>
                     <li>Stipendi e contributi (imprescindibili)</li>
                     <li>Tasse e imposte</li>
@@ -1128,7 +1128,7 @@ export default function Tesoreria() {
           <div className="card" style={{ marginBottom: 16 }}>
             <div className="card-body">
               <h3 style={{ color: '#1a3a5c', marginTop: 0, marginBottom: 4 }}>Aggiorna Rolling Forecast</h3>
-              <p style={{ fontSize: 12, color: '#9ca3af', marginBottom: 16 }}>
+              <p style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55, marginBottom: 16 }}>
                 Rilegge l'Analisi dei flussi (nel caso sia stato elaborato un mese più recente), misura automaticamente l'errore del primo mese
                 dell'ultima proiezione contro il dato reale ora eventualmente disponibile, poi rigenera la proiezione ancorata alla nuova chiusura
                 (CNDCEC §3.2).

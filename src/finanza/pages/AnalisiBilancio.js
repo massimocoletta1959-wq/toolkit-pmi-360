@@ -374,7 +374,7 @@ export default function AnalisiBilancio() {
                 <button className="btn btn-primary" onClick={generaNarrativa} disabled={generando}>
                   {generando ? 'Generando (può richiedere qualche secondo)...' : narrativa ? '🔄 Rigenera narrativa AI' : '🤖 Genera narrativa AI'}
                 </button>
-                {narrativaSalvataIl && <span style={{ fontSize: 12, color: '#9ca3af' }}>Salvata il {new Date(narrativaSalvataIl).toLocaleString('it-IT')}</span>}
+                {narrativaSalvataIl && <span style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55 }}>Salvata il {new Date(narrativaSalvataIl).toLocaleString('it-IT')}</span>}
                 {narrativa && (
                   <button className="btn btn-outline btn-sm" style={{ marginLeft: 'auto' }} onClick={() => window.print()}>
                     🖨️ Stampa / PDF
@@ -388,7 +388,7 @@ export default function AnalisiBilancio() {
                     <div style={{ fontSize: 28 }}>✨</div>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 600, color: '#185fa5' }}>{progressoMsg}</div>
-                      <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>Generazione report AI — circa 20-30 secondi</div>
+                      <div style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55, marginTop: 2 }}>Generazione report AI — circa 20-30 secondi</div>
                     </div>
                     <div style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 600, color: '#185fa5' }}>{progressoPct}%</div>
                   </div>

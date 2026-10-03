@@ -85,7 +85,7 @@ export default function Investimenti({ aziendaId }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <div>
               <h3 style={{ color: '#1a3a5c', margin: 0, fontSize: 14 }}>Investimenti pianificati (CNDCEC §2.5f)</h3>
-              <p style={{ fontSize: 12, color: '#9ca3af', margin: '4px 0 0' }}>
+              <p style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55, margin: '4px 0 0' }}>
                 Entrano nel piano di cassa alla prossima generazione della proiezione. Non inserire qui un investimento già presente tra i costi del budget: verrebbe contato due volte.
               </p>
             </div>
@@ -147,7 +147,7 @@ export default function Investimenti({ aziendaId }) {
               <div className="form-group">
                 <label className="form-label">Tasso di attualizzazione (%)</label>
                 <input className="form-control" value={form.tasso_attualizzazione_pct} onChange={(e) => setForm({ ...form, tasso_attualizzazione_pct: e.target.value })} />
-                <span style={{ fontSize: 10, color: '#9ca3af' }}>Il valore preimpostato (5%) è modificabile: scegli quello adatto all'azienda.</span>
+                <span style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55 }}>Il valore preimpostato (5%) è modificabile: scegli quello adatto all'azienda.</span>
               </div>
             </div>
             {riquadroPayback(anteprima)}
