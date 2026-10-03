@@ -27,17 +27,22 @@ async function calcolaScostamento(aziendaId, anno, mese) {
   const { data: budget } = await supabase.from('budget').select('*').eq('azienda_id', aziendaId).eq('anno', anno).eq('stato', 'approvato').maybeSingle()
   if (!budget) throw new Error('Nessun budget approvato trovato per questo anno.')
 
-  const { data: docReale } = await supabase
+  // Provvisori dell'anno (cumulativi da gennaio a fine mese): per il mese scelto si
+  // usa il piu' recente; se non ce n'e' si indicano i mesi disponibili.
+  const { data: provvisori } = await supabase
     .from('documenti')
     .select('*')
     .eq('azienda_id', aziendaId)
     .eq('anno', anno)
     .eq('tipo_documento', 'provvisorio')
     .eq('stato', 'elaborato')
-    .eq('mese_fine', mese)
-    .maybeSingle()
-  if (!docReale || !docReale.dati_estratti) {
-    throw new Error(`Nessun provvisorio elaborato trovato per il mese selezionato.`)
+    .order('caricato_il', { ascending: false })
+  const docReale = (provvisori || []).find((d) => Number(d.mese_fine) === Number(mese) && d.dati_estratti)
+  if (!docReale) {
+    const disponibili = [...new Set((provvisori || []).filter((d) => d.mese_fine && d.dati_estratti).map((d) => Number(d.mese_fine)))].sort((a, b) => a - b)
+    throw new Error(disponibili.length
+      ? `Nessun provvisorio a fine ${MESI[mese - 1].toLowerCase()} ${anno}. Il provvisorio è cumulativo da gennaio a fine mese: per questo confronto serve un provvisorio chiuso a ${MESI[mese - 1].toLowerCase()}. Provvisori disponibili: ${disponibili.map((m) => MESI[m - 1].toLowerCase()).join(', ')}.`
+      : `Nessun provvisorio elaborato per il ${anno}: crealo da Bilancio riclassificato ("Crea provvisorio") o caricalo in Documenti contabili.`)
   }
   const datiReali = JSON.parse(docReale.dati_estratti)
 
@@ -232,6 +237,14 @@ export default function Scostamento() {
   const aziendaId = aziendaAttiva?.id || ''
   const [anno, setAnno] = useState('2026')
   const [mese, setMese] = useState(1)
+  // si parte dall'ultimo mese per cui esiste un provvisorio
+  useEffect(() => {
+    if (!aziendaId || !anno) return
+    supabase.from('documenti').select('mese_fine').eq('azienda_id', aziendaId).eq('anno', anno)
+      .eq('tipo_documento', 'provvisorio').eq('stato', 'elaborato').not('mese_fine', 'is', null)
+      .order('mese_fine', { ascending: false }).limit(1)
+      .then(({ data }) => { if (data && data[0]) setMese(Number(data[0].mese_fine)) })
+  }, [aziendaId, anno])
   const [budgets, setBudgets] = useState([])
   const [voci, setVoci] = useState([])
   const [riepilogo, setRiepilogo] = useState(null)
