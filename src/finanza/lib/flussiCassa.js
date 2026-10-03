@@ -40,7 +40,19 @@ export function individuaGruppiBancaCassa(mappatureConti) {
   return new Set(mappatureConti.filter((m) => ['ATT_C_IV_1', 'ATT_C_IV_2', 'ATT_C_IV_3'].includes(m.codice_cee)).map((m) => m.conto_origine))
 }
 
-export function calcolaFlussiCassa(movimenti, { mappatureContiAzienda, mappatureContiGlobali, mappatureFlussi }) {
+// Registrazione di apertura dei conti fatta in corso d'anno (es. bilancio di
+// apertura del 2025 registrato il 01/05/2026): riconosciuta dal conto (es.
+// 55/05/005 "BILANCIO DI APERTURA") o dalla causale. Non e' un flusso di cassa.
+// NON basta il gruppo 55: contiene anche conti tecnici diversi (es. 55/05/200
+// "CONTO TRANSITORIO", usato per normali fatture e pagamenti).
+const RE_CAUSALE_APERTURA = /BILANCIO DI APERTURA|RIAPERTURA|APERTURA CONTI/i
+const eRegistrazioneApertura = (segmento) =>
+  segmento.some((r) => RE_CAUSALE_APERTURA.test(r.chiave || '') || RE_CAUSALE_APERTURA.test(r.descrizione || ''))
+
+// saldoInizialeEsterno: { importo, fonte: 'anno_precedente' | 'manuale', riferimento? }.
+// Se presente prevale sull'apertura del giornale (il saldo di chiusura dell'anno
+// precedente e' il dato affidabile); l'apertura del giornale resta come controllo.
+export function calcolaFlussiCassa(movimenti, { mappatureContiAzienda, mappatureContiGlobali, mappatureFlussi, saldoInizialeEsterno = null }) {
   const gruppiBancaCassa = individuaGruppiBancaCassa([...mappatureContiAzienda, ...mappatureContiGlobali])
 
   const contiEsclusi = new Set(mappatureFlussi.filter((m) => m.escludi_da_banca_cassa).map((m) => m.conto_origine))
@@ -73,11 +85,11 @@ export function calcolaFlussiCassa(movimenti, { mappatureContiAzienda, mappature
 
   // saldo di apertura sui conti banca/cassa: punto di partenza per ricavare le
   // disponibilita' liquide di fine mese dal flusso di cassa cumulato
-  let saldoIniziale = 0
+  let aperturaGiornale = 0
+  let righeAperturaBanca = 0
   for (const m of movimenti) {
-    if (m.eApertura && isBancaCassa(m.conto)) saldoIniziale += m.segno * m.importo
+    if (m.eApertura && isBancaCassa(m.conto)) { aperturaGiornale += m.segno * m.importo; righeAperturaBanca++ }
   }
-  saldoIniziale = round2(saldoIniziale)
 
   // "Segmenti" Dare=Avere bilanciati: si seguono le righe nell'ordine del Libro
   // Giornale e si chiude un segmento sulla riga marcata "*" nella colonna
@@ -104,10 +116,39 @@ export function calcolaFlussiCassa(movimenti, { mappatureContiAzienda, mappature
   }
   if (corrente.length) segmenti.push(corrente)
 
+  // aperture registrate come movimenti (anche in corso d'anno): concorrono al saldo
+  // di apertura del giornale e NON ai flussi del periodo
+  let registrazioniApertura = 0
+  const segmentiFlussi = []
+  for (const seg of segmenti) {
+    if (eRegistrazioneApertura(seg)) {
+      registrazioniApertura++
+      for (const r of seg) if (isBancaCassa(r.conto)) { aperturaGiornale += r.segno * r.importo; righeAperturaBanca++ }
+    } else segmentiFlussi.push(seg)
+  }
+  aperturaGiornale = round2(aperturaGiornale)
+  const aperturaPresente = righeAperturaBanca > 0
+
+  let fonteSaldoIniziale, saldoIniziale
+  if (saldoInizialeEsterno && saldoInizialeEsterno.importo != null && !isNaN(saldoInizialeEsterno.importo)) {
+    saldoIniziale = round2(Number(saldoInizialeEsterno.importo))
+    fonteSaldoIniziale = saldoInizialeEsterno.fonte || 'manuale'
+  } else if (aperturaPresente) {
+    saldoIniziale = aperturaGiornale
+    fonteSaldoIniziale = 'apertura_giornale'
+  } else {
+    saldoIniziale = 0
+    fonteSaldoIniziale = 'mancante'
+  }
+  const ultimaData = movimenti.reduce((max, m) => {
+    const [g, me, a] = (m.data || '').split('/'); const iso = a && `${a}-${me}-${g}`
+    return iso && iso > max ? iso : max
+  }, '')
+
   let segmentiNonBilanciati = 0
   const flussi = [] // { mese, categoria, importo, direzione }
 
-  for (const segmento of segmenti) {
+  for (const segmento of segmentiFlussi) {
     const somma = round2(segmento.reduce((s, r) => s + r.segno * r.importo, 0))
     if (Math.abs(somma) > 0.02) segmentiNonBilanciati++
 
@@ -190,6 +231,15 @@ export function calcolaFlussiCassa(movimenti, { mappatureContiAzienda, mappature
     saldoMese,
     flussoCassaCumulato,
     saldoFinePeriodo,
-    diagnostica: { segmenti: segmenti.length, segmentiNonBilanciati },
+    diagnostica: {
+      segmenti: segmenti.length, segmentiNonBilanciati, ultimaData,
+      saldoIniziale: {
+        fonte: fonteSaldoIniziale,                       // anno_precedente | manuale | apertura_giornale | mancante
+        riferimento: saldoInizialeEsterno?.riferimento || null,
+        aperturaGiornale: aperturaPresente ? aperturaGiornale : null,
+        registrazioniApertura,                           // aperture registrate come movimenti (escluse dai flussi)
+        differenzaApertura: aperturaPresente && fonteSaldoIniziale !== 'apertura_giornale' ? round2(saldoIniziale - aperturaGiornale) : null,
+      },
+    },
   }
 }

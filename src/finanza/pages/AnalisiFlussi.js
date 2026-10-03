@@ -152,6 +152,38 @@ function TabellaCategorie({ titolo, perCategoria }) {
   )
 }
 
+// Da dove viene il saldo iniziale di banche e cassa, con i controlli del caso
+function SaldoIniziale({ risultato, saldoManuale, setSaldoManuale, onRicalcola, calcolando }) {
+  const si = risultato.diagnostica?.saldoIniziale
+  if (!si) return null
+  const box = (bg, col, children) => (
+    <div className="no-print" style={{ background: bg, color: col, borderRadius: 8, padding: '10px 14px', marginTop: 12, fontSize: 13, lineHeight: 1.55 }}>{children}</div>
+  )
+  const descr = {
+    anno_precedente: <>Saldo iniziale di banche e cassa <strong>{fmt(risultato.saldoIniziale)} €</strong> ricavato dal giornale dell'anno precedente: {si.riferimento}.</>,
+    manuale: <>Saldo iniziale di banche e cassa <strong>{fmt(risultato.saldoIniziale)} €</strong> inserito a mano.</>,
+    apertura_giornale: <>Saldo iniziale di banche e cassa <strong>{fmt(risultato.saldoIniziale)} €</strong> dall'apertura dei conti registrata nel giornale.</>,
+  }
+  return (
+    <>
+      {si.fonte !== 'mancante' && box('#F3F6FA', '#3b4a5a', descr[si.fonte])}
+      {si.registrazioniApertura > 0 && box('#F3F6FA', '#3b4a5a',
+        <>{si.registrazioniApertura} registrazion{si.registrazioniApertura === 1 ? 'e' : 'i'} di apertura dei conti fatt{si.registrazioniApertura === 1 ? 'a' : 'e'} in corso d'anno: esclus{si.registrazioniApertura === 1 ? 'a' : 'e'} dai flussi (non sono incassi o pagamenti).</>)}
+      {si.differenzaApertura != null && Math.abs(si.differenzaApertura) > 1 && box('#FEF5E7', '#8a5a00',
+        <>⚠️ L'apertura registrata nel giornale ({fmt(si.aperturaGiornale)} €) non coincide con il saldo di partenza usato ({fmt(risultato.saldoIniziale)} €): differenza {fmt(si.differenzaApertura)} €. Verifica la chiusura dell'anno precedente.</>)}
+      {(si.fonte === 'mancante' || si.fonte === 'manuale') && box(si.fonte === 'mancante' ? '#FDEDEC' : '#F3F6FA', si.fonte === 'mancante' ? '#922B21' : '#3b4a5a',
+        <>
+          {si.fonte === 'mancante' && <div>⚠️ <strong>Saldo iniziale di banche e cassa non disponibile</strong>: il giornale non contiene l'apertura dei conti e non è caricato il giornale dell'anno precedente. I saldi qui sopra partono da zero.</div>}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' }}>
+            <span>Saldo banche e cassa al 1° gennaio (da estratti conto o bilancio):</span>
+            <input className="form-control" style={{ maxWidth: 160 }} type="number" step="0.01" value={saldoManuale} onChange={(e) => setSaldoManuale(e.target.value)} />
+            <button className="btn btn-sm btn-primary" disabled={calcolando || saldoManuale === ''} onClick={onRicalcola}>Ricalcola</button>
+          </div>
+        </>)}
+    </>
+  )
+}
+
 export default function AnalisiFlussi() {
   const [aziende, setAziende] = useState([])
   // Pmi 360°: l'azienda è quella attiva dell'app (niente selettore nella pagina)
@@ -169,6 +201,9 @@ export default function AnalisiFlussi() {
   const [escludiSottoSoglia, setEscludiSottoSoglia] = useState(false)
   const [sogliaGiorni, setSogliaGiorni] = useState(2)
   const [stampaDsoDpo, setStampaDsoDpo] = useState(true)
+  // saldo iniziale banche/cassa inserito a mano (solo se manca sia il giornale
+  // dell'anno precedente sia l'apertura nel giornale corrente)
+  const [saldoManuale, setSaldoManuale] = useState('')
 
   useEffect(() => {
     supabase
@@ -213,6 +248,7 @@ export default function AnalisiFlussi() {
         if (data) {
           setRisultato(data.dati)
           setSalvatoIl(data.creata_il)
+          setSaldoManuale(data.dati.diagnostica?.saldoIniziale?.fonte === 'manuale' ? String(data.dati.saldoIniziale) : '')
           if (data.dati.dsoDpo?.opzioni) {
             setEscludiSottoSoglia(data.dati.dsoDpo.opzioni.escludiSottoSoglia)
             setSogliaGiorni(data.dati.dsoDpo.opzioni.sogliaGiorni)
@@ -221,6 +257,21 @@ export default function AnalisiFlussi() {
         setCaricandoSalvato(false)
       })
   }, [documentoId])
+
+  // Saldo banche/cassa a fine anno di un giornale: dall'analisi gia' salvata se
+  // recente (ha la data dell'ultimo movimento), altrimenti rileggendo il giornale.
+  const saldoChiusuraAnno = async (doc, mappature) => {
+    const { data: salvata } = await supabase.from('analisi_flussi').select('dati').eq('documento_id', doc.id).maybeSingle()
+    if (salvata?.dati?.diagnostica?.ultimaData) {
+      return { importo: salvata.dati.saldoFinePeriodo[12], ultimaData: salvata.dati.diagnostica.ultimaData }
+    }
+    const { data: blob, error } = await supabase.storage.from('documenti').download(doc.percorso)
+    if (error) return null
+    const righe = await estraiRigheLibroGiornale(new File([blob], doc.nome_file), (pagina, totale) =>
+      setProgresso(`Leggo il giornale ${doc.anno}: pagina ${pagina} di ${totale}...`))
+    const r = calcolaFlussiCassa(estraiMovimenti(righe), mappature)
+    return { importo: r.saldoFinePeriodo[12], ultimaData: r.diagnostica.ultimaData }
+  }
 
   const calcola = async () => {
     if (!documentoId) return
@@ -245,7 +296,26 @@ export default function AnalisiFlussi() {
         supabase.from('mappature_flussi_conti').select('*').eq('azienda_id', aziendaId),
       ])
 
-      const res = calcolaFlussiCassa(movimenti, { mappatureContiAzienda, mappatureContiGlobali, mappatureFlussi: mappatureFlussi || [] })
+      const mappature = { mappatureContiAzienda, mappatureContiGlobali, mappatureFlussi: mappatureFlussi || [] }
+
+      // Saldo iniziale banche/cassa: prima il saldo al 31/12 del giornale
+      // dell'anno precedente (dato affidabile, e copre il caso in cui l'apertura
+      // dei conti viene registrata in corso d'anno), poi l'eventuale saldo inserito
+      // a mano; altrimenti l'apertura presente nel giornale corrente.
+      let saldoInizialeEsterno = null
+      const precedente = documenti.find((d) => Number(d.anno) === Number(doc.anno) - 1)
+      if (precedente) {
+        setProgresso(`Ricavo il saldo di cassa al 31/12/${precedente.anno} dal giornale ${precedente.anno}...`)
+        const chiusura = await saldoChiusuraAnno(precedente, mappature)
+        if (chiusura && chiusura.ultimaData >= `${precedente.anno}-12-01`) {
+          saldoInizialeEsterno = { importo: chiusura.importo, fonte: 'anno_precedente', riferimento: `${precedente.nome_file} (saldo banche/cassa al 31/12/${precedente.anno})` }
+        }
+      }
+      if (!saldoInizialeEsterno && saldoManuale !== '' && !isNaN(Number(String(saldoManuale).replace(',', '.')))) {
+        saldoInizialeEsterno = { importo: Number(String(saldoManuale).replace(',', '.')), fonte: 'manuale' }
+      }
+      setProgresso('Classifico i movimenti...')
+      const res = calcolaFlussiCassa(movimenti, { ...mappature, saldoInizialeEsterno })
       const dsoDpo = calcolaDsoDpo(movimenti, { escludiSottoSoglia, sogliaGiorni })
       const pacchetto = { ...res, dsoDpo }
       setRisultato(pacchetto)
@@ -451,6 +521,8 @@ export default function AnalisiFlussi() {
                 </tr>
               </tbody>
             </table>
+
+            <SaldoIniziale risultato={risultato} saldoManuale={saldoManuale} setSaldoManuale={setSaldoManuale} onRicalcola={calcola} calcolando={calcolando} />
 
             {risultato.diagnostica.segmentiNonBilanciati > 0 && (
               <p className="no-print" style={{ color: '#5f6b7a', fontSize: 12.5, lineHeight: 1.55, marginTop: 10 }}>

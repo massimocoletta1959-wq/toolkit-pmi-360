@@ -46,4 +46,29 @@ describe('calcolaFlussiCassa', () => {
     expect(r.entrate['Giroconto tra conti propri'][1]).toBeCloseTo(5000, 2)
     expect(r.uscite['Giroconto tra conti propri'][1]).toBeCloseTo(5000, 2)
   })
+
+  test("apertura dei conti registrata in corso d'anno: esclusa dai flussi", () => {
+    // bilancio di apertura del 2025 registrato a maggio contro il conto tecnico 55
+    const ap = { ...mov('24/05/001/G', 1, 30000), data: '01/05/2026', mese: 5 }
+    const ap55 = { ...mov('55/05/005/G', -1, 30000, true), data: '01/05/2026', mese: 5, descrizione: 'BILANCIO DI APERTURA' }
+    const m = [mov('52/05/055/G', 1, 1000), mov('24/05/001/G', -1, 1000, true), ap, ap55]
+    const r = calcolaFlussiCassa(m, { ...mappature, saldoInizialeEsterno: { importo: 30000, fonte: 'anno_precedente' } })
+    expect(r.totaleEntrate[5]).toBeCloseTo(0, 2)              // l'apertura non e' un incasso
+    expect(r.saldoFinePeriodo[12]).toBeCloseTo(29000, 2)      // 30.000 dall'anno precedente - 1.000 pagati
+    expect(r.diagnostica.saldoIniziale.fonte).toBe('anno_precedente')
+    expect(r.diagnostica.saldoIniziale.registrazioniApertura).toBe(1)
+    expect(r.diagnostica.saldoIniziale.differenzaApertura).toBeCloseTo(0, 2)
+  })
+
+  test('senza apertura ne anno precedente il saldo iniziale e segnalato come mancante', () => {
+    const r = calcolaFlussiCassa([mov('52/05/055/G', 1, 1000), mov('24/05/001/G', -1, 1000, true)], mappature)
+    expect(r.diagnostica.saldoIniziale.fonte).toBe('mancante')
+  })
+
+  test('conto transitorio del gruppo 55: non e un apertura, il flusso resta', () => {
+    const m = [{ ...mov('55/05/200/G', 1, 800), descrizione: 'CONTO TRANSITORIO' }, mov('24/05/001/G', -1, 800, true)]
+    const r = calcolaFlussiCassa(m, mappature)
+    expect(r.totaleUscite[1]).toBeCloseTo(800, 2)
+    expect(r.diagnostica.saldoIniziale.registrazioniApertura).toBe(0)
+  })
 })
