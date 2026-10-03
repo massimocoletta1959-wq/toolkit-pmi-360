@@ -114,35 +114,46 @@ export function calcolaFlussiCassa(movimenti, { mappatureContiAzienda, mappature
     const legsBanca = segmento.filter((r) => isBancaCassa(r.conto))
     if (!legsBanca.length) continue
 
+    // Invariante: la somma dei flussi di un segmento e' uguale al movimento
+    // netto dei conti banca/cassa del segmento (ogni riga conta una sola volta).
+    const usate = new Set()
+
+    // 1) abbinamenti 1:1 per importo identico e segno opposto (ogni riga usata
+    //    una volta sola); due conti banca/cassa abbinati = giroconto tra conti propri
     for (const bancaLeg of legsBanca) {
+      if (usate.has(bancaLeg)) continue
+      const c = segmento.find((r) => r !== bancaLeg && !usate.has(r) && r.segno === -bancaLeg.segno && Math.abs(r.importo - bancaLeg.importo) < 0.01)
+      if (!c) continue
+      usate.add(bancaLeg); usate.add(c)
       const direzioneBanca = bancaLeg.segno > 0 ? 'entrata' : 'uscita'
-      const candidati = segmento.filter((r) => r !== bancaLeg && r.segno === -bancaLeg.segno && Math.abs(r.importo - bancaLeg.importo) < 0.01)
+      if (isBancaCassa(c.conto)) {
+        flussi.push({ mese: bancaLeg.mese, categoria: 'Giroconto tra conti propri', importo: bancaLeg.importo, direzione: direzioneBanca })
+        flussi.push({ mese: c.mese, categoria: 'Giroconto tra conti propri', importo: c.importo, direzione: c.segno > 0 ? 'entrata' : 'uscita' })
+      } else {
+        flussi.push({ mese: bancaLeg.mese, categoria: classifica(c.conto), importo: bancaLeg.importo, direzione: direzioneBanca })
+      }
+    }
 
-      if (candidati.length > 0) {
-        const c = candidati[0]
-        const categoria = isBancaCassa(c.conto) ? 'Giroconto tra conti propri' : classifica(c.conto)
-        flussi.push({ mese: bancaLeg.mese, categoria, importo: bancaLeg.importo, direzione: direzioneBanca })
-        continue
-      }
-
-      // nessuna contropartita di importo identico: registrazione composita
-      // (es. F24 con piu' tributi) — attribuisce a ciascuna voce non bancaria
-      // il proprio contributo, nella STESSA direzione del movimento bancario
-      // (direzioneBanca), con segno positivo se la voce concorre normalmente al
-      // movimento e negativo se ha polarita' anomala e ne riduce il netto (es.
-      // un credito d'imposta usato in compensazione dentro un F24 riduce
-      // l'uscita netta invece di essere una entrata separata). La somma dei
-      // contributi torna sempre a bancaLeg.importo.
-      const nonBanca = segmento.filter((r) => !isBancaCassa(r.conto))
-      if (!nonBanca.length) {
-        flussi.push({ mese: bancaLeg.mese, categoria: 'Non classificato (contropartita non trovata)', importo: bancaLeg.importo, direzione: direzioneBanca })
-        continue
-      }
-      for (const leg of nonBanca) {
-        const contributo = round2(-leg.segno * bancaLeg.segno * leg.importo)
-        if (Math.abs(contributo) < 0.005) continue
-        flussi.push({ mese: bancaLeg.mese, categoria: classifica(leg.conto), importo: contributo, direzione: direzioneBanca })
-      }
+    // 2) parte composita (es. F24 con piu' tributi, stipendi cumulativi): il NETTO
+    //    dei movimenti bancari rimasti viene ripartito UNA volta sola tra le voci
+    //    non bancarie rimaste, nella direzione del netto; una voce con polarita'
+    //    anomala (es. credito d'imposta compensato nell'F24) ne riduce il netto.
+    const bancaResto = legsBanca.filter((r) => !usate.has(r))
+    if (!bancaResto.length) continue
+    const netto = round2(bancaResto.reduce((s, r) => s + r.segno * r.importo, 0))
+    if (Math.abs(netto) < 0.005) continue
+    const segnoNetto = netto > 0 ? 1 : -1
+    const direzione = segnoNetto > 0 ? 'entrata' : 'uscita'
+    const mese = bancaResto[0].mese
+    const nonBancaResto = segmento.filter((r) => !usate.has(r) && !isBancaCassa(r.conto))
+    if (!nonBancaResto.length) {
+      flussi.push({ mese, categoria: 'Non classificato (contropartita non trovata)', importo: Math.abs(netto), direzione })
+      continue
+    }
+    for (const leg of nonBancaResto) {
+      const contributo = round2(-leg.segno * segnoNetto * leg.importo)
+      if (Math.abs(contributo) < 0.005) continue
+      flussi.push({ mese, categoria: classifica(leg.conto), importo: contributo, direzione })
     }
   }
 
