@@ -25,9 +25,10 @@ insert into mappa_aziende
 select e.id, e.id, true from easypmi_import.aziende e
  where e.id <> 'cbb2308b-c7b5-4dfa-9242-581cadff564b' and e.id not in (select easy_id from mappa_aziende);
 
--- Le nuove aziende: gestite dal proprietario (massimo@studiocoletta.com), solo modulo Finanza
+-- Le nuove aziende: gestite dal proprietario (massimo@studiocoletta.com). Sull'azienda è
+-- attivo solo Finanza; il collegamento consente tutti i moduli (si accendono da Impostazioni)
 insert into public.utente_aziende (utente_id, azienda_id, ruolo, mod_rischi, mod_procedure, mod_governance, mod_finanza)
-select 'ca4da08f-0c68-4212-b3e2-44fc4c2796a4', pmi_id, 'owner', false, false, false, true
+select 'ca4da08f-0c68-4212-b3e2-44fc4c2796a4', pmi_id, 'owner', true, true, true, true
   from mappa_aziende where nuova;
 
 -- Aziende comuni: Finanza attivo sull'azienda; tra i collegamenti esistenti resta
