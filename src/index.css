@@ -219,3 +219,14 @@ tbody td { padding: 10px 12px; vertical-align: middle; }
   display: inline-flex; align-items: center; justify-content: center;
   width: 28px; height: 28px; border-radius: 50%; font-weight: 700; font-size: 13px;
 }
+
+/* ── Stampa: solo il contenuto della pagina, senza menu laterale ── */
+@media print {
+  body { background: #fff !important; }
+  .sidebar, .no-print { display: none !important; }
+  .main-content { margin-left: 0 !important; padding: 0 !important; min-height: 0 !important; }
+  .app-layout { display: block !important; min-height: 0 !important; }
+  .card { box-shadow: none !important; break-inside: avoid; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+}
