@@ -1,0 +1,113 @@
+/* ============================================================
+   Stile del modulo "Finanza e Controllo" (da EasyPMI src/index.css),
+   isolato sotto .mod-finanza per non interferire con il resto di Pmi 360°.
+   Generato automaticamente: regole globali (*, body) e stili di login,
+   intestazione e barra laterale di EasyPMI esclusi.
+   ============================================================ */
+/* intestazioni di tabella: dentro il modulo valgono quelle di EasyPMI,
+   non la fascia blu scura globale di Pmi 360° */
+.mod-finanza thead tr { background: transparent; }
+.mod-finanza thead th { color: #374151; }
+.mod-finanza { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f4f6f9; color: #1a1a1a; }
+.mod-finanza .form-group { margin-bottom: 16px; }
+.mod-finanza .form-label { display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; }
+.mod-finanza .form-control { width: 100%; padding: 10px 12px; border: 1px solid #d8dde3; border-radius: 8px; font-size: 14px; }
+.mod-finanza .form-control:focus { outline: none; border-color: #2b5fa5; }
+.mod-finanza .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; }
+.mod-finanza .btn-primary { background: #2b5fa5; color: #fff; }
+.mod-finanza .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.mod-finanza .alert { padding: 10px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
+.mod-finanza .alert-error { background: #fdecea; color: #b3261e; }
+.mod-finanza .alert-success { background: #e6f4ea; color: #1e7e34; }
+.mod-finanza .spinner { width: 28px; height: 28px; border: 3px solid #d8dde3; border-top-color: #2b5fa5; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.mod-finanza .btn-outline { background: #fff; border: 1.5px solid #2b5fa5; color: #2b5fa5; }
+.mod-finanza .btn-danger { background: #fff; border: 1.5px solid #e24b4a; color: #a32d2d; }
+.mod-finanza .btn-sm { padding: 5px 10px; font-size: 12px; }
+.mod-finanza .card { background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06); }
+.mod-finanza .card-header { background: #1a3a5c; color: #fff; padding: 12px 18px; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.mod-finanza .card-body { padding: 18px; }
+.mod-finanza .card-footer { padding: 0 18px 18px; display: flex; gap: 8px; }
+.mod-finanza .badge-count { background: rgba(255, 255, 255, 0.18); padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+.mod-finanza .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
+.mod-finanza .section-title { font-size: 12px; font-weight: 700; color: #1a3a5c; text-transform: uppercase; letter-spacing: 0.04em; border-top: 2px solid #f0f2f5; padding-top: 14px; margin-bottom: 14px; }
+.mod-finanza .section-title span { font-weight: 400; text-transform: none; color: #9ca3af; letter-spacing: normal; font-size: 11px; margin-left: 6px; }
+.mod-finanza .table { width: 100%; border-collapse: collapse; }
+.mod-finanza .table th { text-align: left; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; background: #f8fafc; padding: 10px 16px; border-bottom: 1px solid #e5e9ef; }
+.mod-finanza .table td { padding: 12px 16px; border-bottom: 1px solid #f0f2f5; font-size: 13px; color: #1e293b; }
+.mod-finanza .table tbody tr:hover { background: #f8fafc; }
+.mod-finanza .badge { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; }
+.mod-finanza .badge-info { background: #e6f1fb; color: #0c447c; }
+.mod-finanza .badge-success { background: #e6f4ea; color: #1a6b2e; }
+.mod-finanza .badge-warning { background: #fef3e2; color: #854f0b; }
+.mod-finanza .badge-danger { background: #fef2f2; color: #a32d2d; }
+.mod-finanza .table-scroll { overflow-x: auto; }
+.mod-finanza .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.mod-finanza .modal-box { background: #fff; border-radius: 12px; padding: 28px; width: 420px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2); }
+.mod-finanza .modal-box h3 { font-size: 16px; font-weight: 600; color: #1a3a5c; margin: 0 0 18px; }
+.mod-finanza .modal-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+.mod-finanza .cell-display { padding: 3px 5px; border-radius: 4px; }
+.mod-finanza .cell-display.editable { cursor: pointer; }
+.mod-finanza .cell-display.editable:hover { background: #f0f7ff; }
+.mod-finanza .cell-input { width: 100%; border: 1.5px solid #2b5fa5; border-radius: 4px; padding: 2px 5px; font-size: 13px; background: #f0f7ff; outline: none; }
+.mod-finanza .icon-btn { background: none; border: none; cursor: pointer; font-size: 13px; color: #a32d2d; padding: 2px 5px; border-radius: 4px; }
+.mod-finanza .icon-btn:hover { background: #fef2f2; }
+.mod-finanza .kpi-tile { border-radius: 10px; padding: 14px 16px; }
+.mod-finanza .kpi-label { font-size: 12px; color: #6b7280; }
+.mod-finanza .kpi-value { font-size: 22px; font-weight: 700; margin-top: 4px; }
+.mod-finanza .kpi-green { background: #e6f4ea; }
+.mod-finanza .kpi-green .kpi-value { color: #1a6b2e; }
+.mod-finanza .kpi-red { background: #fef2f2; }
+.mod-finanza .kpi-red .kpi-value { color: #a32d2d; }
+.mod-finanza .kpi-blue { background: #eff6ff; }
+.mod-finanza .kpi-blue .kpi-value { color: #1d4ed8; }
+.mod-finanza .kpi-orange { background: #fff1e6; }
+.mod-finanza .kpi-orange .kpi-value { color: #c2410c; }
+.mod-finanza .budget-table td { vertical-align: middle; }
+.mod-finanza .section-row td { padding: 8px 16px; font-weight: 700; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+.mod-finanza .section-ricavi { background: #f0fdf4; }
+.mod-finanza .section-ricavi td { color: #15803d; }
+.mod-finanza .section-costi { background: #fff1f2; }
+.mod-finanza .section-costi td { color: #be123c; }
+.mod-finanza .total-row td { padding: 10px 16px; font-weight: 700; }
+.mod-finanza .total-ricavi { background: #dcfce7; }
+.mod-finanza .total-ricavi td { color: #15803d; }
+.mod-finanza .total-costi { background: #ffe4e6; }
+.mod-finanza .total-costi td { color: #be123c; }
+.mod-finanza .total-ebitda { background: #dbeafe; }
+.mod-finanza .total-ebitda td { color: #1d4ed8; }
+.mod-finanza .total-ebitda-neg { background: #ffedd5; }
+.mod-finanza .total-ebitda-neg td { color: #c2410c; }
+.mod-finanza .section-blue { background: #eff6ff; }
+.mod-finanza .section-blue td { color: #1d4ed8; }
+.mod-finanza .cf-table td, .mod-finanza .cf-table th { white-space: nowrap; }
+.mod-finanza .cf-sticky-col { position: sticky; left: 0; background: #fff; z-index: 1; }
+.mod-finanza .section-row .cf-sticky-col { background: inherit; }
+.mod-finanza .cf-saldo-row { background: #f8fafc; }
+.mod-finanza .cf-pos { color: #15803d; }
+.mod-finanza .cf-neg { color: #a32d2d; }
+.mod-finanza .cf-warn { color: #c2410c; }
+.mod-finanza .cf-bold { font-weight: 700; }
+.mod-finanza .ce-row-finale { background: #eff6ff; font-weight: 700; color: #1e3a8a; border-top: 2px solid #93c5fd; }
+.mod-finanza .ce-row-sezione { background: #f8fafc; font-weight: 700; }
+.mod-finanza .ce-row-sottotot { background: #f8fafc; font-weight: 600; }
+.mod-finanza .ce-conto-row { background: #fffbea; }
+.mod-finanza .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.mod-finanza .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 900px) {
+  .mod-finanza .grid-2, .mod-finanza .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.mod-finanza .tesoreria-tabs { display: flex; gap: 0; border-bottom: 1.5px solid #e5e7eb; margin-bottom: 4px; }
+.mod-finanza .tesoreria-tab { padding: 8px 18px; font-size: 13px; font-weight: 400; color: #6b7280; background: none; border: none; border-bottom: 2.5px solid transparent; cursor: pointer; margin-bottom: -1.5px; }
+.mod-finanza .print-only { display: none; }
+@media print {
+  .mod-finanza .no-print { display: none !important; }
+  .mod-finanza .print-only { display: block !important; }
+  .mod-finanza .card { box-shadow: none !important; }
+  .mod-finanza @page { size: landscape; margin: 10mm; }
+}
+.mod-finanza .tesoreria-tab.active { font-weight: 600; color: #1a3a5c; border-bottom-color: #1a3a5c; }

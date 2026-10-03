@@ -44,6 +44,19 @@ const MODULI = {
       { id: 'ticket', label: 'Ticket', icon: '🎫' },
     ],
   },
+  finanza: {
+    label: 'Finanza e Controllo', colore: '#C9831A',
+    voci: [
+      { id: 'fin_documenti', label: 'Documenti contabili', icon: '📁' },
+      { id: 'fin_riclassificazione', label: 'Riclassificazione', icon: '🔀' },
+      { id: 'fin_ce', label: 'Bilancio riclassificato', icon: '📑' },
+      { id: 'fin_budget', label: 'Budget', icon: '📋' },
+      { id: 'fin_scostamento', label: 'Scostamento', icon: '📊' },
+      { id: 'fin_analisi_flussi', label: 'Analisi dei flussi', icon: '💧' },
+      { id: 'fin_tesoreria', label: 'Tesoreria', icon: '🏦' },
+      { id: 'fin_analisi_bilancio', label: 'Analisi di bilancio', icon: '🧭' },
+    ],
+  },
 }
 
 export default function Layout({ children }) {

@@ -5,8 +5,11 @@
   "homepage": "https://massimocoletta1959-wq.github.io/toolkit-pmi-360",
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
+    "chart.js": "^4.5.1",
+    "chartjs-plugin-annotation": "^3.1.0",
     "lucide-react": "^0.303.0",
     "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.3.289",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.0",
@@ -18,7 +21,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d build"
+    "deploy": "gh-pages -d build",
+    "test": "react-scripts test"
   },
   "devDependencies": {
     "gh-pages": "^6.1.1"

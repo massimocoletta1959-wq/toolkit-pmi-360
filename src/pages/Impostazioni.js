@@ -40,7 +40,7 @@ export default function Impostazioni() {
   useEffect(() => {
     if (!session?.user?.id) return
     supabase.from('gestori')
-      .select('incl_rischi,incl_procedure,incl_governance')
+      .select('incl_rischi,incl_procedure,incl_governance,incl_finanza')
       .eq('user_id', session.user.id).maybeSingle()
       .then(({ data }) => setLic(data || null))
   }, [session])
@@ -352,6 +352,7 @@ export default function Impostazioni() {
             { campo: 'mod_rischi',     incl: 'incl_rischi',     label: `Gestione ${etichettaModulo('rischi', 'Rischi', !!azienda?.modalita_solo)}`, desc: "Registro rischi, piano d'azione, cruscotto", colore: '#378ADD' },
             { campo: 'mod_procedure',  incl: 'incl_procedure',  label: etichettaModulo('procedure', 'Procedure', !!azienda?.modalita_solo), desc: 'Catalogo, adozione e presa visione',        colore: '#1D9E75' },
             { campo: 'mod_governance', incl: 'incl_governance', label: 'Governance',      desc: 'Organi, riunioni, delibere e verbali',      colore: '#7F77DD' },
+            { campo: 'mod_finanza',    incl: 'incl_finanza',    label: 'Finanza e Controllo', desc: 'Documenti contabili, bilancio riclassificato, budget, tesoreria', colore: '#C9831A' },
           ].map(m => {
             const incluso = lic ? !!lic[m.incl] : true
             const on = !!azienda?.[m.campo]

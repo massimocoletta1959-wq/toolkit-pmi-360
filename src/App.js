@@ -26,6 +26,7 @@ import Home from './pages/Home'
 import Layout from './components/Layout'
 import LayoutMembro from './components/LayoutMembro'
 import IncarichiOrgani from './pages/IncarichiOrgani'
+import { PAGINE_FINANZA } from './finanza'
 
 export const AppContext = createContext(null)
 export const useApp = () => useContext(AppContext)
@@ -157,13 +158,14 @@ export default function App() {
     // con altri, un sottoinsieme di moduli (es. solo Procedure) indipendentemente da
     // cosa vedono gli altri utenti collegati alla stessa azienda.
     const { data: ua } = await supabase
-      .from('utente_aziende').select('aziende(*), mod_rischi, mod_procedure, mod_governance').eq('utente_id', userId)
+      .from('utente_aziende').select('aziende(*), mod_rischi, mod_procedure, mod_governance, mod_finanza').eq('utente_id', userId)
 
     const tutteAziende = (ua || []).filter(r => r.aziende).map(r => ({
       ...r.aziende,
       mod_rischi:     !!r.aziende.mod_rischi     && r.mod_rischi     !== false,
       mod_procedure:  !!r.aziende.mod_procedure  && r.mod_procedure  !== false,
       mod_governance: !!r.aziende.mod_governance && r.mod_governance !== false,
+      mod_finanza:    !!r.aziende.mod_finanza    && r.mod_finanza    !== false,
     })).filter((az, idx, arr) => arr.findIndex(a => a.id === az.id) === idx)
 
     setAziende(tutteAziende)
@@ -207,7 +209,7 @@ export default function App() {
 
   // Entra in un modulo: imposta il modulo attivo e la sua pagina di default
   function entraModulo(m) {
-    const defaultPage = { rischi: 'cruscotto', procedure: 'procedure', governance: 'governance' }[m]
+    const defaultPage = { rischi: 'cruscotto', procedure: 'procedure', governance: 'governance', finanza: 'fin_documenti' }[m]
     setModulo(m)
     setPage(defaultPage || 'home')
   }
@@ -376,6 +378,8 @@ export default function App() {
     tracciamento: <TracciamentoProcedure />,
     impostazioni: <Impostazioni />,
     report: <Report />,
+    // modulo Finanza e Controllo
+    ...Object.fromEntries(Object.entries(PAGINE_FINANZA).map(([k, P]) => [k, <P key={(azienda?.id || '') + k} />])),
   }
 
   return (

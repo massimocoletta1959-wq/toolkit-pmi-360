@@ -57,18 +57,19 @@ export default function Setup({ onDone, onAnnulla, userId, userEmail, nuovaAzien
   const [modRischi, setModRischi]         = useState(true)
   const [modProcedure, setModProcedure]   = useState(true)
   const [modGovernance, setModGovernance] = useState(true)
+  const [modFinanza, setModFinanza] = useState(false)
   // licenza: undefined=caricamento, null=nessuna, oggetto=licenza registrata
   const [lic, setLic] = useState(undefined)
   useEffect(() => {
     if (!userId) { setLic(null); return }
-    supabase.from('gestori').select('incl_rischi,incl_procedure,incl_governance')
+    supabase.from('gestori').select('incl_rischi,incl_procedure,incl_governance,incl_finanza')
       .eq('user_id', userId).maybeSingle()
       .then(({ data }) => setLic(data || null))
   }, [userId])
   const incl = m => (lic ? !!lic['incl_' + m] : true)   // nessuna licenza registrata = tutto consentito
   useEffect(() => {
     if (lic === undefined) return
-    setModRischi(incl('rischi')); setModProcedure(incl('procedure')); setModGovernance(incl('governance'))
+    setModRischi(incl('rischi')); setModProcedure(incl('procedure')); setModGovernance(incl('governance')); setModFinanza(incl('finanza'))
   }, [lic])
 
   const haSettore  = !!(RISCHI_PER_SETTORE[settore]?.length)
@@ -178,6 +179,7 @@ export default function Setup({ onDone, onAnnulla, userId, userEmail, nuovaAzien
         mod_rischi:     modRischi && incl('rischi'),
         mod_procedure:  modProcedure && incl('procedure'),
         mod_governance: modGovernance && incl('governance'),
+        mod_finanza:    modFinanza && incl('finanza'),
       }
       const { error: eM } = await supabase.from('aziende').update(moduliScelti).eq('id', aziendaId)
       if (eM) throw eM
@@ -318,11 +320,12 @@ export default function Setup({ onDone, onAnnulla, userId, userEmail, nuovaAzien
           {cardModulo(modRischi, setModRischi, '🛡️', etichettaModulo('rischi', 'Rischi', modalitaSolo), 'Mappatura e valutazione dei rischi, azioni, registro.', incl('rischi'))}
           {cardModulo(modProcedure, setModProcedure, '📋', etichettaModulo('procedure', 'Procedure', modalitaSolo), 'Catalogo procedure per settore, approvazione e personalizzazione.', incl('procedure'))}
           {cardModulo(modGovernance, setModGovernance, '⚖️', 'Governance', 'Organi, componenti, riunioni e delibere.', incl('governance'))}
+          {cardModulo(modFinanza, setModFinanza, '📈', 'Finanza e Controllo', 'Documenti contabili, bilancio riclassificato, budget e tesoreria.', incl('finanza'))}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setStep(1)}>← Indietro</button>
           <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }}
-                  disabled={!modRischi && !modProcedure && !modGovernance}
+                  disabled={!modRischi && !modProcedure && !modGovernance && !modFinanza}
                   onClick={() => setStep(3)}>Avanti →</button>
         </div>
       </div>
