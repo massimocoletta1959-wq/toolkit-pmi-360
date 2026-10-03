@@ -79,29 +79,30 @@ export function calcolaFlussiCassa(movimenti, { mappatureContiAzienda, mappature
   }
   saldoIniziale = round2(saldoIniziale)
 
-  // raggruppa in registrazioni (stessa data + stessa causale/N.Doc./Dt.Doc.),
-  // poi ogni registrazione in "segmenti" Dare=Avere bilanciati (una registrazione
-  // puo' contenere piu' sotto-partite, es. piu' tributi in un unico F24)
-  const registrazioni = new Map()
+  // "Segmenti" Dare=Avere bilanciati: si seguono le righe nell'ordine del Libro
+  // Giornale e si chiude un segmento sulla riga marcata "*" nella colonna
+  // Controp. (una registrazione puo' contenere piu' sotto-partite, es. piu'
+  // tributi in un unico F24). NON si raggruppa per testo della riga: la
+  // descrizione libera puo' cambiare tra le righe della stessa registrazione
+  // (es. chiusura IVA con "iva vendite" / "iva corrispettivi" / "iva acquisti",
+  // accredito con "POS" su una riga e il codice conto sull'altra), e spezzarla
+  // la farebbe risultare sbilanciata. Per sicurezza il segmento si chiude anche
+  // al cambio di data (registrazione senza "*").
+  const segmenti = []
+  let corrente = []
   for (const m of movimenti) {
     if (m.eApertura || m.eChiusura) continue
-    const key = m.data + '|' + m.chiave
-    if (!registrazioni.has(key)) registrazioni.set(key, [])
-    registrazioni.get(key).push(m)
-  }
-
-  const segmenti = []
-  for (const righeReg of registrazioni.values()) {
-    let corrente = []
-    for (const r of righeReg) {
-      corrente.push(r)
-      if (r.chiudeSegmento) {
-        segmenti.push(corrente)
-        corrente = []
-      }
+    if (corrente.length && corrente[0].data !== m.data) {
+      segmenti.push(corrente)
+      corrente = []
     }
-    if (corrente.length) segmenti.push(corrente)
+    corrente.push(m)
+    if (m.chiudeSegmento) {
+      segmenti.push(corrente)
+      corrente = []
+    }
   }
+  if (corrente.length) segmenti.push(corrente)
 
   let segmentiNonBilanciati = 0
   const flussi = [] // { mese, categoria, importo, direzione }

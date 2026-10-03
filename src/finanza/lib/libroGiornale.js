@@ -105,8 +105,10 @@ export function parseLibroGiornale(righe) {
   let avereCol = null
   for (const ln of righe) {
     if (ln.includes('N.Pr.') && ln.includes('Cod. Conto') && ln.includes('Dare') && ln.includes('Avere')) {
-      dareCol = ln.indexOf('Dare')
-      avereCol = ln.indexOf('Avere')
+      // gli importi sono allineati a DESTRA: il riferimento e' la fine delle
+      // intestazioni "Dare"/"Avere", non il loro inizio
+      dareCol = ln.indexOf('Dare') + 'Dare'.length
+      avereCol = ln.indexOf('Avere') + 'Avere'.length
       break
     }
   }
@@ -170,7 +172,9 @@ export function parseLibroGiornale(righe) {
     const eChiusura = ln.includes('SALDO CHIUSURA')
 
     for (const m of amounts) {
-      const pos = m.index
+      // fine dell'importo (allineato a destra) confrontata con la fine delle intestazioni:
+      // con l'inizio, un importo lungo in Avere (es. 1.306.479,50) risultava piu' vicino a Dare
+      const pos = m.index + m[0].length
       const val = parseNum(m[0])
       const segno = Math.abs(pos - dareCol) <= Math.abs(pos - avereCol) ? 1 : -1
       totDareSezione += segno > 0 ? val : 0
@@ -275,8 +279,10 @@ export function estraiMovimenti(righe) {
   let avereCol = null
   for (const ln of righe) {
     if (ln.includes('N.Pr.') && ln.includes('Cod. Conto') && ln.includes('Dare') && ln.includes('Avere')) {
-      dareCol = ln.indexOf('Dare')
-      avereCol = ln.indexOf('Avere')
+      // gli importi sono allineati a DESTRA: il riferimento e' la fine delle
+      // intestazioni "Dare"/"Avere", non il loro inizio
+      dareCol = ln.indexOf('Dare') + 'Dare'.length
+      avereCol = ln.indexOf('Avere') + 'Avere'.length
       break
     }
   }
@@ -321,7 +327,9 @@ export function estraiMovimenti(righe) {
     const dtDoc = docMatch ? docMatch[2] : null
 
     for (const m of amounts) {
-      const pos = m.index
+      // fine dell'importo (allineato a destra) confrontata con la fine delle intestazioni:
+      // con l'inizio, un importo lungo in Avere (es. 1.306.479,50) risultava piu' vicino a Dare
+      const pos = m.index + m[0].length
       const val = parseNum(m[0])
       const segno = Math.abs(pos - dareCol) <= Math.abs(pos - avereCol) ? 1 : -1
       movimenti.push({
