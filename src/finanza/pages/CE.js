@@ -7,7 +7,7 @@ import { trovaMappaturaConto, contiDelGruppo } from '../lib/mappatureConti'
 const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
 const MESI_SHORT = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
 const ANNI = ['2024', '2025', '2026', '2027']
-const TIPI_LIBRO_GIORNALE = ['prima_nota_precedente', 'prima_nota_corrente', 'libro_giornale_precedente', 'libro_giornale_corrente']
+export const TIPI_LIBRO_GIORNALE = ['prima_nota_precedente', 'prima_nota_corrente', 'libro_giornale_precedente', 'libro_giornale_corrente']
 
 const round2 = (n) => Math.round(n * 100) / 100
 const fmt = (n) => (!n ? '—' : n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
@@ -74,7 +74,7 @@ function trovaMappatura(conto, mappatureAzienda, mappatureGlobali) {
   return null
 }
 
-async function caricaContesto(aziendaId) {
+export async function caricaContesto(aziendaId) {
   const { data: mappatureAzienda } = await supabase.from('mappature_conti').select('*').eq('azienda_id', aziendaId).eq('globale', false)
   const { data: mappatureGlobali } = await supabase.from('mappature_conti').select('*').eq('globale', true)
   const { data: vociCeeList } = await supabase.from('voci_cee').select('*').order('ordine')
@@ -87,7 +87,7 @@ async function caricaContesto(aziendaId) {
   return { mappatureAzienda: mappatureAzienda || [], mappatureGlobali: mappatureGlobali || [], vociCeeList: vociCeeList || [], vociCeeByCodice, vociCeeByDescrizione }
 }
 
-function processaDocumento(dati, meseFine, modalita, ctx) {
+export function processaDocumento(dati, meseFine, modalita, ctx) {
   const { mappatureAzienda, mappatureGlobali, vociCeeByCodice, vociCeeByDescrizione } = ctx
   const aggregato = {}
   const aggiungi = (codiceCee, conto, importo, codiceConto) => {
@@ -203,7 +203,7 @@ function calcolaTotali(aggregato, vociCee) {
   return { A: sumSezione('A'), B: sumSezione('B'), C: sumSezione('C'), D: sumSezione('D') }
 }
 
-function buildCe(aggregato, vociCee) {
+export function buildCe(aggregato, vociCee) {
   const { A: totA, B: totB, C: totC, D: totD } = calcolaTotali(aggregato, vociCee)
   return vociCee.map((voce) => {
     let importo, conti

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useApp } from '../../App'
 import { supabase } from '../lib/supabase'
+import { caricaContesto, processaDocumento, buildCe, TIPI_LIBRO_GIORNALE } from './CE'
 
 const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
 const MESI_KEYS = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic']
@@ -21,30 +22,95 @@ const COLGROUP_SCOSTAMENTO = (
   </colgroup>
 )
 
+// Ultimo mese con movimenti nel libro giornale (dati_estratti di Documenti).
+function ultimoMeseGiornale(dati) {
+  let ultimo = 0
+  for (const g of dati?.gruppi || []) {
+    for (const m of Object.keys(g.mensile || {})) if (Number(m) > ultimo) ultimo = Number(m)
+  }
+  return ultimo
+}
+
+const sommaFinoA = (mensile, mese) => round2(Object.entries(mensile || {}).filter(([m]) => Number(m) <= mese).reduce((s, [, v]) => s + (v || 0), 0))
+
+// Reale cumulativo gennaio..mese ricavato dai movimenti mensili del libro
+// giornale, con la stessa riclassificazione di Bilancio riclassificato (CE):
+// ogni conto vale la somma dei suoi movimenti fino al mese scelto, poi il
+// risultato e' portato nel formato del provvisorio (ricavi/costi per voce CEE).
+function realeDaGiornale(dati, mese, ctx) {
+  const gruppi = (dati.gruppi || []).map((g) =>
+    g.conti?.length
+      ? { ...g, conti: g.conti.map((c) => ({ ...c, valore: sommaFinoA(c.mensile, mese) })) }
+      : { ...g, conti: [{ conto: g.gruppo, descrizione: g.descrizione, valore: sommaFinoA(g.mensile, mese) }] }
+  )
+  const voci = buildCe(processaDocumento({ gruppi }, mese, 'cumulativo', ctx), ctx.vociCeeList)
+  const mappaVoce = (v) => ({ descrizione: v.descrizione, importo: v.importo, dettaglio: v.conti.map((c) => ({ conto: c.codice, descrizione: c.conto, importo: c.importo })) })
+  return {
+    ricavi: { voci: voci.filter((v) => v.tipo === 'ricavo' && !v.totale && v.importo !== 0).map(mappaVoce) },
+    costi: { voci: voci.filter((v) => v.tipo === 'costo' && !v.totale && v.importo !== 0).map(mappaVoce) },
+  }
+}
+
+// Documenti contabili dell'anno utili come "reale": libri giornale / prime note
+// (mese per mese) e provvisori (cumulativi a fine mese), piu' recenti per primi.
+async function caricaDocumentiReale(aziendaId, anno) {
+  const { data } = await supabase
+    .from('documenti')
+    .select('id, tipo_documento, nome_file, mese_fine, dati_estratti, caricato_il')
+    .eq('azienda_id', aziendaId)
+    .eq('anno', anno)
+    .in('tipo_documento', ['provvisorio', ...TIPI_LIBRO_GIORNALE])
+    .eq('stato', 'elaborato')
+    .order('caricato_il', { ascending: false })
+  const giornali = []
+  const provvisori = []
+  for (const d of data || []) {
+    if (!d.dati_estratti) continue
+    if (d.tipo_documento === 'provvisorio') {
+      if (d.mese_fine) provvisori.push(d)
+      continue
+    }
+    try {
+      const dati = JSON.parse(d.dati_estratti)
+      const ultimoMese = ultimoMeseGiornale(dati)
+      if (ultimoMese) giornali.push({ ...d, dati, ultimoMese })
+    } catch {
+      // dati non leggibili: documento ignorato
+    }
+  }
+  return { giornali, provvisori }
+}
+
+// Il libro giornale copre qualunque mese fino all'ultimo registrato, senza
+// bisogno di un provvisorio per ogni chiusura; il provvisorio del mese resta
+// come alternativa quando il giornale non arriva a quel mese.
+async function caricaReale(aziendaId, anno, mese) {
+  const { giornali, provvisori } = await caricaDocumentiReale(aziendaId, anno)
+  const giornale = giornali.find((g) => g.ultimoMese >= mese)
+  if (giornale) {
+    const ctx = await caricaContesto(aziendaId)
+    return { datiReali: realeDaGiornale(giornale.dati, mese, ctx), fonte: `libro giornale «${giornale.nome_file}», movimenti da gennaio a fine ${MESI[mese - 1].toLowerCase()}` }
+  }
+  const provv = provvisori.find((d) => Number(d.mese_fine) === Number(mese))
+  if (provv) return { datiReali: JSON.parse(provv.dati_estratti), fonte: `provvisorio «${provv.nome_file}» a fine ${MESI[mese - 1].toLowerCase()}` }
+
+  const nomeMese = MESI[mese - 1].toLowerCase()
+  const parti = []
+  if (giornali.length) parti.push(`il libro giornale arriva fino a ${MESI[Math.max(...giornali.map((g) => g.ultimoMese)) - 1].toLowerCase()}`)
+  const mesiProvv = [...new Set(provvisori.map((d) => Number(d.mese_fine)))].sort((a, b) => a - b)
+  if (mesiProvv.length) parti.push(`provvisori disponibili: ${mesiProvv.map((m) => MESI[m - 1].toLowerCase()).join(', ')}`)
+  throw new Error(parti.length
+    ? `Nessun dato reale a fine ${nomeMese} ${anno}: ${parti.join('; ')}. Carica in Documenti contabili un libro giornale aggiornato o un provvisorio chiuso a ${nomeMese}.`
+    : `Nessun dato reale per il ${anno}: carica in Documenti contabili il libro giornale (o una prima nota) dell'anno, oppure crea un provvisorio da Bilancio riclassificato.`)
+}
+
 // Replica client-side di /scostamento/calcola: budget cumulativo vs reale
 // riclassificato tramite le mappature conti già presenti in Supabase.
 async function calcolaScostamento(aziendaId, anno, mese) {
   const { data: budget } = await supabase.from('budget').select('*').eq('azienda_id', aziendaId).eq('anno', anno).eq('stato', 'approvato').maybeSingle()
   if (!budget) throw new Error('Nessun budget approvato trovato per questo anno.')
 
-  // Provvisori dell'anno (cumulativi da gennaio a fine mese): per il mese scelto si
-  // usa il piu' recente; se non ce n'e' si indicano i mesi disponibili.
-  const { data: provvisori } = await supabase
-    .from('documenti')
-    .select('*')
-    .eq('azienda_id', aziendaId)
-    .eq('anno', anno)
-    .eq('tipo_documento', 'provvisorio')
-    .eq('stato', 'elaborato')
-    .order('caricato_il', { ascending: false })
-  const docReale = (provvisori || []).find((d) => Number(d.mese_fine) === Number(mese) && d.dati_estratti)
-  if (!docReale) {
-    const disponibili = [...new Set((provvisori || []).filter((d) => d.mese_fine && d.dati_estratti).map((d) => Number(d.mese_fine)))].sort((a, b) => a - b)
-    throw new Error(disponibili.length
-      ? `Nessun provvisorio a fine ${MESI[mese - 1].toLowerCase()} ${anno}. Il provvisorio è cumulativo da gennaio a fine mese: per questo confronto serve un provvisorio chiuso a ${MESI[mese - 1].toLowerCase()}. Provvisori disponibili: ${disponibili.map((m) => MESI[m - 1].toLowerCase()).join(', ')}.`
-      : `Nessun provvisorio elaborato per il ${anno}: crealo da Bilancio riclassificato ("Crea provvisorio") o caricalo in Documenti contabili.`)
-  }
-  const datiReali = JSON.parse(docReale.dati_estratti)
+  const { datiReali, fonte } = await caricaReale(aziendaId, anno, mese)
 
   const { data: vociBudget } = await supabase.from('budget_voci').select('*').eq('budget_id', budget.id)
   const { data: mappatureAzienda } = await supabase.from('mappature_conti').select('*').eq('azienda_id', aziendaId).eq('globale', false)
@@ -155,6 +221,7 @@ async function calcolaScostamento(aziendaId, anno, mese) {
 
   return {
     voci: righe,
+    fonte,
     riepilogo: {
       ricavi_budget: round2(totRicaviBudget),
       ricavi_reali: round2(totRicaviReali),
@@ -237,17 +304,18 @@ export default function Scostamento() {
   const aziendaId = aziendaAttiva?.id || ''
   const [anno, setAnno] = useState('2026')
   const [mese, setMese] = useState(1)
-  // si parte dall'ultimo mese per cui esiste un provvisorio
+  // si parte dall'ultimo mese coperto dal libro giornale o da un provvisorio
   useEffect(() => {
     if (!aziendaId || !anno) return
-    supabase.from('documenti').select('mese_fine').eq('azienda_id', aziendaId).eq('anno', anno)
-      .eq('tipo_documento', 'provvisorio').eq('stato', 'elaborato').not('mese_fine', 'is', null)
-      .order('mese_fine', { ascending: false }).limit(1)
-      .then(({ data }) => { if (data && data[0]) setMese(Number(data[0].mese_fine)) })
+    caricaDocumentiReale(aziendaId, anno).then(({ giornali, provvisori }) => {
+      const ultimo = Math.max(0, ...giornali.map((g) => g.ultimoMese), ...provvisori.map((d) => Number(d.mese_fine)))
+      if (ultimo) setMese(ultimo)
+    })
   }, [aziendaId, anno])
   const [budgets, setBudgets] = useState([])
   const [voci, setVoci] = useState([])
   const [riepilogo, setRiepilogo] = useState(null)
+  const [fonte, setFonte] = useState('')
   const [calcolando, setCalcolando] = useState(false)
   const [errore, setErrore] = useState('')
 
@@ -276,9 +344,10 @@ export default function Scostamento() {
     setCalcolando(true)
     setErrore('')
     try {
-      const { voci, riepilogo } = await calcolaScostamento(aziendaId, anno, mese)
+      const { voci, riepilogo, fonte } = await calcolaScostamento(aziendaId, anno, mese)
       setVoci(voci)
       setRiepilogo(riepilogo)
+      setFonte(fonte)
     } catch (e) {
       setErrore(e.message || 'Errore nel calcolo')
       setVoci([])
@@ -376,6 +445,7 @@ export default function Scostamento() {
                   Scostamento Gen-{MESI[mese - 1]} {anno} (cumulativo — dati riclassificati)
                 </div>
               </div>
+              {fonte && <div style={{ fontSize: 12.5, color: '#5f6b7a', marginTop: 4 }}>Reale da {fonte}</div>}
             </div>
             <button className="btn btn-outline btn-sm no-print" onClick={() => window.print()}>
               🖨️ Stampa / PDF
