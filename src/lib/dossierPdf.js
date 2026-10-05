@@ -254,8 +254,19 @@ export async function generaFascicoloBjr({ d, score, azienda, scaricaAllegato, o
     blocco("Testo dell'atto preparato", testoAtto, 'Testo dell\'atto non presente.')
     if (!testoAtto) mancanze.push(`testo dell'atto «${atto.oggetto}»`)
     blocco('Descrizione / motivazioni', atto.descrizione)
-    blocco('Analisi finanziaria', atto.analisi_finanziaria)
-    if (atto.con_analisi_economica || atto.analisi_economica) blocco('Analisi economica', atto.analisi_economica, 'Analisi economica prevista ma non compilata.')
+    // Con una simulazione d'impatto le analisi rinviano ai suoi prospetti (impatto finanziario ed economico),
+    // incorporati tra gli allegati; l'eventuale testo scritto a mano resta, seguito dal rinvio.
+    const simAtto = (d.simulazioni || []).find(s => s.determina_id === atto.id)
+    const conRinvio = (testo, prospetto) => {
+      if (!simAtto) return testo
+      const rinvio = `Vedi simulazione d'impatto — prospetto «${prospetto}» (sintesi in questa sezione, documento completo tra gli allegati).`
+      return testo && String(testo).trim() ? `${testo}\n${rinvio}` : rinvio
+    }
+    blocco('Analisi finanziaria', conRinvio(atto.analisi_finanziaria, 'Impatto finanziario'))
+    if (atto.con_analisi_economica || atto.analisi_economica || simAtto) {
+      blocco('Analisi economica', conRinvio(atto.analisi_economica, 'Impatto economico'), 'Analisi economica prevista ma non compilata.')
+      if (!simAtto && !(atto.analisi_economica && String(atto.analisi_economica).trim())) mancanze.push(`analisi economica dell'atto «${atto.oggetto}» (né testo né simulazione d'impatto)`)
+    }
     blocco('Alternative valutate', atto.alternative)
 
     const rischi = d.rischi.filter(x => x.determina_id === atto.id)
@@ -277,7 +288,7 @@ export async function generaFascicoloBjr({ d, score, azienda, scaricaAllegato, o
       checklist.forEach(c => drawText(`[${c.spuntata ? 'x' : ' '}] ${c.voce}${c.nota ? ` — ${c.nota}` : ''}`, { indent: 10 }))
     }
 
-    const sim = (d.simulazioni || []).find(s => s.determina_id === atto.id)
+    const sim = simAtto
     if (sim) {
       drawSub("Simulazione d'impatto economico e finanziario")
       campo('Eseguita il', dataOra(sim.created_at))
