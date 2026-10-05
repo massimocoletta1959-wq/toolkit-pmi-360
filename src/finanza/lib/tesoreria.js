@@ -588,6 +588,17 @@ function avanzaMese([anno, mese], n) {
 
 const semaforoDa = (saldo, buffer) => (saldo > buffer ? 'verde' : saldo > 0 ? 'giallo' : 'rosso')
 
+const voceDettaglio = (r, importo) => ({
+  direzione: r.direzione,
+  categoria: r.categoria,
+  controparte: r.controparte,
+  conto: r.conto || null,
+  importo: round2(importo),
+  data: r.dataScadenza instanceof Date && !isNaN(r.dataScadenza) ? r.dataScadenza.toISOString().slice(0, 10) : null,
+  certo: r.tipoDato === 'certo',
+  note: r.note || '',
+})
+
 function raggruppaPerMese(righe) {
   const perMese = {}
   for (const r of righe) {
@@ -754,6 +765,11 @@ export function calcolaPianoCashflow({ righe, saldoIniziale, fatturatoMedio, buf
       semaforo_base: semaforoDa(saldoBase, buffer), semaforo_ottimistico: semaforoDa(saldoOtt, buffer), semaforo_pessimistico: semaforoDa(saldoPess, buffer),
       buffer_minimo: round2(buffer),
       flusso_netto: round2(entrateBase - usciteBase),
+      // singole partite del mese (scenario base), per il dettaglio cliccabile di entrate/uscite
+      dettaglio: [
+        ...dati.entrate.map((r) => voceDettaglio(r, r.tipoDato === 'certo' ? r.importo : (r.importo * r.probabilita) / 100)),
+        ...dati.uscite.map((r) => voceDettaglio(r, r.importo)),
+      ].filter((v) => v.importo !== 0),
     })
   }
 

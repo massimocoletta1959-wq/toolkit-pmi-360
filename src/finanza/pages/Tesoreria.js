@@ -10,6 +10,7 @@ import ControlliTesoreria, { periodoMensile, periodoTrimestrale } from '../compo
 import { aggregaBudgetMensile, calcolaLiquidazioniIva, costruisciCeBaseline, analizzaStagionalita } from '../lib/budgetMensile'
 import { caricaContestoSP, processaGruppiSP } from '../lib/statoPatrimoniale'
 import { calcolaRigheAperture } from '../lib/partiteAperte'
+import { vociColonne, RigheRaggruppamenti, ModaleDettaglio } from '../components/DettaglioCashflow'
 
 const TABS = [
   { id: 'kpi', label: '📊 KPI' },
@@ -106,6 +107,9 @@ export default function Tesoreria() {
 
   const [bufferPct, setBufferPct] = useState(15)
   const [piano, setPiano] = useState(null)
+  // dettaglio di Entrate/Uscite nella tabella Cash Flow: righe aperte e mese/raggruppamento mostrato
+  const [espansi, setEspansi] = useState({ entrata: false, uscita: false })
+  const [dettaglioCf, setDettaglioCf] = useState(null)
 
   const [kpi, setKpi] = useState(null)
   const [kpiLoading, setKpiLoading] = useState(false)
@@ -931,6 +935,7 @@ export default function Tesoreria() {
                 </div>
               </div>
 
+              <ModaleDettaglio key={dettaglioCf ? `${dettaglioCf.colonna.chiave}-${dettaglioCf.gruppo}-${dettaglioCf.direzione}` : 'chiuso'} dettaglio={dettaglioCf} onClose={() => setDettaglioCf(null)} />
               <div className="card table-scroll">
                 <table className="table cf-table">
                   <thead>
@@ -954,7 +959,10 @@ export default function Tesoreria() {
                   </thead>
                   <tbody>
                     <tr>
-                      <td className="cf-sticky-col">Entrate</td>
+                      <td className="cf-sticky-col cf-espandi" onClick={() => setEspansi((e) => ({ ...e, entrata: !e.entrata }))} title="Mostra o nascondi il dettaglio per raggruppamento">
+                        <span style={{ display: 'inline-block', width: 16, color: '#6b7280' }}>{espansi.entrata ? '▾' : '▸'}</span>
+                        Entrate
+                      </td>
                       {piano.mesi_reali.map((m) => (
                         <td key={`r${m.mese_budget}`} className="cf-pos" style={{ textAlign: 'right', background: '#f0f4f8' }}>
                           {fmtEur(m.entrate)}
@@ -966,8 +974,12 @@ export default function Tesoreria() {
                         </td>
                       ))}
                     </tr>
+                    {espansi.entrata && <RigheRaggruppamenti colonne={vociColonne(piano, piano.ancora?.anno === annoRiferimento ? datiRealiAnno : null, 'entrata')} direzione="entrata" onApri={setDettaglioCf} />}
                     <tr>
-                      <td className="cf-sticky-col">Uscite</td>
+                      <td className="cf-sticky-col cf-espandi" onClick={() => setEspansi((e) => ({ ...e, uscita: !e.uscita }))} title="Mostra o nascondi il dettaglio per raggruppamento">
+                        <span style={{ display: 'inline-block', width: 16, color: '#6b7280' }}>{espansi.uscita ? '▾' : '▸'}</span>
+                        Uscite
+                      </td>
                       {piano.mesi_reali.map((m) => (
                         <td key={`r${m.mese_budget}`} className="cf-neg" style={{ textAlign: 'right', background: '#f0f4f8' }}>
                           {fmtEur(m.uscite)}
@@ -979,6 +991,7 @@ export default function Tesoreria() {
                         </td>
                       ))}
                     </tr>
+                    {espansi.uscita && <RigheRaggruppamenti colonne={vociColonne(piano, piano.ancora?.anno === annoRiferimento ? datiRealiAnno : null, 'uscita')} direzione="uscita" onApri={setDettaglioCf} />}
 
                     {[
                       { key: 'saldo_ottimistico', label: '📈 Saldo — scenario ottimistico', cls: 'cf-pos' },

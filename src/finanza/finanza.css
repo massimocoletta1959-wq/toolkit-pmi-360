@@ -87,6 +87,11 @@
 .mod-finanza .cf-table td, .mod-finanza .cf-table th { white-space: nowrap; }
 .mod-finanza .cf-sticky-col { position: sticky; left: 0; background: #fff; z-index: 1; }
 .mod-finanza .section-row .cf-sticky-col { background: inherit; }
+.mod-finanza .cf-link { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.mod-finanza .cf-link:hover { text-decoration-style: solid; }
+.mod-finanza .cf-espandi { cursor: pointer; user-select: none; }
+.mod-finanza .cf-espandi:hover { color: #1a3a5c; }
+@media print { .mod-finanza .cf-link { text-decoration: none; } }
 .mod-finanza .cf-saldo-row { background: #f8fafc; }
 .mod-finanza .cf-pos { color: #15803d; }
 .mod-finanza .cf-neg { color: #a32d2d; }

@@ -146,7 +146,7 @@ export function calcolaFlussiCassa(movimenti, { mappatureContiAzienda, mappature
   }, '')
 
   let segmentiNonBilanciati = 0
-  const flussi = [] // { mese, categoria, importo, direzione }
+  const flussi = [] // { mese, categoria, importo, direzione, data, conto, descrizione } — conto = contropartita
 
   for (const segmento of segmentiFlussi) {
     const somma = round2(segmento.reduce((s, r) => s + r.segno * r.importo, 0))
@@ -168,10 +168,10 @@ export function calcolaFlussiCassa(movimenti, { mappatureContiAzienda, mappature
       usate.add(bancaLeg); usate.add(c)
       const direzioneBanca = bancaLeg.segno > 0 ? 'entrata' : 'uscita'
       if (isBancaCassa(c.conto)) {
-        flussi.push({ mese: bancaLeg.mese, categoria: 'Giroconto tra conti propri', importo: bancaLeg.importo, direzione: direzioneBanca })
-        flussi.push({ mese: c.mese, categoria: 'Giroconto tra conti propri', importo: c.importo, direzione: c.segno > 0 ? 'entrata' : 'uscita' })
+        flussi.push({ mese: bancaLeg.mese, categoria: 'Giroconto tra conti propri', importo: bancaLeg.importo, direzione: direzioneBanca, data: bancaLeg.data, conto: c.conto, descrizione: c.descrizione })
+        flussi.push({ mese: c.mese, categoria: 'Giroconto tra conti propri', importo: c.importo, direzione: c.segno > 0 ? 'entrata' : 'uscita', data: c.data, conto: bancaLeg.conto, descrizione: bancaLeg.descrizione })
       } else {
-        flussi.push({ mese: bancaLeg.mese, categoria: classifica(c.conto), importo: bancaLeg.importo, direzione: direzioneBanca })
+        flussi.push({ mese: bancaLeg.mese, categoria: classifica(c.conto), importo: bancaLeg.importo, direzione: direzioneBanca, data: bancaLeg.data, conto: c.conto, descrizione: c.descrizione })
       }
     }
 
@@ -188,13 +188,13 @@ export function calcolaFlussiCassa(movimenti, { mappatureContiAzienda, mappature
     const mese = bancaResto[0].mese
     const nonBancaResto = segmento.filter((r) => !usate.has(r) && !isBancaCassa(r.conto))
     if (!nonBancaResto.length) {
-      flussi.push({ mese, categoria: 'Non classificato (contropartita non trovata)', importo: Math.abs(netto), direzione })
+      flussi.push({ mese, categoria: 'Non classificato (contropartita non trovata)', importo: Math.abs(netto), direzione, data: bancaResto[0].data, conto: null, descrizione: bancaResto[0].chiave || '' })
       continue
     }
     for (const leg of nonBancaResto) {
       const contributo = round2(-leg.segno * segnoNetto * leg.importo)
       if (Math.abs(contributo) < 0.005) continue
-      flussi.push({ mese, categoria: classifica(leg.conto), importo: contributo, direzione })
+      flussi.push({ mese, categoria: classifica(leg.conto), importo: contributo, direzione, data: leg.data, conto: leg.conto, descrizione: leg.descrizione })
     }
   }
 
@@ -231,6 +231,9 @@ export function calcolaFlussiCassa(movimenti, { mappatureContiAzienda, mappature
     saldoMese,
     flussoCassaCumulato,
     saldoFinePeriodo,
+    // ogni singolo flusso con la sua contropartita: base per il dettaglio
+    // (raggruppamento -> controparte -> movimenti) in Tesoreria
+    movimentiFlussi: flussi.map((f) => ({ ...f, importo: round2(f.importo) })),
     diagnostica: {
       segmenti: segmenti.length, segmentiNonBilanciati, ultimaData,
       saldoIniziale: {
