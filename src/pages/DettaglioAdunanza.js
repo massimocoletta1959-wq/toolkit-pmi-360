@@ -152,11 +152,38 @@ export default function DettaglioAdunanza() {
     setTicketCirc(data || [])
   }
 
+  // Documentazione della seduta da inviare in presa visione: atti richiamati (testo, comprese le analisi
+  // d'impatto, con impronta SHA-256) e i loro allegati. Si fissa sul ticket al momento dell'invio.
+  async function documentiDaInviare() {
+    const ids = [...new Set(delibRichiamate.map(l => l.determina_id).filter(Boolean))]
+    if (!ids.length) return null
+    const [{ data: atti }, { data: alleg }] = await Promise.all([
+      supabase.from('determine').select('id, oggetto, organo, numero, anno, stato, corpo_html').in('id', ids),
+      supabase.from('determina_allegati').select('id, determina_id, nome_file, voce, storage_path, dimensione, created_at').in('determina_id', ids).order('created_at'),
+    ])
+    const sha = async (t) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)))].map(b => b.toString(16).padStart(2, '0')).join('')
+    const ordine = new Map(delibRichiamate.map((l, i) => [l.determina_id, i]))
+    const elenco = await Promise.all((atti || []).sort((a, b) => ordine.get(a.id) - ordine.get(b.id)).map(async d => ({
+      determina_id: d.id,
+      oggetto: d.oggetto,
+      numero: d.numero != null ? `${d.organo === 'cda' ? 'Delibera' : 'Determina'} n. ${String(d.numero).padStart(3, '0')}/${d.anno}` : 'proposta non ancora protocollata',
+      stato: d.stato,
+      testo: d.corpo_html || '',
+      hash_testo: await sha(d.corpo_html || ''),
+      allegati: (alleg || []).filter(a => a.determina_id === d.id).map(({ determina_id: _d, ...a }) => a),
+    })))
+    return { inviato_il: new Date().toISOString(), atti: elenco }
+  }
+
   // Invia a tutti i componenti dell'organo un ticket (presa visione o incarico)
   async function circolarizza(tipo, { titolo, istruzioni, scadenza }) {
     setCircMsg(null)
     const dest = componenti.filter(c => c.membro_id)
     if (dest.length === 0) { setCircMsg({ tipo: 'err', txt: 'Nessun componente da avvisare: aggiungi prima i membri all\'organo.' }); return }
+    const documenti = tipo === 'presa_visione' ? await documentiDaInviare() : null
+    const elencoDoc = documenti?.atti?.length
+      ? `\n\nDocumenti che riceveranno:\n${documenti.atti.map(a => `- ${a.oggetto} (testo${a.allegati.length ? ` + ${a.allegati.length} allegati` : ''})`).join('\n')}`
+      : (tipo === 'presa_visione' ? '\n\nNessun atto richiamato in questa seduta: riceveranno solo titolo e note.' : '')
 
     // (B) Blocco anti-ri-invio: già inviato lo stesso oggetto+tipo per questa adunanza?
     const elenco = dest.map(c => {
@@ -165,12 +192,12 @@ export default function DettaglioAdunanza() {
     }).join('\n')
     const giaInviato = ticketCirc.some(t => t.tipo === tipo && (t.titolo || '').trim() === (titolo || '').trim())
     if (giaInviato) {
-      const ok = window.confirm(`Hai già circolarizzato "${titolo}" a questi componenti.\nVuoi inviare di nuovo? Riceveranno:\n\n${elenco}`)
+      const ok = window.confirm(`Hai già circolarizzato "${titolo}" a questi componenti.\nVuoi inviare di nuovo? Riceveranno:\n\n${elenco}${elencoDoc}`)
       if (!ok) return
     } else {
       // (A) Conferma prima di inviare
       const label = tipo === 'incarico' ? 'assegnare l\'incarico' : 'inviare in presa visione'
-      const ok = window.confirm(`Stai per ${label} ai seguenti destinatari:\n\n${elenco}\n\nConfermi l'invio?`)
+      const ok = window.confirm(`Stai per ${label} ai seguenti destinatari:\n\n${elenco}${elencoDoc}\n\nConfermi l'invio?`)
       if (!ok) return
     }
 
@@ -186,13 +213,14 @@ export default function DettaglioAdunanza() {
       priorita: 'media',
       stato: 'Aperto',
       email_inviata: false,
+      documenti,
     }))
     const { data: creati, error } = await supabase.from('ticket').insert(righe).select('id')
     if (error) { setCircMsg({ tipo: 'err', txt: error.message }); return }
     await supabase.from('governance_eventi').insert({
       azienda_id: azienda.id, adunanza_id: adunanzaId,
       evento: tipo === 'incarico' ? 'incarico_assegnato' : 'documento_circolarizzato',
-      dettaglio: `${titolo} - ${dest.length} destinatari`,
+      dettaglio: `${titolo} - ${dest.length} destinatari${documenti?.atti?.length ? ` - ${documenti.atti.length} atti, ${documenti.atti.reduce((n, a) => n + a.allegati.length, 0)} allegati` : ''}`,
     })
     // Invio email a ciascun destinatario (riusa la Edge Function invia-email)
     let inviate = 0

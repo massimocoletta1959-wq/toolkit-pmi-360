@@ -21,6 +21,9 @@ serve(async (req) => {
 
     const membro = ticket.membri
     const isReminder = tipo === 'reminder'
+    // atti e allegati inviati in presa visione (istantanea sul ticket): elencati, si aprono solo nel portale
+    const documenti = Array.isArray(ticket.documenti?.atti) ? ticket.documenti.atti : []
+    const esc = (t: string) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     const scadenzaFormatted = ticket.scadenza ? new Date(ticket.scadenza).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Non definita'
     const prioritaColor = { 'Alta': '#C0392B', 'Media': '#E67E22', 'Bassa': '#27AE60' }[ticket.priorita] || '#666'
     const subject = isReminder ? `Promemoria scadenza: ${ticket.titolo}` : `Nuovo task assegnato: ${ticket.titolo}`
@@ -43,6 +46,7 @@ ${isReminder ? '<div style="background:#FEF9E7;border:1px solid #FAC775;border-r
 <div style="padding:16px 20px;">
 ${ticket.rischi ? `<p style="margin:0 0 12px;font-size:13px;color:#888;"><strong>Rischio:</strong> ${ticket.rischi.descrizione}</p>` : ''}
 ${ticket.istruzioni ? `<p style="margin:0;font-size:13px;color:#444;line-height:1.6;"><strong>Istruzioni:</strong><br>${ticket.istruzioni.replace(/\n/g, '<br>')}</p>` : ''}
+${documenti.length ? `<p style="margin:12px 0 4px;font-size:13px;color:#444;"><strong>Documenti da esaminare</strong> (si aprono nel portale, in «I miei task»):</p><ul style="margin:0;padding-left:18px;font-size:13px;color:#444;line-height:1.6;">${documenti.map((d: any) => `<li>${esc(d.oggetto)}${d.allegati?.length ? ` — testo e ${d.allegati.length} allegati` : ' — testo'}</li>`).join('')}</ul>` : ''}
 </div></div>
 <div style="text-align:center;margin-bottom:24px;">
 <a href="${APP_URL}" style="display:inline-block;background:#2B5FA5;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">Apri il portale →</a>

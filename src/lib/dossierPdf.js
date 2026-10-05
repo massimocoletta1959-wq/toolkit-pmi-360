@@ -333,10 +333,36 @@ export async function generaFascicoloBjr({ d, score, azienda, scaricaAllegato, o
     if (!inv) { inv = { titolo: t.titolo, tipo: t.tipo, istruzioni: t.istruzioni, scadenza: t.scadenza, righe: [] }; invii.push(inv) }
     inv.righe.push(t)
   })
+  // impronta attuale del testo di ogni atto, per verificare che non sia cambiato dopo l'invio
+  const hashAttuale = new Map()
+  for (const a of d.atti || []) hashAttuale.set(a.id, await sha256(new TextEncoder().encode(a.corpo_html || '')))
+  const idAllegatiAttuali = new Set(d.allegati.map(a => a.id))
+  for (const inv of invii) {
+    const t0 = inv.righe.find(t => t.documenti?.atti?.length)
+    inv.documenti = t0 ? t0.documenti : null
+  }
   invii.forEach((inv, i) => {
     drawSub(`5.${i + 1}  ${inv.tipo === 'presa_visione' ? 'Presa visione' : 'Incarico'}: ${inv.titolo}`)
     if (inv.istruzioni) drawText(`Note inviate: ${inv.istruzioni}`, { size: 9 })
     if (inv.scadenza) drawText(`Scadenza: ${dataSola(inv.scadenza)}`, { size: 9 })
+    if (inv.documenti) {
+      drawText(`Documenti inviati (${dataOra(inv.documenti.inviato_il)}):`, { size: 9, f: fontBold })
+      inv.documenti.atti.forEach(a => {
+        drawText(`• ${a.oggetto} — ${a.numero} — testo dell'atto, impronta SHA-256 ${a.hash_testo}`, { size: 9, indent: 10 })
+        const attuale = hashAttuale.get(a.determina_id)
+        if (attuale && attuale !== a.hash_testo) {
+          drawText("ATTENZIONE: il testo dell'atto è stato modificato dopo l'invio: i componenti hanno esaminato la versione precedente.", { size: 9, indent: 22, color: colAvviso })
+          mancanze.push(`testo dell'atto «${a.oggetto}» modificato dopo l'invio in presa visione «${inv.titolo}» (va inviato di nuovo)`)
+        }
+        ;(a.allegati || []).forEach(f => {
+          const sostituito = !idAllegatiAttuali.has(f.id)
+          drawText(`– ${f.nome_file}${f.voce ? ` (${f.voce})` : ''}${sostituito ? ' — SOSTITUITO o rimosso dopo l\'invio' : ''}`, { size: 8.5, indent: 22, color: sostituito ? colAvviso : colTesto })
+          if (sostituito) mancanze.push(`allegato «${f.nome_file}» dell'atto «${a.oggetto}» sostituito o rimosso dopo l'invio «${inv.titolo}»`)
+        })
+      })
+    } else if (inv.tipo === 'presa_visione' && richiamiConAtto.length) {
+      drawText('Invio senza documenti allegati (solo titolo e note): gli atti non risultano trasmessi con questa presa visione.', { size: 9, color: colAvviso })
+    }
     inv.righe.forEach(t => {
       const notif = (d.notifiche || []).filter(n => n.ticket_id === t.id).sort((a, b) => String(a.inviata_at).localeCompare(String(b.inviata_at)))
       const email = notif.filter(n => n.tipo !== 'reminder')
@@ -352,6 +378,10 @@ export async function generaFascicoloBjr({ d, score, azienda, scaricaAllegato, o
       if (t.note_membro) drawText(`Note del destinatario: ${t.note_membro}`, { size: 9, indent: 22 })
     })
   })
+
+  if (richiamiConAtto.length && d.ticket.length && !invii.some(inv => inv.documenti)) {
+    mancanze.push('trasmissione degli atti ai componenti: le prese visione inviate non contengono i documenti della seduta')
+  }
 
   // ═════════ CRONOLOGIA ═════════
   spacer(8); drawHeading('6. Cronologia')

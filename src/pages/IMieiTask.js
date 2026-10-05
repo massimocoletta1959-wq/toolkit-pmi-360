@@ -102,6 +102,65 @@ function AggiornaModal({ ticket, autore, onSave, onClose }) {
   )
 }
 
+// Documenti inviati in presa visione per una seduta (istantanea fissata all'invio): testo degli atti, con le
+// analisi d'impatto, e allegati (comprese le simulazioni). La conferma si da' da qui, dopo averli visti.
+function DocumentiInviati({ t, giaPresa, onConferma, confLoading, onClose }) {
+  const [aperto, setAperto] = useState(0)
+  const [errFile, setErrFile] = useState(null)
+  const atti = t.documenti?.atti || []
+  async function apriFile(f) {
+    setErrFile(null)
+    const { data, error } = await supabase.storage.from('fascicoli').createSignedUrl(f.storage_path, 300)
+    if (error || !data?.signedUrl) { setErrFile(`«${f.nome_file}» non è più disponibile (sostituito dopo l'invio).`); return }
+    window.open(data.signedUrl, '_blank')
+  }
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth: 820, width: '100%' }}>
+        <div className="modal-header">
+          <div>
+            <h3 className="modal-title">{t.titolo}</h3>
+            <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+              Documenti inviati il {new Date(t.documenti.inviato_il || t.created_at).toLocaleString('it-IT')}{t.aziende?.nome ? ` · ${t.aziende.nome}` : ''}
+            </div>
+          </div>
+          <button className="btn btn-icon" onClick={onClose}>✕</button>
+        </div>
+        <div style={{ maxHeight: '62vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {atti.map((a, i) => (
+            <div key={a.determina_id} style={{ border: '1px solid #E0E0E0', borderRadius: 8 }}>
+              <button type="button" onClick={() => setAperto(aperto === i ? -1 : i)}
+                style={{ width: '100%', textAlign: 'left', background: '#F7F8FA', border: 0, borderRadius: 8, padding: '10px 12px', cursor: 'pointer', fontSize: 13.5 }}>
+                <span style={{ color: '#888', marginRight: 6 }}>{aperto === i ? '▾' : '▸'}</span>
+                <strong>{a.oggetto}</strong> <span style={{ color: '#888', fontSize: 12 }}>— {a.numero}{a.allegati?.length ? ` · ${a.allegati.length} allegati` : ''}</span>
+              </button>
+              {aperto === i && (
+                <div style={{ padding: '10px 14px' }}>
+                  <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.6, color: '#333' }}>{a.testo || 'Testo non presente.'}</div>
+                  {a.allegati?.length > 0 && (
+                    <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {a.allegati.map(f => (
+                        <button key={f.id} type="button" className="btn btn-sm" onClick={() => apriFile(f)}>📎 {f.nome_file}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+          {errFile && <div className="alert alert-error" style={{ marginBottom: 0 }}>{errFile}</div>}
+        </div>
+        <div className="modal-footer">
+          <button className="btn" onClick={onClose}>Chiudi</button>
+          {giaPresa
+            ? <span style={{ fontSize: 13, color: '#27AE60', fontWeight: 600, alignSelf: 'center' }}>✓ Presa visione confermata{t.data_presa_visione ? ' il ' + new Date(t.data_presa_visione).toLocaleString('it-IT') : ''}</span>
+            : <button className="btn" style={{ background: '#27AE60', color: '#fff' }} disabled={confLoading} onClick={onConferma}>{confLoading ? 'Salvataggio…' : '✓ Ho esaminato i documenti: confermo la presa visione'}</button>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function TicketCard({ t, onAggiorna, autore, onReload }) {
   const sc = STATO_COLORS[t.stato] || STATO_COLORS['Aperto']
   const pc = PRIOR_COLORS[t.priorita] || PRIOR_COLORS['Media']
@@ -109,6 +168,8 @@ function TicketCard({ t, onAggiorna, autore, onReload }) {
   const presaVisione = t.tipo === 'presa_visione' || !!t.procedura_id
   const giaPresa = t.stato === 'Completato'
   const [conf, setConf] = React.useState({ loading: false, err: null })
+  const [docAperti, setDocAperti] = React.useState(false)
+  const conDocumenti = (t.documenti?.atti || []).length > 0
   const scadenzaDate = t.scadenza ? new Date(t.scadenza) : null
   const oggi = new Date()
   const giorniMancanti = scadenzaDate ? Math.ceil((scadenzaDate - oggi) / (1000*60*60*24)) : null
@@ -129,6 +190,7 @@ function TicketCard({ t, onAggiorna, autore, onReload }) {
     await supabase.from('ticket_note').insert({
       ticket_id: t.id, autore: autore || 'membro', ruolo: 'sistema', testo: 'Presa visione confermata',
     })
+    setDocAperti(false)
     if (onReload) onReload()
   }
 
@@ -172,6 +234,12 @@ function TicketCard({ t, onAggiorna, autore, onReload }) {
               📄 Apri la procedura
             </button>
           )}
+          {conDocumenti && (
+            <button className="btn btn-sm" style={{ background: '#EBF4FC', color: '#2B5FA5', whiteSpace: 'nowrap' }} onClick={() => setDocAperti(true)}>
+              📂 Documenti della seduta ({t.documenti.atti.length})
+            </button>
+          )}
+          {docAperti && <DocumentiInviati t={t} giaPresa={giaPresa} confLoading={conf.loading} onConferma={confermaPresa} onClose={() => setDocAperti(false)} />}
           {presaVisione ? (
             giaPresa ? (
               <span style={{ fontSize: 12, color: '#27AE60', textAlign: 'center', fontWeight: 600, whiteSpace: 'nowrap' }}>
@@ -179,8 +247,8 @@ function TicketCard({ t, onAggiorna, autore, onReload }) {
               </span>
             ) : (
               <button className="btn btn-sm" style={{ background: '#27AE60', color: '#fff', whiteSpace: 'nowrap' }}
-                disabled={conf.loading} onClick={confermaPresa}>
-                {conf.loading ? 'Salvataggio…' : '✓ Confermo la presa visione'}
+                disabled={conf.loading} onClick={conDocumenti ? () => setDocAperti(true) : confermaPresa}>
+                {conf.loading ? 'Salvataggio…' : conDocumenti ? '✓ Esamina e conferma' : '✓ Confermo la presa visione'}
               </button>
             )
           ) : (
