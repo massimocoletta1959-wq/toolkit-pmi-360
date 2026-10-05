@@ -149,6 +149,7 @@ tbody td { padding: 10px 12px; vertical-align: middle; }
 .alert-error { background: var(--red-light); color: var(--red); border: 1px solid #FFAAAA; }
 .alert-success { background: var(--green-light); color: #155724; border: 1px solid #B8E6C1; }
 .alert-info { background: var(--blue-xl); color: var(--blue-dark); border: 1px solid var(--blue-light); }
+.alert-warning { background: #FEF9E7; color: #7A5A00; border: 1px solid #F5DFA0; }
 
 /* Empty state */
 .empty-state { text-align: center; padding: 48px 20px; color: var(--gray-med); }

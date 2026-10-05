@@ -14,7 +14,8 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
 const EASYPMI_URL = (Deno.env.get('EASYPMI_URL') || '').replace(/\/$/, '')
 const EASYPMI_TOKEN = Deno.env.get('PMI360_SERVICE_TOKEN') || ''
-const VOCE_SIMULAZIONE = "Simulazione d'impatto (EasyPMI)"
+const VOCE_SIMULAZIONE = "Simulazione d'impatto (Finanza e Controllo)"
+const VOCE_SIMULAZIONE_PRECEDENTE = "Simulazione d'impatto (EasyPMI)"
 const TIMEOUT_MS = 30000
 
 const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Content-Type': 'application/json' }
@@ -119,7 +120,7 @@ serve(async (req) => {
   }
 
   // ── Solo ora si scrivono i riferimenti (sostituendo la simulazione precedente) ──
-  const vr = await fetch(`${supabaseUrl}/rest/v1/determina_allegati?determina_id=eq.${determina_id}&voce=eq.${encodeURIComponent(VOCE_SIMULAZIONE)}&select=id,storage_path`, { headers: db })
+  const vr = await fetch(`${supabaseUrl}/rest/v1/determina_allegati?determina_id=eq.${determina_id}&voce=in.(${encodeURIComponent(`"${VOCE_SIMULAZIONE}","${VOCE_SIMULAZIONE_PRECEDENTE}"`)})&select=id,storage_path`, { headers: db })
   const vecchi: { id: string; storage_path: string }[] = vr.ok ? await vr.json() : []
 
   // Sintesi: tutta la risposta tranne gli URL firmati (restano sha256 e bytes)

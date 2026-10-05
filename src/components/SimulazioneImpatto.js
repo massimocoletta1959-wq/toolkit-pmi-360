@@ -10,7 +10,7 @@ import { useApp } from '../App'
 // Lo schema EasyPMI è rigido: si inviano solo i campi previsti per il tipo.
 // ============================================================
 
-export const VOCE_SIMULAZIONE = "Simulazione d'impatto (EasyPMI)"
+export const VOCE_SIMULAZIONE = "Simulazione d'impatto (Finanza e Controllo)"
 
 // Tipi d'impatto oggi supportati da EasyPMI (motore impatto-2)
 const TIPI_IMPATTO = {
@@ -350,7 +350,7 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
   if (impatti.length === 0 && !sim) {
     return (
       <div style={{ border: '1px solid #E8ECF2', background: '#FAFAFA', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 12.5, color: '#888' }}>
-        📊 Simulazione d'impatto (EasyPMI): non ancora disponibile per questo tipo di atto.
+        📊 {VOCE_SIMULAZIONE}: non ancora disponibile per questo tipo di atto.
       </div>
     )
   }
@@ -365,9 +365,9 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
     <div style={{ border: '1px solid #D6E4F0', background: '#F7FAFD', borderRadius: 8, padding: '12px 14px', marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 200 }}>
-          <div style={{ fontSize: 13.5, fontWeight: 600, color: '#1A3A5C' }}>📊 Simulazione d'impatto (EasyPMI)</div>
+          <div style={{ fontSize: 13.5, fontWeight: 600, color: '#1A3A5C' }}>📊 {VOCE_SIMULAZIONE}</div>
           <div style={{ fontSize: 12, color: '#777', marginTop: 2 }}>
-            Applica la decisione alla proiezione di Tesoreria dell'azienda in EasyPMI. I due PDF finiscono nel fascicolo.
+            Applica la decisione alla proiezione di Tesoreria dell'azienda (modulo Finanza e Controllo). I due PDF finiscono nel fascicolo.
           </div>
         </div>
         {!soloLettura && impatti.length > 0 && (
@@ -603,7 +603,7 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
               {!SENZA_IVA.includes(c.tipo_impatto) && (
                 <Campo label="Regime IVA">
                   <Scelta value={c.iva_regime} onChange={setC('iva_regime')}
-                    opzioni={{ ordinaria: 'Ordinaria (aliquota EasyPMI)', esente: 'Esente', non_soggetta: 'Non soggetta' }} />
+                    opzioni={{ ordinaria: 'Ordinaria (aliquota da Finanza e Controllo)', esente: 'Esente', non_soggetta: 'Non soggetta' }} />
                 </Campo>
               )}
             </div>
@@ -659,7 +659,7 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
                 </div>
               ))}
               <button type="button" className="btn btn-sm" onClick={() => aggiungiRiga('contributi', { descrizione: '', importo: '', data_incasso: '', natura: 'credito_imposta' })}>+ Contributo</button>
-              {t.contributi.length > 0 && <div style={{ fontSize: 11.5, color: '#999', marginTop: 4 }}>EasyPMI considera i contributi solo in cassa, alla data di incasso.</div>}
+              {t.contributi.length > 0 && <div style={{ fontSize: 11.5, color: '#999', marginTop: 4 }}>La simulazione considera i contributi solo in cassa, alla data di incasso.</div>}
             </>)}
 
             {/* ── Finanziamento ── */}
