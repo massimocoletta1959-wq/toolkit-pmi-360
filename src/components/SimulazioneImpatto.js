@@ -45,6 +45,9 @@ const CATEGORIE_RICORRENTE = { servizi: 'Servizi', consulenza: 'Consulenza', loc
 const CATEGORIE_UNA_TANTUM = { evento: 'Evento', sponsorizzazione: 'Sponsorizzazione', adeguamento: 'Adeguamento normativo', manutenzione: 'Manutenzione', spese_legali: 'Spese legali', altro: 'Altro' }
 const CATEGORIA_DEFAULT = { consulenza: 'altro', marketing: 'evento', contenzioso: 'spese_legali', compliance: 'adeguamento', immobiliare: 'manutenzione' }
 const RICORRENTE_DEFAULT = { consulenza: 'consulenza', marketing: 'marketing', immobiliare: 'locazione_passiva', rs_innovazione: 'canone_software' }
+// Voce di bilancio del costo (tipologia di spesa): dove va nel budget rettificato
+const VOCI_SPESA = { B7: 'B7 — Servizi', B8: 'B8 — Godimento di beni di terzi (locazioni, licenze, noleggi)', B6: 'B6 — Materie prime, sussidiarie, di consumo e merci', B14: 'B14 — Oneri diversi di gestione' }
+const voceTipica = (tipoImpatto, categoria) => (['locazione_passiva', 'canone_software'].includes(categoria) ? 'B8' : tipoImpatto === 'costo_una_tantum' && categoria === 'altro' ? 'B14' : 'B7')
 const INQUADRAMENTI = { impiegato: 'Impiegato', operaio: 'Operaio', quadro: 'Quadro', dirigente: 'Dirigente' }
 // Tipi senza IVA su nessun movimento: il regime IVA non si chiede né si invia
 const SENZA_IVA = ['finanziamento', 'personale']
@@ -86,10 +89,10 @@ function singoloVuoto({ oggetto, valore, tipoAtto, impatti, azienda }) {
     descrizione: oggetto || '', data_decorrenza: primoDelMeseProssimo(), iva_regime: 'ordinaria',
     ricavi_modalita: '', ricavi_valore: '', ricavi_mese: '',   // ipotesi_ricavi: campo comune a tutti i tipi
     leasing: { metodo: 'patrimoniale', imponibile: valore || '', maxicanone: 0, numero_rate: 60, riscatto: 0, canone: '', tasso: '', durata_ammortamento: '', costi_esercizio: 0 },
-    acquisto_bene: { imponibile: valore || '', pag_modalita: 'unico', acconto_pct: 30, numero_rate: 12, periodicita: 'mensile', amm_tipo: 'durata', amm_valore: 60, data_entrata: '', costi_esercizio: 0, contributi: [] },
+    acquisto_bene: { imponibile: valore || '', pag_modalita: 'unico', acconto_pct: 30, numero_rate: 12, periodicita: 'mensile', amm_anni: 5, amm_quota: 20, data_entrata: '', costi_esercizio: 0, contributi: [] },
     finanziamento: { importo: valore || '', data_erogazione: '', tasso: '', numero_rate: 60, periodicita: 'mensile', piano: 'francese', preammortamento_mesi: 0, spese_istruttoria: 0 },
-    costo_ricorrente: { categoria: RICORRENTE_DEFAULT[tipoAtto] || 'servizi', importo_periodico: '', periodicita_fatturazione: 'mensile', pagamento_anticipato: false, durata_mesi: 12, indicizzazione: 0, una_tantum_iniziale: 0, deposito_cauzionale: 0, fee_importo: '', fee_data: '' },
-    costo_una_tantum: { categoria: CATEGORIA_DEFAULT[tipoAtto] || 'altro', importo: valore || '', piano: [] },
+    costo_ricorrente: { categoria: RICORRENTE_DEFAULT[tipoAtto] || 'servizi', importo_periodico: '', periodicita_fatturazione: 'mensile', pagamento_anticipato: false, durata_mesi: 12, indicizzazione: 0, una_tantum_iniziale: 0, deposito_cauzionale: 0, fee_importo: '', fee_data: '', voce_ce: '' },
+    costo_una_tantum: { categoria: CATEGORIA_DEFAULT[tipoAtto] || 'altro', importo: valore || '', piano: [], voce_ce: '' },
     personale: { movimento: 'ingresso', numero_persone: 1, inquadramento: 'impiegato', ral_annua: '', mensilita: lav.mensilita, contributi_pct: lav.contributi_pct, durata_mesi: '', benefit_annui: 0, bonus_importo: '', bonus_mese: '', costi_una_tantum: [], incentivo_esodo: '', sgravio_pct: '', sgravio_mesi: '' },
   }
 }
@@ -103,13 +106,13 @@ function singoloDaRichiesta(r, base) {
     f.leasing = { metodo: l.metodo_contabile || 'patrimoniale', imponibile: r.imponibile ?? '', maxicanone: l.maxicanone ?? 0, numero_rate: l.numero_rate ?? 60, riscatto: l.riscatto ?? 0, canone: l.canone ?? '', tasso: l.tasso_annuo_pct ?? '', durata_ammortamento: r.ammortamento?.durata_mesi ?? '', costi_esercizio: r.costi_esercizio_mensili ?? 0 }
   } else if (r.tipo_impatto === 'acquisto_bene') {
     const p = r.pagamento || {}, a = r.ammortamento || {}
-    f.acquisto_bene = { imponibile: r.imponibile ?? '', pag_modalita: p.modalita || 'unico', acconto_pct: p.acconto_pct ?? 30, numero_rate: p.numero_rate ?? 12, periodicita: p.periodicita || 'mensile', amm_tipo: a.aliquota_annua_pct != null ? 'aliquota' : 'durata', amm_valore: a.aliquota_annua_pct ?? a.durata_mesi ?? 60, data_entrata: r.data_entrata_in_funzione || '', costi_esercizio: r.costi_esercizio_mensili ?? 0, contributi: r.contributi || [] }
+    f.acquisto_bene = { imponibile: r.imponibile ?? '', pag_modalita: p.modalita || 'unico', acconto_pct: p.acconto_pct ?? 30, numero_rate: p.numero_rate ?? 12, periodicita: p.periodicita || 'mensile', amm_anni: a.durata_mesi ? Math.round((a.durata_mesi / 12) * 100) / 100 : a.aliquota_annua_pct ? Math.round((100 / a.aliquota_annua_pct) * 100) / 100 : 5, amm_quota: a.aliquota_annua_pct ?? (a.durata_mesi ? Math.round((1200 / a.durata_mesi) * 100) / 100 : 20), data_entrata: r.data_entrata_in_funzione || '', costi_esercizio: r.costi_esercizio_mensili ?? 0, contributi: r.contributi || [] }
   } else if (r.tipo_impatto === 'finanziamento') {
     f.finanziamento = { importo: r.importo ?? '', data_erogazione: r.data_erogazione || '', tasso: r.tasso_annuo_pct ?? '', numero_rate: r.numero_rate ?? 60, periodicita: r.periodicita || 'mensile', piano: r.piano || 'francese', preammortamento_mesi: r.preammortamento_mesi ?? 0, spese_istruttoria: r.spese_istruttoria ?? 0 }
   } else if (r.tipo_impatto === 'costo_ricorrente') {
-    f.costo_ricorrente = { categoria: r.categoria || 'servizi', importo_periodico: r.importo_periodico ?? '', periodicita_fatturazione: r.periodicita_fatturazione || 'mensile', pagamento_anticipato: !!r.pagamento_anticipato, durata_mesi: r.durata_mesi ?? 12, indicizzazione: r.indicizzazione_annua_pct ?? 0, una_tantum_iniziale: r.una_tantum_iniziale ?? 0, deposito_cauzionale: r.deposito_cauzionale ?? 0, fee_importo: r.success_fee?.importo ?? '', fee_data: r.success_fee?.data_prevista || '' }
+    f.costo_ricorrente = { categoria: r.categoria || 'servizi', importo_periodico: r.importo_periodico ?? '', periodicita_fatturazione: r.periodicita_fatturazione || 'mensile', pagamento_anticipato: !!r.pagamento_anticipato, durata_mesi: r.durata_mesi ?? 12, indicizzazione: r.indicizzazione_annua_pct ?? 0, una_tantum_iniziale: r.una_tantum_iniziale ?? 0, deposito_cauzionale: r.deposito_cauzionale ?? 0, fee_importo: r.success_fee?.importo ?? '', fee_data: r.success_fee?.data_prevista || '', voce_ce: r.voce_ce || '' }
   } else if (r.tipo_impatto === 'costo_una_tantum') {
-    f.costo_una_tantum = { categoria: r.categoria || 'altro', importo: r.importo ?? '', piano: r.piano_pagamenti || [] }
+    f.costo_una_tantum = { categoria: r.categoria || 'altro', importo: r.importo ?? '', piano: r.piano_pagamenti || [], voce_ce: r.voce_ce || '' }
   } else if (r.tipo_impatto === 'personale') {
     f.personale = { movimento: r.movimento || 'ingresso', numero_persone: r.numero_persone ?? 1, inquadramento: r.inquadramento || 'impiegato', ral_annua: r.ral_annua ?? '', mensilita: r.mensilita ?? 13, contributi_pct: r.contributi_pct ?? '', durata_mesi: r.durata_mesi ?? '', benefit_annui: r.benefit_annui ?? 0, bonus_importo: r.bonus_variabile?.importo_annuo ?? '', bonus_mese: (r.bonus_variabile?.mese_pagamento || '').slice(0, 7), costi_una_tantum: r.costi_una_tantum || [], incentivo_esodo: r.incentivo_esodo ?? '', sgravio_pct: r.sgravi?.riduzione_contributi_pct ?? '', sgravio_mesi: r.sgravi?.durata_mesi ?? '' }
   }
@@ -134,7 +137,7 @@ function costruisciDecisione(f) {
     if (x.pag_modalita === 'rate') Object.assign(pagamento, { numero_rate: intero(x.numero_rate), periodicita: x.periodicita })
     Object.assign(d, {
       imponibile: num(x.imponibile), pagamento,
-      ammortamento: x.amm_tipo === 'aliquota' ? { aliquota_annua_pct: num(x.amm_valore) } : { durata_mesi: intero(x.amm_valore) },
+      ammortamento: { durata_mesi: Math.round(num(x.amm_anni) * 12) },
       costi_esercizio_mensili: num(x.costi_esercizio || 0),
     })
     if (x.data_entrata) d.data_entrata_in_funzione = x.data_entrata
@@ -156,9 +159,10 @@ function costruisciDecisione(f) {
     if (num(x.una_tantum_iniziale) > 0) d.una_tantum_iniziale = num(x.una_tantum_iniziale)
     if (num(x.deposito_cauzionale) > 0) d.deposito_cauzionale = num(x.deposito_cauzionale)
     if (pieno(x.fee_importo)) d.success_fee = { importo: num(x.fee_importo), data_prevista: x.fee_data }
+    d.voce_ce = x.voce_ce || voceTipica(f.tipo_impatto, x.categoria)
   } else if (f.tipo_impatto === 'costo_una_tantum') {
     const x = f.costo_una_tantum
-    Object.assign(d, { categoria: x.categoria, importo: num(x.importo) })
+    Object.assign(d, { categoria: x.categoria, importo: num(x.importo), voce_ce: x.voce_ce || voceTipica(f.tipo_impatto, x.categoria) })
     const piano = x.piano.filter(p => p.data && pieno(p.importo)).map(p => ({ data: p.data, importo: num(p.importo) }))
     if (piano.length) d.piano_pagamenti = piano
   } else if (f.tipo_impatto === 'personale') {
@@ -195,7 +199,8 @@ function validaSingolo(f) {
       return 'Con il metodo finanziario servono tasso annuo e durata dell\'ammortamento.'
   } else if (f.tipo_impatto === 'acquisto_bene') {
     if (!(num(x.imponibile) > 0)) return 'Inserisci il valore del bene (IVA esclusa).'
-    if (!(num(x.amm_valore) > 0)) return 'Indica la durata o l\'aliquota di ammortamento.'
+    if (!(num(x.amm_anni) > 0) || !(num(x.amm_quota) > 0)) return 'Indica il periodo di ammortamento (anni) e la quota annua (%).'
+    if (Math.abs(num(x.amm_anni) * num(x.amm_quota) - 100) > 1) return `Periodo e quota di ammortamento non coerenti: con ${num(x.amm_anni)} anni la quota annua è ${Math.round((100 / num(x.amm_anni)) * 100) / 100}% (con il ${num(x.amm_quota)}% servono ${Math.round((100 / num(x.amm_quota)) * 100) / 100} anni).`
     if (x.pag_modalita === 'rate' && !(intero(x.numero_rate) > 0)) return 'Indica il numero di rate di pagamento.'
     if (x.contributi.some(c => pieno(c.importo) && !c.data_incasso)) return 'Indica la data di incasso di ogni contributo.'
   } else if (f.tipo_impatto === 'finanziamento') {
@@ -271,7 +276,8 @@ const Data = ({ value, onChange, type = 'date' }) => (
   <input className="form-control" type={type} value={value} onChange={e => onChange(e.target.value)} />
 )
 
-export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura, oggetto, valore, tipoAtto, onRiporta }) {
+// onCompletata(simulazione): a simulazione riuscita, l'atto riceve le analisi d'impatto (sintesi.testi)
+export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura, oggetto, valore, tipoAtto, onCompletata }) {
   const [sim, setSim] = useState(null)          // riga determina_simulazioni
   const [aperto, setAperto] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -344,6 +350,7 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
     if (error) { setErr(await leggiErrore(error)); return }
     setSim(data.simulazione)
     setAperto(false)
+    if (onCompletata) await onCompletata(data.simulazione)
   }
 
   // Tipo di delibera senza meccaniche simulabili (es. procura, assunzione in attesa del tipo "personale")
@@ -544,9 +551,9 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
             <span style={{ fontSize: 11, color: '#999', flex: 1 }}>
               Simulazione del {new Date(sim.created_at).toLocaleString('it-IT')} · PDF nel fascicolo (step Fascicolo)
             </span>
-            {!soloLettura && onRiporta && s.confronto_baseline?.testo && (
-              <button type="button" className="btn btn-sm" onClick={() => onRiporta(s.confronto_baseline.testo)}>
-                Riporta nell'analisi finanziaria
+            {!soloLettura && onCompletata && s.testi && (
+              <button type="button" className="btn btn-sm" onClick={() => onCompletata(sim)} title="Riscrive le analisi d'impatto nell'atto (il testo scritto a mano resta)">
+                Riporta di nuovo le analisi nell'atto
               </button>
             )}
           </div>
@@ -641,8 +648,8 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
                 </div>
               )}
               <div className="grid-3">
-                <Campo label="Ammortamento"><Scelta value={t.amm_tipo} onChange={setT('amm_tipo')} opzioni={{ durata: 'Durata in mesi', aliquota: 'Aliquota annua %' }} /></Campo>
-                <Campo label={t.amm_tipo === 'aliquota' ? 'Aliquota annua %' : 'Durata (mesi)'}><Num value={t.amm_valore} onChange={setT('amm_valore')} step={t.amm_tipo === 'aliquota' ? '0.01' : '1'} /></Campo>
+                <Campo label="Periodo di ammortamento (anni)"><Num value={t.amm_anni} onChange={setT('amm_anni')} step="0.5" /></Campo>
+                <Campo label="Quota annua di ammortamento %"><Num value={t.amm_quota} onChange={setT('amm_quota')} /></Campo>
                 <Campo label="Entrata in funzione (facolt.)"><Data value={t.data_entrata} onChange={setT('data_entrata')} /></Campo>
               </div>
               <div className="grid-3">
@@ -687,6 +694,7 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
                 <Campo label="Importo per periodo (€, IVA escl.)"><Num value={t.importo_periodico} onChange={setT('importo_periodico')} /></Campo>
                 <Campo label="Fatturazione"><Scelta value={t.periodicita_fatturazione} onChange={setT('periodicita_fatturazione')} opzioni={{ ...PERIODICITA, annuale: 'Annuale' }} /></Campo>
               </div>
+              <Campo label="Tipologia di spesa (voce di bilancio)"><Scelta value={t.voce_ce || voceTipica(c.tipo_impatto, t.categoria)} onChange={setT('voce_ce')} opzioni={VOCI_SPESA} /></Campo>
               <div className="grid-3">
                 <Campo label="Durata (mesi)"><Num value={t.durata_mesi} onChange={setT('durata_mesi')} step="1" min="1" /></Campo>
                 <Campo label="Indicizzazione annua %"><Num value={t.indicizzazione} onChange={setT('indicizzazione')} /></Campo>
@@ -708,6 +716,7 @@ export default function SimulazioneImpatto({ attoId, assicuraBozza, soloLettura,
                 <Campo label="Categoria"><Scelta value={t.categoria} onChange={setT('categoria')} opzioni={CATEGORIE_UNA_TANTUM} /></Campo>
                 <Campo label="Importo (€, IVA escl.)"><Num value={t.importo} onChange={setT('importo')} /></Campo>
               </div>
+              <Campo label="Tipologia di spesa (voce di bilancio)"><Scelta value={t.voce_ce || voceTipica(c.tipo_impatto, t.categoria)} onChange={setT('voce_ce')} opzioni={VOCI_SPESA} /></Campo>
               <div style={{ fontSize: 12.5, fontWeight: 600, color: '#1A3A5C', margin: '4px 0 6px' }}>Piano dei pagamenti (facoltativo: senza, tutto alla decorrenza)</div>
               {t.piano.map((p, i) => (
                 <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 6, marginBottom: 6 }}>

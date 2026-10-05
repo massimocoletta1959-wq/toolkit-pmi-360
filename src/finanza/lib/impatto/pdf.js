@@ -243,6 +243,20 @@ export async function generaPdfImpatto(lib, ctx) {
   copertina(eco, 'Impatto economico', ctx)
   sezioneDecisione(eco, ctx)
   sezioneAvvisi(eco, ctx)
+  const br = r.budget_rettificato
+  if (br) {
+    eco.titolo(`Budget ${br.anno} rettificato (da ${br.periodo.da_leggibile || '-'} a ${br.periodo.a_leggibile})`)
+    const wv = (A4[0] - 2 * M - 170) / 4
+    eco.tabella([{ t: 'Voce di bilancio', w: 170 }, { t: 'Budget', w: wv, al: 'r' }, { t: 'Costi certi', w: wv, al: 'r' }, { t: 'Ricavi attesi', w: wv, al: 'r' }, { t: 'Rettificato', w: wv, al: 'r' }],
+      br.voci.map((v) => ({ celle: [`${v.voce.trim()}${v.nuova ? ' (nuova)' : ''}`, eur(v.originale), v.delta_certi ? eurSegno(v.delta_certi) : '-', v.delta_ricavi ? eurSegno(v.delta_ricavi) : '-', eur(v.rettificato)] })), { size: 8 })
+    const T = br.totali
+    const wt = (A4[0] - 2 * M - 170) / 3
+    const tot = [['valore_produzione', 'Valore della produzione'], ['costi_operativi', 'Costi operativi'], ['ebitda', 'EBITDA'], ['ammortamenti', 'Ammortamenti'], ['ebit', 'EBIT'], ['oneri_finanziari', 'Oneri finanziari netti'], ['risultato_ante_imposte', 'Risultato ante imposte']]
+    eco.tabella([{ t: `Esercizio ${br.anno}`, w: 170 }, { t: 'Budget', w: wt, al: 'r' }, { t: 'Solo costi certi', w: wt, al: 'r' }, { t: 'Con ricavi attesi', w: wt, al: 'r' }],
+      tot.map(([k, t]) => ({ celle: [t, eur(T.budget[k]), eur(T.solo_costi_certi[k]), eur(T.con_ricavi_attesi[k])], grassetto: k === 'risultato_ante_imposte' || k === 'ebitda' })), { size: 8 })
+    if (br.movimenti_oltre_chiusura_ignorati) eco.testo(`Effetti successivi alla chiusura dell'esercizio (dicembre ${br.anno}) non considerati.`, { size: 8.5 })
+    eco.elenco(br.criteri)
+  }
   eco.titolo('Conto Economico: baseline e scenari (12 mesi, ante imposte)')
   const nomi = [['ebitda', 'EBITDA'], ['ebit', 'EBIT'], ['oneri_finanziari', 'Oneri finanziari netti'], ['utile', 'Utile ante imposte']]
   const S = r.scenari

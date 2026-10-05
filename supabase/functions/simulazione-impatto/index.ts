@@ -5,6 +5,8 @@ import { PDFDocument, StandardFonts, rgb } from 'npm:pdf-lib@1.17.1'
 // della Tesoreria per cassa e Conto Economico).
 import { calcolaSimulazione, ErroreMotore, VERSIONE_MOTORE, MODELLO_CASSA_MINIMO } from '../../../src/finanza/lib/impatto/motore.js'
 import { generaPdfImpatto } from '../../../src/finanza/lib/impatto/pdf.js'
+import { calcolaBudgetRettificato, annoEsercizio } from '../../../src/finanza/lib/impatto/budgetRettificato.js'
+import { testoAnalisiEconomica, testoAnalisiFinanziaria } from '../../../src/finanza/lib/impatto/testiAnalisi.js'
 
 // Simulazione d'impatto di una decisione (delibera/determina in bozza) calcolata in Pmi 360° sui dati del
 // modulo Finanza e Controllo: baseline = ultima proiezione di Tesoreria salvata (fin_scenari_tesoreria),
@@ -111,6 +113,9 @@ const Finanziamento = z.object({
   spese_istruttoria: z.number().finite().min(0).default(0),
 }).merge(Comuni).strict()
 
+// Voce di bilancio di un costo (tipologia di spesa) per il budget rettificato
+const VoceCe = z.enum(['B6', 'B7', 'B8', 'B14'])
+
 // costo_ricorrente: servizi, consulenze, locazione passiva, canoni software, contratti di marketing.
 const SuccessFee = z.object({ importo: z.number().finite().positive(), data_prevista: dataIso }).strict()
 const CostoRicorrente = z.object({
@@ -124,6 +129,7 @@ const CostoRicorrente = z.object({
   una_tantum_iniziale: z.number().finite().positive().optional(),
   deposito_cauzionale: z.number().finite().positive().optional(),
   success_fee: SuccessFee.optional(),  // inclusa solo negli scenari base e best
+  voce_ce: VoceCe.optional(),           // tipologia di spesa: voce di bilancio (se assente, quella tipica della categoria)
 }).merge(Comuni).strict()
 
 // costo_una_tantum: evento, sponsorizzazione, adeguamento normativo, manutenzione non capitalizzata.
@@ -133,6 +139,7 @@ const CostoUnaTantum = z.object({
   categoria: z.enum(['evento', 'sponsorizzazione', 'adeguamento', 'manutenzione', 'spese_legali', 'altro']),
   importo: z.number().finite().positive(),
   piano_pagamenti: PianoPagamentiUnaTantum.optional(),
+  voce_ce: VoceCe.optional(),
 }).merge(Comuni).strict()
 
 // personale: assunzioni, uscite, variazioni di organico. contributi_pct e mensilita sono OBBLIGATORI (confermato
@@ -268,6 +275,26 @@ serve(async (req) => {
   }
   for (const a of avvisi) if (!risultato.avvisi.some((x: any) => x.codice === a.codice)) risultato.avvisi.push(a)
 
+  // ── Analisi di impatto economico sul budget approvato dell'esercizio in cui decorre la decisione ──
+  const anno = annoEsercizio(parsed.data)
+  const bur = await fetch(`${supabaseUrl}/rest/v1/fin_budget?azienda_id=eq.${det.azienda_id}&anno=eq.${anno}&stato=eq.approvato&select=id,approvato_il,creato_il&order=approvato_il.desc.nullslast,creato_il.desc&limit=1`, { headers: db })
+  const budget = bur.ok ? ((await bur.json())[0] || null) : null
+  if (!budget) return errore(409, 'BUDGET_NON_DISPONIBILE', `Manca il budget ${anno} approvato: la decisione decorre nel ${anno}. Approva il budget ${anno} in Finanza e Controllo e ripeti la simulazione.`)
+  const vbr = await fetch(`${supabaseUrl}/rest/v1/fin_budget_voci?budget_id=eq.${budget.id}&select=*`, { headers: db })
+  const vociBudget = vbr.ok ? await vbr.json() : []
+  if (!vociBudget.length) return errore(409, 'BUDGET_NON_DISPONIBILE', `Il budget ${anno} approvato non ha voci.`)
+  try {
+    risultato.budget_rettificato = { budget_id: budget.id, ...calcolaBudgetRettificato({ decisione: parsed.data, vociBudget, anno, azienda }) }
+  } catch (e) {
+    console.error('simulazione-impatto: budget rettificato', e)
+    return errore(500, 'ERRORE_INTERNO', 'Errore nel calcolo del budget rettificato.')
+  }
+  const dataSimulazione = new Date().toLocaleDateString('it-IT', { timeZone: 'Europe/Rome' })
+  const testi = {
+    analisi_economica: testoAnalisiEconomica(risultato.budget_rettificato, dataSimulazione),
+    analisi_finanziaria: testoAnalisiFinanziaria(risultato, dataSimulazione),
+  }
+
   const simulazioneId = crypto.randomUUID()
   let pdf: { economico: Uint8Array; finanziario: Uint8Array }
   try {
@@ -322,6 +349,8 @@ serve(async (req) => {
     stress_test: risultato.stress_test,
     confronto_baseline: risultato.confronto_baseline,
     alert: risultato.alert,
+    budget_rettificato: risultato.budget_rettificato,
+    testi,
     ...(risultato.dettaglio_componenti ? { dettaglio_componenti: risultato.dettaglio_componenti } : {}),
     ...(risultato.piano_rate ? { piano_rate: risultato.piano_rate } : {}),
     documenti,

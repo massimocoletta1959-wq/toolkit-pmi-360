@@ -4,6 +4,8 @@ import { useApp } from '../App'
 import { FASCICOLI } from '../lib/fascicoli'
 import { nomeAtto } from '../lib/modalitaSolo'
 import SimulazioneImpatto, { VOCE_SIMULAZIONE } from '../components/SimulazioneImpatto'
+import { bloccoAnalisi, rigaViste, inserisciAnalisiNelCorpo } from '../lib/analisiAtto'
+import { aggiornaBloccoAnalisi } from '../finanza/lib/impatto/testiAnalisi'
 
 // ── Costanti ────────────────────────────────────────────────────────────
 const TIPI = [
@@ -356,7 +358,8 @@ export default function NuovaDetermina() {
         ? `PREMESSA. Il Consiglio di Amministrazione di ${azienda?.nome || 'questa società'}, riunitosi e validamente costituito, avendo valutato la necessità e l'opportunità dell'operazione di seguito descritta;`
         : `PREMESSA. Il/La sottoscritto/a ${titolareNome || auNome || 'Amministratore Unico'}, in qualità di Amministratore Unico di ${azienda?.nome || 'questa società'}, avendo valutato la necessità e l'opportunità dell'operazione di seguito descritta;`,
       ``,
-      `VISTE le analisi economico-finanziarie condotte e la documentazione istruttoria agli atti;`,
+      conEconomica ? rigaViste(analisiEco, analisiFin) : `VISTE le analisi economico-finanziarie condotte e la documentazione istruttoria agli atti;`,
+      conEconomica && bloccoAnalisi(analisiEco, analisiFin) ? `\n${bloccoAnalisi(analisiEco, analisiFin)}\n` : '',
       alternative ? `VALUTATE le alternative considerate: ${alternative};` : '',
       chiRischi ? `ACCERTATO che i rischi connessi sono stati valutati (${chiRischi}) con i relativi piani di mitigazione;` : '',
       righeParere,
@@ -367,6 +370,24 @@ export default function NuovaDetermina() {
       descrizione ? `2. ${descrizione}` : '',
       `${descrizione ? '3' : '2'}. di autorizzare la sottoscrizione di tutti gli atti conseguenti.`,
     ].filter(Boolean).join('\n')
+  }
+
+  // Simulazione d'impatto riuscita: le analisi economica e finanziaria generate entrano nei campi dell'atto
+  // (sostituendo solo il blocco della simulazione precedente, il testo scritto a mano resta) e nel testo della
+  // delibera/determina; la bozza si aggiorna subito, cosi' non si perdono uscendo senza salvare.
+  async function applicaAnalisiImpatto(simulazione) {
+    const t = simulazione?.sintesi?.testi
+    if (!t) return
+    const eco = aggiornaBloccoAnalisi(analisiEco, t.analisi_economica)
+    const fin = aggiornaBloccoAnalisi(analisiFin, t.analisi_finanziaria)
+    setAnalisiEco(eco)
+    setAnalisiFin(fin)
+    const corpo = corpoTesto && corpoTesto.trim() ? inserisciAnalisiNelCorpo(corpoTesto, eco, fin) : ''
+    if (corpo) setCorpoTesto(corpo)
+    const { error } = await supabase.from('determine')
+      .update({ analisi_economica: eco, analisi_finanziaria: fin, ...(corpo ? { corpo_html: corpo } : {}) })
+      .eq('id', simulazione.determina_id).eq('stato', 'bozza')
+    if (error) setErrore('Analisi riportate nel modulo ma non ancora salvate: salva la bozza. (' + error.message + ')')
   }
 
   // Crea una bozza provvisoria per poter allegare i file già in preparazione.
@@ -726,7 +747,7 @@ export default function NuovaDetermina() {
           <SimulazioneImpatto
             attoId={attoId} assicuraBozza={assicuraBozzaProvvisoria} soloLettura={soloLettura}
             oggetto={oggetto} valore={valore} tipoAtto={tipo}
-            onRiporta={testo => setAnalisiFin(prev => prev && prev.trim() ? `${prev.trim()}\n\n${testo}` : testo)} />
+            onCompletata={applicaAnalisiImpatto} />
           <div className="form-group">
             <label className="form-label">Descrizione dell'operazione</label>
             <textarea className="form-control" value={descrizione} onChange={e => setDescrizione(e.target.value)}

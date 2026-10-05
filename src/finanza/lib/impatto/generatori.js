@@ -1,6 +1,7 @@
 // Generatori di "effetti" per ciascun tipo_impatto (v8). Ogni generatore prende i campi della decisione (o di un
 // componente, per una futura "composta") e un contesto comune, e restituisce:
-//   ce:    [{ ym, importo, categoria }]   — competenza economica; categoria una di:
+//   ce:    [{ ym, importo, categoria, voce }] — competenza economica; voce = voce CEE di destinazione (A1, B7, B8,
+//                                            B9a, B9b, B9c, B9e, B10b, B14, C17), usata dal budget rettificato; categoria una di:
 //                                            ricavo_operativo | costo_operativo | ammortamento | onere_finanziario |
 //                                            provento_finanziario. importo con segno naturale (positivo = piu' costo/
 //                                            piu' ricavo/piu' ammortamento/...).
@@ -14,6 +15,16 @@
 // componenti a decorrenze diverse.
 import { round2, it, ymDaData, addMesi, MESI_PER_PERIODO, soggettoIvaDaRegime } from './util.js'
 import { calcolaPianoAmmortamento } from './ammortamento.js'
+
+// Voce di bilancio di un costo ricorrente o una tantum: quella scelta esplicitamente (voce_ce, "tipologia di
+// spesa") o, in mancanza, quella tipica della categoria. Locazioni e canoni di licenze d'uso del software sono
+// godimento di beni di terzi (B8, OIC 12); il resto servizi (B7); "altro" una tantum tra gli oneri diversi (B14).
+const VOCE_PER_CATEGORIA = { locazione_passiva: 'B8', canone_software: 'B8', altro_una_tantum: 'B14' }
+export function voceDiSpesa(d) {
+  if (d.voce_ce) return d.voce_ce
+  if (d.tipo_impatto === 'costo_una_tantum' && d.categoria === 'altro') return VOCE_PER_CATEGORIA.altro_una_tantum
+  return VOCE_PER_CATEGORIA[d.categoria] || 'B7'
+}
 
 // ---------------------------------------------------------------- leasing (v7, invariato: vedi test di non regressione)
 export function calcolaRataLeasing({ imponibile, maxicanone, numeroRate, riscatto, tassoAnnuoPct, canone }) {
@@ -62,12 +73,12 @@ export function generaLeasing(d, ctx) {
   const cassa = []
   for (let k = 0; k < kMax; k++) {
     const ym = addMesi(ymDecorrenza, k)
-    ce.push({ ym, importo: d.costi_esercizio_mensili, categoria: 'costo_operativo' })
+    ce.push({ ym, importo: d.costi_esercizio_mensili, categoria: 'costo_operativo', voce: 'B7' })
     if (metodo === 'patrimoniale') {
-      if (k < n) ce.push({ ym, importo: rata + L.maxicanone / n, categoria: 'costo_operativo' })
+      if (k < n) ce.push({ ym, importo: rata + L.maxicanone / n, categoria: 'costo_operativo', voce: 'B8' })
     } else {
-      if (k < d.ammortamento.durata_mesi) ce.push({ ym, importo: d.imponibile / d.ammortamento.durata_mesi, categoria: 'ammortamento' })
-      if (k < n) ce.push({ ym, importo: interessi[k], categoria: 'onere_finanziario' })
+      if (k < d.ammortamento.durata_mesi) ce.push({ ym, importo: d.imponibile / d.ammortamento.durata_mesi, categoria: 'ammortamento', voce: 'B10b' })
+      if (k < n) ce.push({ ym, importo: interessi[k], categoria: 'onere_finanziario', voce: 'C17' })
     }
     if (d.costi_esercizio_mensili) cassa.push({ ym, giorniSfasamento: dpoGiorni, importo: d.costi_esercizio_mensili, direzione: 'uscita', soggettoIva })
     if (k === 0 && L.maxicanone) cassa.push({ ym, giorniSfasamento: dpoGiorni, importo: L.maxicanone, direzione: 'uscita', soggettoIva })
@@ -126,9 +137,9 @@ export function generaAcquistoBene(d, ctx) {
   const nMesiAmm = d.ammortamento.durata_mesi ?? Math.round((100 / d.ammortamento.aliquota_annua_pct) * 12)
   for (let k = 0; k < ctx.kMax; k++) {
     const ym = addMesi(ymEntrata, k)
-    if (k < nMesiAmm) ce.push({ ym, importo: quotaMensile, categoria: 'ammortamento' })
+    if (k < nMesiAmm) ce.push({ ym, importo: quotaMensile, categoria: 'ammortamento', voce: 'B10b' })
     if (d.costi_esercizio_mensili) {
-      ce.push({ ym, importo: d.costi_esercizio_mensili, categoria: 'costo_operativo' })
+      ce.push({ ym, importo: d.costi_esercizio_mensili, categoria: 'costo_operativo', voce: 'B7' })
       cassa.push({ ym, giorniSfasamento: dpoGiorni, importo: d.costi_esercizio_mensili, direzione: 'uscita', soggettoIva })
     }
   }
@@ -170,12 +181,12 @@ export function generaFinanziamento(d, ctx) {
   const ce = []
   const cassa = [{ ym: ymErog, giorniSfasamento: 0, importo: d.importo, direzione: 'entrata', soggettoIva: false }]
   if (d.spese_istruttoria) {
-    ce.push({ ym: ymErog, importo: d.spese_istruttoria, categoria: 'onere_finanziario' })
+    ce.push({ ym: ymErog, importo: d.spese_istruttoria, categoria: 'onere_finanziario', voce: 'C17' })
     cassa.push({ ym: ymErog, giorniSfasamento: 0, importo: d.spese_istruttoria, direzione: 'uscita', soggettoIva: false })
   }
   piano.rate.forEach((r, p) => {
     const ym = addMesi(ymErog, (p + 1) * piano.mesiPerPeriodo)
-    if (r.interessi) ce.push({ ym, importo: r.interessi, categoria: 'onere_finanziario' })
+    if (r.interessi) ce.push({ ym, importo: r.interessi, categoria: 'onere_finanziario', voce: 'C17' })
     cassa.push({ ym, giorniSfasamento: 0, importo: round2(r.rata), direzione: 'uscita', soggettoIva: false })
   })
 
@@ -201,6 +212,7 @@ export function generaFinanziamento(d, ctx) {
 export function generaCostoRicorrente(d, ctx) {
   const { ymDecorrenza, dpoGiorni } = ctx
   const soggettoIva = soggettoIvaDaRegime(d.iva_regime)
+  const voce = voceDiSpesa(d)
   const ce = []
   const cassa = []
   const mesiPerPeriodo = MESI_PER_PERIODO(d.periodicita_fatturazione)
@@ -209,7 +221,7 @@ export function generaCostoRicorrente(d, ctx) {
   for (let m = 0; m < d.durata_mesi; m++) {
     const anniTrascorsi = Math.floor(m / 12)
     const importoMese = (d.importo_periodico / mesiPerPeriodo) * Math.pow(1 + (d.indicizzazione_annua_pct || 0) / 100, anniTrascorsi)
-    ce.push({ ym: addMesi(ymDecorrenza, m), importo: importoMese, categoria: 'costo_operativo' })
+    ce.push({ ym: addMesi(ymDecorrenza, m), importo: importoMese, categoria: 'costo_operativo', voce })
   }
   for (let p = 0; p < nPeriodi; p++) {
     const meseInizio = p * mesiPerPeriodo
@@ -219,7 +231,7 @@ export function generaCostoRicorrente(d, ctx) {
     cassa.push({ ym: addMesi(ymDecorrenza, meseFattura), giorniSfasamento: dpoGiorni, importo: round2(importoPeriodo), direzione: 'uscita', soggettoIva })
   }
   if (d.una_tantum_iniziale) {
-    ce.push({ ym: ymDecorrenza, importo: d.una_tantum_iniziale, categoria: 'costo_operativo' })
+    ce.push({ ym: ymDecorrenza, importo: d.una_tantum_iniziale, categoria: 'costo_operativo', voce })
     cassa.push({ ym: ymDecorrenza, giorniSfasamento: dpoGiorni, importo: d.una_tantum_iniziale, direzione: 'uscita', soggettoIva })
   }
   if (d.deposito_cauzionale) {
@@ -232,7 +244,7 @@ export function generaCostoRicorrente(d, ctx) {
     livelliScenario.push({
       nome: 'success_fee',
       fattori: { worst: 0, base: 1, best: 1 },
-      ce: [{ ym: ymDaData(d.success_fee.data_prevista), importo: d.success_fee.importo, categoria: 'costo_operativo' }],
+      ce: [{ ym: ymDaData(d.success_fee.data_prevista), importo: d.success_fee.importo, categoria: 'costo_operativo', voce }],
       cassa: [{ ym: ymDaData(d.success_fee.data_prevista), giorniSfasamento: dpoGiorni, importo: d.success_fee.importo, direzione: 'uscita', soggettoIva }],
     })
   }
@@ -260,7 +272,7 @@ export function generaCostoUnaTantum(d, ctx) {
   const { ymDecorrenza, dpoGiorni } = ctx
   const soggettoIva = soggettoIvaDaRegime(d.iva_regime)
   const avvisi = []
-  const ce = [{ ym: ymDecorrenza, importo: d.importo, categoria: 'costo_operativo' }]
+  const ce = [{ ym: ymDecorrenza, importo: d.importo, categoria: 'costo_operativo', voce: voceDiSpesa(d) }]
   const cassa = []
   if (d.piano_pagamenti && d.piano_pagamenti.length) {
     const somma = round2(d.piano_pagamenti.reduce((s, t) => s + t.importo, 0))
@@ -329,17 +341,17 @@ export function generaPersonale(d, ctx) {
     const contributiMese = retribuzioneMese * contributiPct(k)
 
     if (retribuzioneMese) {
-      ce.push({ ym, importo: retribuzioneMese, categoria: 'costo_operativo' })
+      ce.push({ ym, importo: retribuzioneMese, categoria: 'costo_operativo', voce: 'B9a' })
       cassa.push({ ym, giorniSfasamento: 0, importo: retribuzioneMese, direzione: retribuzioneMese > 0 ? 'uscita' : 'entrata', soggettoIva: false })
     }
     if (contributiMese) {
-      ce.push({ ym, importo: contributiMese, categoria: 'costo_operativo' })
+      ce.push({ ym, importo: contributiMese, categoria: 'costo_operativo', voce: 'B9b' })
       const ymVers = addMesi(ym, 1)
       cassa.push({ ym: ymVers, giorniSfasamento: 0, importo: contributiMese, direzione: contributiMese > 0 ? 'uscita' : 'entrata', soggettoIva: false })
     }
-    ce.push({ ym, importo: tfrMensile * segno, categoria: 'costo_operativo' }) // solo CE, nessuna cassa
+    ce.push({ ym, importo: tfrMensile * segno, categoria: 'costo_operativo', voce: 'B9c' }) // solo CE, nessuna cassa
     if (benefitMensile) {
-      ce.push({ ym, importo: benefitMensile * segno, categoria: 'costo_operativo' })
+      ce.push({ ym, importo: benefitMensile * segno, categoria: 'costo_operativo', voce: 'B9e' })
       cassa.push({ ym, giorniSfasamento: 0, importo: benefitMensile * segno, direzione: benefitMensile * segno > 0 ? 'uscita' : 'entrata', soggettoIva: false })
     }
   }
@@ -347,17 +359,28 @@ export function generaPersonale(d, ctx) {
   if (d.bonus_variabile) {
     const ymBonus = ymDaData(d.bonus_variabile.mese_pagamento)
     const importoBonus = d.bonus_variabile.importo_annuo * n * segno
-    ce.push({ ym: ymBonus, importo: importoBonus, categoria: 'costo_operativo' })
+    ce.push({ ym: ymBonus, importo: importoBonus, categoria: 'costo_operativo', voce: 'B9a' })
     cassa.push({ ym: ymBonus, giorniSfasamento: 0, importo: importoBonus, direzione: importoBonus > 0 ? 'uscita' : 'entrata', soggettoIva: false })
   }
   for (const c of d.costi_una_tantum || []) {
-    ce.push({ ym: ymDecorrenza, importo: c.importo, categoria: 'costo_operativo' })
+    ce.push({ ym: ymDecorrenza, importo: c.importo, categoria: 'costo_operativo', voce: 'B7' })
     cassa.push({ ym: ymDecorrenza, giorniSfasamento: 0, importo: c.importo, direzione: 'uscita', soggettoIva: false })
   }
   if (d.movimento === 'uscita' && d.incentivo_esodo) {
-    ce.push({ ym: ymDecorrenza, importo: d.incentivo_esodo, categoria: 'costo_operativo' })
+    ce.push({ ym: ymDecorrenza, importo: d.incentivo_esodo, categoria: 'costo_operativo', voce: 'B9e' })
     cassa.push({ ym: ymDecorrenza, giorniSfasamento: 0, importo: d.incentivo_esodo, direzione: 'uscita', soggettoIva: false })
   }
+
+  // Competenza per RATEI (budget rettificato dell'esercizio): la retribuzione annua, compresi i ratei di 13ª/14ª,
+  // e' mensilizzata (RAL/12 al mese) invece di concentrare le mensilita' aggiuntive a giugno/dicembre.
+  const ceRatei = ce.filter((r) => r.voce !== 'B9a' && r.voce !== 'B9b')
+  for (let k = 0; k < nMax; k++) {
+    const ym = addMesi(ymDecorrenza, k)
+    const retribuzioneRateo = (d.ral_annua / 12) * n * segno
+    ceRatei.push({ ym, importo: retribuzioneRateo, categoria: 'costo_operativo', voce: 'B9a' })
+    ceRatei.push({ ym, importo: retribuzioneRateo * contributiPct(k), categoria: 'costo_operativo', voce: 'B9b' })
+  }
+  if (d.bonus_variabile) ceRatei.push({ ym: ymDaData(d.bonus_variabile.mese_pagamento), importo: d.bonus_variabile.importo_annuo * n * segno, categoria: 'costo_operativo', voce: 'B9a' })
 
   const avvisi = []
   if (d.movimento === 'uscita') {
@@ -365,7 +388,7 @@ export function generaPersonale(d, ctx) {
   }
   const costoAnnuoPersona = round2((d.ral_annua) * (1 + d.contributi_pct / 100) + d.ral_annua / 13.5 + (d.benefit_annui || 0))
   return {
-    ce, cassa, avvisi,
+    ce, ceRatei, cassa, avvisi,
     meta: {
       titolo: d.movimento === 'uscita' ? 'L\'uscita simulata' : 'L\'assunzione simulata',
       righe: [
