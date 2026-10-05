@@ -3,16 +3,16 @@ import { supabase } from '../lib/supabase'
 import { useApp } from '../App'
 
 // ============================================================
-// Simulazione d'impatto EasyPMI (contratto v7 + schema v8) nello step Analisi.
+// Simulazione d'impatto (modulo Finanza e Controllo; contratto v7 + schema v8) nello step Analisi.
 // La chiamata passa dalla Edge Function `simulazione-impatto`, che
 // ri-ospita i due PDF nel fascicolo e salva la sintesi in
 // `determina_simulazioni`. Una nuova simulazione sostituisce la precedente.
-// Lo schema EasyPMI è rigido: si inviano solo i campi previsti per il tipo.
+// Lo schema della simulazione è rigido: si inviano solo i campi previsti per il tipo.
 // ============================================================
 
 export const VOCE_SIMULAZIONE = "Simulazione d'impatto (Finanza e Controllo)"
 
-// Tipi d'impatto oggi supportati da EasyPMI (motore impatto-2)
+// Tipi d'impatto oggi supportati dal motore (impatto-2)
 const TIPI_IMPATTO = {
   acquisto_bene:    'Acquisto di un bene (investimento)',
   leasing:          'Leasing',
@@ -116,7 +116,7 @@ function singoloDaRichiesta(r, base) {
   return f
 }
 
-// Costruisce la `decisione` con i soli campi ammessi dallo schema rigido di EasyPMI
+// Costruisce la `decisione` con i soli campi ammessi dallo schema rigido della simulazione
 function costruisciDecisione(f) {
   const d = { tipo_impatto: f.tipo_impatto, descrizione: f.descrizione.trim(), data_decorrenza: f.data_decorrenza }
   if (f.iva_regime !== 'ordinaria' && !SENZA_IVA.includes(f.tipo_impatto)) d.iva_regime = f.iva_regime

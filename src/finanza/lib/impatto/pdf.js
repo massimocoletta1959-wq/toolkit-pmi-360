@@ -181,7 +181,7 @@ function sezioneDecisione(doc, ctx) {
   doc.titolo('La decisione simulata')
   const righeComuni = [
     ...(d.iva_regime && d.iva_regime !== 'ordinaria' ? [['Regime IVA', d.iva_regime]] : []),
-    ['Aliquota IVA usata (anagrafica EasyPMI)', `${ctx.risultato.ipotesi_usate.aliquota_iva_usata}%`],
+    ['Aliquota IVA usata (anagrafica Finanza e Controllo)', `${ctx.risultato.ipotesi_usate.aliquota_iva_usata}%`],
     ...(d.ipotesi_ricavi ? [['Ipotesi di ricavi aggiuntivi', `${d.ipotesi_ricavi.modalita === 'incremento_pct' ? `+${d.ipotesi_ricavi.valore}% dei ricavi` : `${eur(d.ipotesi_ricavi.valore)}/mese`} da ${meseCorto(d.ipotesi_ricavi.mese_partenza.slice(0, 7))}`]] : []),
   ]
   if (d.tipo_impatto === 'leasing') {
@@ -229,7 +229,7 @@ export async function generaPdfImpatto(lib, ctx) {
   const { PDFDocument, StandardFonts } = lib
   const r = ctx.risultato
   const intestazione = `${ctx.azienda.nome} - Simulazione d'impatto ${ctx.simulazioneId} - determina ${ctx.richiesta.determina_ref}`
-  const nota = `EasyPMI - simulazione ${ctx.simulazioneId}`
+  const nota = `Pmi 360° Finanza e Controllo - simulazione ${ctx.simulazioneId}`
 
   const nuovo = async () => {
     const pdf = await PDFDocument.create()
