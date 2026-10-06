@@ -127,12 +127,25 @@ function AggiungiComponente({ organo, membri, giaPresenti, onAdded }) {
   const [quota, setQuota] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [nuova, setNuova] = useState({ nome: '', cognome: '', email: '' })
 
   const disponibili = membri.filter(m => !giaPresenti.includes(m.id))
 
   async function aggiungi() {
     if (!membroId) { setError('Scegli una persona.'); return }
     setLoading(true); setError(null)
+    // Nuova persona: la funzione la collega all'organo (riusa la persona dell'azienda con la stessa email) senza
+    // che chi gestisce l'organo debba vedere l'anagrafica dell'azienda
+    if (membroId === '__nuova__') {
+      const { error: err } = await supabase.rpc('aggiungi_componente_organo', {
+        p_organo: organo.id, p_nome: nuova.nome, p_cognome: nuova.cognome, p_email: nuova.email,
+        p_ruolo: isAssemblea ? 'Socio' : ruolo, p_quota: isAssemblea && quota !== '' ? Number(quota) : null,
+      })
+      setLoading(false)
+      if (err) { setError(err.message); return }
+      setMembroId(''); setQuota(''); setNuova({ nome: '', cognome: '', email: '' }); onAdded()
+      return
+    }
     const payload = {
       organo_id: organo.id, membro_id: membroId,
       data_nomina: new Date().toISOString().slice(0, 10),
@@ -153,8 +166,16 @@ function AggiungiComponente({ organo, membri, giaPresenti, onAdded }) {
     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 12, flexWrap: 'wrap' }}>
       <select className="form-control" style={{ flex: 2, minWidth: 160 }} value={membroId} onChange={e => setMembroId(e.target.value)}>
         <option value="">+ Aggiungi {isAssemblea ? 'socio' : 'persona'}…</option>
+        <option value="__nuova__">➕ Nuova persona (nome, cognome, email)</option>
         {disponibili.map(m => <option key={m.id} value={m.id}>{nomeMembro(m)}</option>)}
       </select>
+      {membroId === '__nuova__' && (
+        <div style={{ display: 'flex', gap: 8, width: '100%', flexWrap: 'wrap' }}>
+          <input className="form-control" style={{ flex: 1, minWidth: 120 }} placeholder="Nome" value={nuova.nome} onChange={e => setNuova(n => ({ ...n, nome: e.target.value }))} />
+          <input className="form-control" style={{ flex: 1, minWidth: 120 }} placeholder="Cognome" value={nuova.cognome} onChange={e => setNuova(n => ({ ...n, cognome: e.target.value }))} />
+          <input className="form-control" style={{ flex: 2, minWidth: 180 }} type="email" placeholder="Email (per inviti e prese visione)" value={nuova.email} onChange={e => setNuova(n => ({ ...n, email: e.target.value }))} />
+        </div>
+      )}
       {isAssemblea ? (
         <input className="form-control" style={{ flex: 1, minWidth: 130 }} type="number" step="0.001" min="0" max="100"
           value={quota} onChange={e => setQuota(e.target.value)} placeholder="Quota % (es. 64,29)" />
