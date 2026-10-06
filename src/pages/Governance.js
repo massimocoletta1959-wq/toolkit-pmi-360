@@ -392,7 +392,7 @@ export default function Governance() {
                   {o.monocratico && <span className="badge" style={{ background: '#FEF9E7', color: '#856404', marginLeft: 6 }}>monocratico</span>}
                 </span>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="btn btn-sm" onClick={() => setEditOrg(o)}>Modifica</button>
+                  {!modoIncaricato && <button className="btn btn-sm" onClick={() => setEditOrg(o)}>Modifica</button>}
                   {!modoIncaricato && <button className="btn btn-sm btn-danger" onClick={() => eliminaOrgano(o)}>Elimina</button>}
                 </div>
               </div>
@@ -419,7 +419,7 @@ export default function Governance() {
                         <tr key={c.id}>
                           <td>{nomeMembro(c.membri)}</td>
                           <td>
-                            {isAssemblea ? (
+                            {modoIncaricato ? (isAssemblea ? (c.quota != null ? fmtQuota(c.quota) : '—') : (c.ruolo || '—')) : isAssemblea ? (
                               <input className="form-control" style={{ width: 120, padding: '4px 8px', fontSize: 13 }}
                                 type="number" step="0.001" min="0" max="100" defaultValue={c.quota ?? ''}
                                 onBlur={e => { const v = e.target.value; if (String(c.quota ?? '') !== v) cambiaQuota(c.id, v) }}
@@ -435,7 +435,7 @@ export default function Governance() {
                           </td>
                           <td style={{ color: '#666', fontSize: 12 }}>{c.data_nomina ? new Date(c.data_nomina + 'T00:00:00').toLocaleDateString('it-IT') : '—'}</td>
                           <td style={{ textAlign: 'right' }}>
-                            <button className="btn btn-sm btn-danger" onClick={() => rimuoviComponente(c.id)}>Rimuovi</button>
+                            {!modoIncaricato && <button className="btn btn-sm btn-danger" onClick={() => rimuoviComponente(c.id)}>Rimuovi</button>}
                           </td>
                         </tr>
                       ))}
@@ -449,12 +449,14 @@ export default function Governance() {
                 </div>
               )}
 
-              {!pieno && (
+              {/* composizione dell'organo: la gestisce solo il gestore dell'azienda, l'incaricato la vede soltanto */}
+              {modoIncaricato && <div style={{ fontSize: 12, color: '#999', marginTop: 10 }}>La composizione dell'organo è gestita dal gestore dell'azienda.</div>}
+              {!modoIncaricato && !pieno && (
                 membri.length === 0
                   ? <div style={{ fontSize: 12, color: '#999', marginTop: 10 }}>Aggiungi prima delle persone in “Membri” per poterle nominare qui.</div>
                   : <AggiungiComponente organo={o} membri={membri} giaPresenti={idsPresenti} onAdded={load} />
               )}
-              {pieno && <div style={{ fontSize: 12, color: '#999', marginTop: 10 }}>Organo monocratico: componente già assegnato.</div>}
+              {!modoIncaricato && pieno && <div style={{ fontSize: 12, color: '#999', marginTop: 10 }}>Organo monocratico: componente già assegnato.</div>}
               {!modoIncaricato && <IncaricatiOrgano organo={o} membri={membri} />}
             </div>
           )
