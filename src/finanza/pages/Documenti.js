@@ -3,7 +3,8 @@ import { useApp } from '../../App'
 import { supabase } from '../lib/supabase'
 import { elaboraXbrlDiretto, haDatiSignificativi } from '../lib/xbrl'
 import { estraiPdf, estraiExcel } from '../lib/estrazione'
-import { estraiRigheLibroGiornale, parseLibroGiornale, raggruppaPerGruppo, raggruppaMensilePerGruppo, mensilePerContoDa } from '../lib/libroGiornale'
+import { estraiRigheLibroGiornale, raggruppaPerGruppo, raggruppaMensilePerGruppo, mensilePerContoDa } from '../lib/libroGiornale'
+import { leggiGiornale } from '../lib/giornali'
 
 const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
 const ANNI = ['2022', '2023', '2024', '2025', '2026', '2027']
@@ -344,7 +345,7 @@ export default function Documenti() {
     const file = new File([blob], doc.nome_file)
 
     const righe = await estraiRigheLibroGiornale(file, (pagina, totale) => setProgresso(`Elaboro pagina ${pagina} di ${totale}...`))
-    const { saldi, movimentiMensili, descrizioni, diagnostica } = parseLibroGiornale(righe)
+    const { saldi, movimentiMensili, descrizioni, diagnostica } = leggiGiornale(righe)   // lettore scelto in base al programma di contabilità
     const gruppi = raggruppaPerGruppo(saldi, descrizioni)
     const mensilePerGruppo = raggruppaMensilePerGruppo(movimentiMensili)
     const mensilePerConto = mensilePerContoDa(movimentiMensili)

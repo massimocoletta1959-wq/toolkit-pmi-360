@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { useApp } from '../../App'
 import { supabase } from '../lib/supabase'
-import { estraiRigheLibroGiornale, estraiMovimenti } from '../lib/libroGiornale'
+import { estraiRigheLibroGiornale } from '../lib/libroGiornale'
+import { leggiMovimentiGiornale } from '../lib/giornali'
 import { calcolaFlussiCassa } from '../lib/flussiCassa'
 import { calcolaDsoDpo } from '../lib/dsoDpo'
 
@@ -269,7 +270,7 @@ export default function AnalisiFlussi() {
     if (error) return null
     const righe = await estraiRigheLibroGiornale(new File([blob], doc.nome_file), (pagina, totale) =>
       setProgresso(`Leggo il giornale ${doc.anno}: pagina ${pagina} di ${totale}...`))
-    const r = calcolaFlussiCassa(estraiMovimenti(righe), mappature)
+    const r = calcolaFlussiCassa(leggiMovimentiGiornale(righe), mappature)
     return { importo: r.saldoFinePeriodo[12], ultimaData: r.diagnostica.ultimaData }
   }
 
@@ -287,7 +288,7 @@ export default function AnalisiFlussi() {
 
       const righe = await estraiRigheLibroGiornale(file, (pagina, totale) => setProgresso(`Elaboro pagina ${pagina} di ${totale}...`))
       setProgresso('Classifico i movimenti...')
-      const movimenti = estraiMovimenti(righe)
+      const movimenti = leggiMovimentiGiornale(righe)
       setMovimentiCache(movimenti)
 
       const [{ data: mappatureContiAzienda }, { data: mappatureContiGlobali }, { data: mappatureFlussi }] = await Promise.all([

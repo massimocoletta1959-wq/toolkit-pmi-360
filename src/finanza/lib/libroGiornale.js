@@ -38,6 +38,8 @@ function parseNum(s) {
 // un sottogruppo distinto nel codice, restano al livello Gruppo).
 export function gruppoDiConto(conto) {
   const campi = conto.split('/')
+  // codici solo numerici mastro/conto/sottoconto (es. Seasoft "9/5/494"): il gruppo e' mastro/conto
+  if (campi.length === 3 && campi.every((c) => /^\d+$/.test(c))) return `${campi[0]}/${campi[1]}`
   const tipo = campi[campi.length - 1]
   if (campi.length >= 4) return `${campi[0]}/${campi[1]}/${tipo}`
   return `${campi[0]}/${tipo}`

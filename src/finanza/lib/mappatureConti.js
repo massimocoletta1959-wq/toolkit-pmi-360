@@ -41,4 +41,5 @@ export function contiDelGruppo(g) {
 // True se il codice e' quello di un singolo conto ("06/05/015/G", "14/00090/C"),
 // false se e' un gruppo ("06/05/G", "14/C"): distingue le eccezioni per conto
 // dalle mappature di gruppo dentro mappature_conti.
-export const eCodiceConto = (codice) => /^\d{2}\/\d{2}\/\d{3}\/[GFC]$|^\d{2}\/\d{5}\/[GFC]$/.test(codice || '')
+// (anche i codici solo numerici mastro/conto/sottoconto, es. Seasoft "9/5/494"; il gruppo e' "9/5")
+export const eCodiceConto = (codice) => /^\d{2}\/\d{2}\/\d{3}\/[GFC]$|^\d{2}\/\d{5}\/[GFC]$|^\d{1,3}\/\d{1,3}\/\d{1,6}$/.test(codice || '')
