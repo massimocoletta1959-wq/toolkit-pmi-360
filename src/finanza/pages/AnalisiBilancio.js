@@ -70,6 +70,7 @@ export default function AnalisiBilancio() {
         .select('*')
         .eq('azienda_id', aziendaId)
         .eq('stato', 'elaborato')
+        .neq('tipo_documento', 'bilancio_analitico')   // serve solo alla Riclassificazione
         .order('anno', { ascending: false })
         .then(({ data }) => setDocumenti(data || []))
       setDocIdCorrente('')

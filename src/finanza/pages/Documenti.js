@@ -5,6 +5,7 @@ import { elaboraXbrlDiretto, haDatiSignificativi } from '../lib/xbrl'
 import { estraiPdf, estraiExcel } from '../lib/estrazione'
 import { estraiRigheLibroGiornale, raggruppaPerGruppo, raggruppaMensilePerGruppo, mensilePerContoDa } from '../lib/libroGiornale'
 import { leggiGiornale } from '../lib/giornali'
+import { leggiBilancioAnalitico } from '../lib/bilanciAnalitici'
 
 const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
 const ANNI = ['2022', '2023', '2024', '2025', '2026', '2027']
@@ -362,6 +363,19 @@ export default function Documenti() {
     if (updErr) throw new Error(updErr.message)
   }
 
+  // Bilancio analitico (bilancio di verifica con il piano dei conti, a fine esercizio): lettura deterministica
+  // nel browser con il lettore della software house (vedi lib/bilanciAnalitici). Serve alla Riclassificazione
+  // ("Abbina dal documento"), non ai report economici.
+  const elaboraBilancioAnalitico = async (doc) => {
+    const { data: blob, error: dlErr } = await supabase.storage.from('documenti').download(doc.percorso)
+    if (dlErr) throw new Error(dlErr.message)
+    const righe = await estraiRigheLibroGiornale(new File([blob], doc.nome_file), (pagina, totale) => setProgresso(`Elaboro pagina ${pagina} di ${totale}...`))
+    const bilancio = leggiBilancioAnalitico(righe)
+    const datiEstratti = { tipo_documento: doc.tipo_documento, ...bilancio }
+    const { error: updErr } = await supabase.from('documenti').update({ dati_estratti: JSON.stringify(datiEstratti), stato: 'elaborato' }).eq('id', doc.id)
+    if (updErr) throw new Error(updErr.message)
+  }
+
   // XBRL: lettura strutturata senza AI (fallback se mancano i tag standard: errore
   // esplicito invece del fallback AI-su-testo del vecchio backend, non ancora portato).
   // PDF/Excel: estrazione testo/immagini nel browser + Edge Function AI.
@@ -372,6 +386,11 @@ export default function Documenti() {
     try {
       if (TIPI_LIBRO_GIORNALE.includes(doc.tipo_documento)) {
         await elaboraLibroGiornale(doc)
+        carica(aziendaId)
+        return
+      }
+      if (doc.tipo_documento === 'bilancio_analitico') {
+        await elaboraBilancioAnalitico(doc)
         carica(aziendaId)
         return
       }
@@ -473,6 +492,7 @@ export default function Documenti() {
                     <option value="prima_nota_corrente">Lista Prima Nota — Anno corrente</option>
                     <option value="libro_giornale_precedente">Libro Giornale — Anno precedente</option>
                     <option value="libro_giornale_corrente">Libro Giornale — Anno corrente</option>
+                    <option value="bilancio_analitico">Bilancio analitico (piano dei conti) — per la Riclassificazione</option>
                     <option value="previsioni">Previsioni lavorazioni</option>
                     <option value="budget">Budget</option>
                   </select>
@@ -561,7 +581,7 @@ export default function Documenti() {
                         <button className="btn btn-outline btn-sm" disabled={elaborando === doc.id} onClick={() => elaboraDocumento(doc)}>
                           {elaborando === doc.id
                             ? progresso || 'Elaboro...'
-                            : TIPI_LIBRO_GIORNALE.includes(doc.tipo_documento)
+                            : TIPI_LIBRO_GIORNALE.includes(doc.tipo_documento) || doc.tipo_documento === 'bilancio_analitico'
                             ? '⚙️ Elabora'
                             : '🤖 Elabora AI'}
                         </button>
@@ -609,6 +629,23 @@ export default function Documenti() {
           <div className="card-body">
             {dettaglio.note && !dettaglio.ricavi && !dettaglio.costi && !dettaglio.gruppi && <p style={{ color: '#6b7280', fontSize: 13 }}>{dettaglio.note}</p>}
 
+            {dettaglio.tipo_documento === 'bilancio_analitico' && dettaglio.totali && (
+              <div style={{ marginBottom: 16 }}>
+                <div className="grid-3" style={{ marginBottom: 10 }}>
+                  {[['Totale attività', dettaglio.totali.totale_attivita], ['Totale passività', dettaglio.totali.totale_passivita], ["Utile d'esercizio", dettaglio.totali.utile_desercizio ?? (dettaglio.totali.perdita_desercizio != null ? -dettaglio.totali.perdita_desercizio : null)],
+                    ['Totale costi', dettaglio.totali.totale_costi], ['Totale ricavi', dettaglio.totali.totale_ricavi]].map(([l, v]) => (
+                    <div key={l} className="kpi-tile">
+                      <div className="kpi-label">{l}</div>
+                      <div className="kpi-value">€{fmt(v)}</div>
+                    </div>
+                  ))}
+                </div>
+                <p style={{ fontSize: 13, color: '#374151' }}>
+                  Bilancio analitico {dettaglio.anno || ''} ({dettaglio.formato}): {dettaglio.voci.filter((v) => v.livello === 2).length} gruppi e {dettaglio.voci.filter((v) => v.livello === 3).length} conti.
+                  Per usarlo: <strong>Riclassificazione → «Abbina dal documento»</strong>.
+                </p>
+              </div>
+            )}
             {dettaglio.gruppi && (
               <>
                 <div className="grid-3" style={{ marginBottom: 16, fontSize: 12 }}>

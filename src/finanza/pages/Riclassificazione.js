@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useApp } from '../../App'
 import { supabase } from '../lib/supabase'
+import AbbinaDaDocumento from '../components/AbbinaDaDocumento'
 import { risolviMappatura } from '../lib/mappatureConti'
 
 const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
@@ -154,6 +155,7 @@ export default function Riclassificazione() {
   const [aperti, setAperti] = useState(new Set())
   const [ricerca, setRicerca] = useState('')
   const [editConto, setEditConto] = useState({})
+  const [abbinaAperto, setAbbinaAperto] = useState(false)
   const flagScritto = useRef(false)
 
   useEffect(() => {
@@ -727,8 +729,32 @@ export default function Riclassificazione() {
 
   return (
     <div>
-      <h2 style={{ color: '#1a3a5c', marginTop: 0 }}>Riclassificazione</h2>
-      <p style={{ color: '#666', marginTop: -8, marginBottom: 20 }}>Collega i conti del provvisorio alle voci CEE o del budget</p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1 }}>
+          <h2 style={{ color: '#1a3a5c', marginTop: 0 }}>Riclassificazione</h2>
+          <p style={{ color: '#666', marginTop: -8, marginBottom: 20 }}>Collega i conti del provvisorio alle voci CEE o del budget</p>
+        </div>
+        <button className="btn btn-outline" disabled={!aziendaId || !vociSP.length} onClick={() => setAbbinaAperto(true)} title="Propone la classificazione dei gruppi di conto da un bilancio analitico caricato in Documenti contabili">
+          📑 Abbina dal documento
+        </button>
+      </div>
+      {abbinaAperto && (
+        <AbbinaDaDocumento
+          aziendaId={aziendaId}
+          vociSP={vociSP}
+          vociCEE={vociCEE}
+          codiceLeggibile={codiceLeggibile}
+          renderSelectUnificato={renderSelectUnificato}
+          onChiudi={() => setAbbinaAperto(false)}
+          onApplicato={async (nuove) => {
+            const gruppi = new Set(nuove.map((m) => m.conto_origine))
+            setMappatureAz((prev) => [...prev.filter((m) => !gruppi.has(m.conto_origine)), ...nuove])
+            setAbbinaAperto(false)
+            // se un documento e' aperto, si rilegge con le nuove classificazioni
+            if (documentoId) { await segnaRiclassificato(); await analizza() }
+          }}
+        />
+      )}
 
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="card-body">
