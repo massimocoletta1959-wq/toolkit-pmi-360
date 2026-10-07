@@ -57,7 +57,12 @@ export default function AbbinaDaDocumento({ aziendaId, vociSP, vociCEE, codiceLe
       let bilancio
       try { bilancio = JSON.parse(doc.dati_estratti) } catch { setErrore('Dati del documento non leggibili: rielaboralo in Documenti contabili.'); return }
       const proposte = proposteDaBilancio(bilancio)
-      setRighe(proposte.map((p) => {
+      // una riga per gruppo, seguita dalle eventuali eccezioni sui singoli conti (es. conti anticipi -> debiti v/banche)
+      const piatte = proposte.flatMap((p) => [
+        { ...p, livello: 'gruppo' },
+        ...(p.conti || []).map((c) => ({ gruppo: c.conto, descrizione: c.descrizione, mastro: '', sezione: 'SP', lato: c.saldo < 0 ? 'passivita' : 'attivita', saldo: c.saldo, proposta: c.proposta, regola: c.motivo, livello: 'conto' })),
+      ])
+      setRighe(piatte.map((p) => {
         const attuale = valoreAttuale(p.gruppo)
         const stato = statoProposta(p.proposta, attuale)
         return { ...p, attuale, valore: p.proposta || attuale || '', stato, sel: stato === 'nuovo' }
@@ -68,7 +73,10 @@ export default function AbbinaDaDocumento({ aziendaId, vociSP, vociCEE, codiceLe
       if (lg?.[0]) {
         try {
           const gruppi = {}
-          for (const g of JSON.parse(lg[0].dati_estratti).gruppi || []) gruppi[g.gruppo] = g.importo
+          for (const g of JSON.parse(lg[0].dati_estratti).gruppi || []) {
+            gruppi[g.gruppo] = g.importo
+            for (const c of g.conti || []) gruppi[c.conto] = c.valore
+          }
           setGiornale({ nome: lg[0].nome_file, gruppi })
         } catch { setGiornale(null) }
       } else setGiornale(null)
@@ -141,7 +149,7 @@ export default function AbbinaDaDocumento({ aziendaId, vociSP, vociCEE, codiceLe
         {righe.length > 0 && (
           <>
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center', fontSize: 12.5, marginBottom: 8 }}>
-              <span>{righe.length} gruppi:</span>
+              <span>{righe.filter((r) => r.livello === 'gruppo').length} gruppi{righe.some((r) => r.livello === 'conto') ? ` e ${righe.filter((r) => r.livello === 'conto').length} eccezioni sui conti` : ''}:</span>
               {Object.entries(STATI).map(([k, s]) => <span key={k} style={{ color: s.colore }}>{conteggio(k)} {s.testo}</span>)}
               {giornale
                 ? <span style={{ color: differenze ? '#b45309' : '#15803d' }}>Confronto con «{giornale.nome}»: {differenze ? `${differenze} gruppi con saldo diverso` : 'tutti i saldi coincidono'}</span>
@@ -170,9 +178,12 @@ export default function AbbinaDaDocumento({ aziendaId, vociSP, vociCEE, codiceLe
                     return (
                       <tr key={r.gruppo} style={{ background: s.sfondo }}>
                         <td><input type="checkbox" checked={r.sel} disabled={r.stato === 'uguale' && r.valore === r.attuale} onChange={(e) => aggiorna(r.gruppo, { sel: e.target.checked })} /></td>
-                        <td>
+                        <td style={{ paddingLeft: r.livello === 'conto' ? 28 : undefined }}>
+                          {r.livello === 'conto' && <span style={{ color: '#6b7280' }}>↳ conto </span>}
                           <strong>{r.gruppo}</strong> — {r.descrizione}
-                          <div style={{ color: '#6b7280', fontSize: 11.5 }}>{r.lato}{r.regola === 'descrizione del mastro' ? ` · dal mastro «${r.mastro}»` : ''}</div>
+                          <div style={{ color: '#6b7280', fontSize: 11.5 }}>
+                            {r.livello === 'conto' ? `eccezione sul conto: ${r.regola}` : `${r.lato}${r.regola === 'descrizione del mastro' ? ` · dal mastro «${r.mastro}»` : ''}`}
+                          </div>
                         </td>
                         <td style={{ textAlign: 'right' }}>{fmt(r.saldo)}</td>
                         {giornale && <td style={{ textAlign: 'right', color: diff ? '#b45309' : '#15803d' }}>{saldoLg == null ? '—' : fmt(saldoLg)}{diff ? ' ⚠️' : ' ✓'}</td>}

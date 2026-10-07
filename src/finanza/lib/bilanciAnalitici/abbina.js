@@ -119,8 +119,19 @@ function proponi(lato, ...descrizioni) {
   return null
 }
 
+// Conti bancari: niente compensazione (art. 2423-ter c.c.). Un conto esposto sul lato opposto a quello del suo
+// gruppo di liquidita' (es. "UNICREDIT C/anticipi" tra le passivita' dentro "DEPOSITI BANCARI") e' un debito
+// verso banche; viceversa un conto attivo dentro un gruppo di debiti verso banche e' un deposito.
+const ECCEZIONI_BANCHE = {
+  'sp:ATT_C_IV_1': { latoOpposto: 'passivita', voce: 'sp:PAS_D_4', motivo: 'conto bancario a saldo passivo (anticipi, scoperto): debito verso banche' },
+  'sp:ATT_C_IV_2': { latoOpposto: 'passivita', voce: 'sp:PAS_D_4', motivo: 'saldo passivo: debito verso banche' },
+  'sp:ATT_C_IV_3': { latoOpposto: 'passivita', voce: 'sp:PAS_D_4', motivo: 'saldo passivo: debito verso banche' },
+  'sp:PAS_D_4': { latoOpposto: 'attivita', voce: 'sp:ATT_C_IV_1', motivo: 'conto bancario a saldo attivo: deposito' },
+}
+
 // bilancio: { voci: [{ sezione, lato, livello, codice, descrizione, importo }] }
-// Restituisce un gruppo per ogni codice di livello 2, con il saldo netto (Dare +) e la proposta.
+// Restituisce un gruppo per ogni codice di livello 2, con il saldo netto (Dare +), la proposta e le eventuali
+// eccezioni sui singoli conti (conti: [{ conto, descrizione, saldo, proposta, motivo }]).
 export function proposteDaBilancio(bilancio) {
   const mastri = new Map()
   const gruppi = new Map()
@@ -151,8 +162,17 @@ export function proposteDaBilancio(bilancio) {
       saldo: Math.round((imp(sinistro) - imp(destro)) * 100) / 100,
       proposta: p ? p.codice : null,
       regola: p ? (p.da === g.descrizione ? 'descrizione del gruppo' : 'descrizione del mastro') : null,
+      conti: eccezioniConti(bilancio, g.gruppo, p?.codice),
     }
   }).sort((a, b) => a.gruppo.localeCompare(b.gruppo, 'it', { numeric: true }))
+}
+
+function eccezioniConti(bilancio, gruppo, proposta) {
+  const regola = ECCEZIONI_BANCHE[proposta]
+  if (!regola) return []
+  return bilancio.voci
+    .filter((v) => v.livello === 3 && v.codice.startsWith(`${gruppo}/`) && v.lato === regola.latoOpposto)
+    .map((v) => ({ conto: v.codice, descrizione: v.descrizione, saldo: v.lato === 'passivita' ? -v.importo : v.importo, proposta: regola.voce, motivo: regola.motivo }))
 }
 
 // Confronto con la classificazione gia' salvata: 'nuovo' (gruppo non classificato), 'uguale', 'diverso',

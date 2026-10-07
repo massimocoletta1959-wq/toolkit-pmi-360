@@ -52,3 +52,15 @@ describe('bilancio analitico Seasoft e abbinamento', () => {
     expect(statoProposta(null, '')).toBe('da_scegliere')
   })
 })
+
+test('conti bancari a saldo passivo: eccezione verso i debiti verso banche, non compensati', () => {
+  const B = [
+    '                       STATO PATRIMONIALE        DAL 01/01/2025 AL 31/12/2025',
+    ` ATTIVITA'${' '.repeat(60)}PASSIVITA'`,
+    riga(['15 / 5', 'DEPOSITI BANCARI E POSTALI', '457.039,31'], ['15 / 5', 'DEPOSITI BANCARI E POSTALI', '198.133,34']),
+    riga(['15 / 5 / 1', 'UNICREDIT C/ordinario', '333.048,19'], ['15 / 5 / 5003', 'UNICREDIT C/anticipi', '196.264,62']),
+  ]
+  const g = proposteDaBilancio(leggiBilancioAnalitico(B)).find((x) => x.gruppo === '15/5')
+  expect(g.proposta).toBe('sp:ATT_C_IV_1')
+  expect(g.conti).toEqual([expect.objectContaining({ conto: '15/5/5003', proposta: 'sp:PAS_D_4', saldo: -196264.62 })])
+})
