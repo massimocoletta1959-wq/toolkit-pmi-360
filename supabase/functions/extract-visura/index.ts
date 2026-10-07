@@ -37,6 +37,7 @@ Schema esatto (usa null dove il dato non e' presente):
     "settore_suggerito": string,
     "addetti_dipendenti": number,
     "addetti_indipendenti": number,
+    "addetti_totale": number,
     "addetti_data": string
   },
   "organo": { "tipo": string, "nome": string },
@@ -50,7 +51,7 @@ Schema esatto (usa null dove il dato non e' presente):
 
 Regole:
 - "data_costituzione" nel formato AAAA-MM-GG.
-- "addetti_dipendenti" / "addetti_indipendenti": dalla sezione "Addetti" (es. "Addetti al 30/06/2026 ... dipendenti 12, indipendenti 2"; dato INPS trimestrale). Prendi il dato PIU' RECENTE dell'impresa (non delle singole unita' locali se c'e' il totale). Numeri interi; null se la sezione manca. "addetti_data" = data di riferimento AAAA-MM-GG.
+- Addetti (dato INPS): "addetti_totale" e' il numero nel riquadro "L'IMPRESA IN CIFRE" alla voce "Addetti al GG/MM/AAAA" (es. "Addetti al 30/06/2026  2" -> 2); "addetti_data" e' quella data in formato AAAA-MM-GG. "addetti_dipendenti" e "addetti_indipendenti" sono le righe "Dipendenti" e "Indipendenti" della tabella "Numero addetti dell'impresa rilevati nell'anno ..." (sezione "Attivita', albi ruoli e licenze"): prendi il valore della colonna "Valore" o, se manca, dell'ultimo trimestre; usa la tabella dell'IMPRESA, non quella "Addetti nel comune di ..." delle singole sedi. Restituisci sempre NUMERI interi (non stringhe); null solo se il dato non c'e' affatto.
 - "oggetto_sociale" massimo 500 caratteri (riassumi se troppo lungo).
 - "settore_suggerito": "edilizia" se ATECO inizia per 41/42/43, altrimenti "generico".
 - Nella visura i nominativi sono spesso "COGNOME NOME": separa correttamente nome e cognome.

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { addettiDaVisura, settoreDaAteco } from '../lib/visura'
 
 // ============================================================
 // Aggiornamento dell'anagrafica di un'azienda già inserita da una visura
@@ -22,8 +23,9 @@ const CAMPI = [
   ['data_costituzione', 'Data di costituzione', a => a.data_costituzione],
   ['ateco', 'Codice ATECO', a => a.ateco],
   ['attivita', 'Attività', a => a.attivita],
+  ['settore', 'Settore (dal codice ATECO)', a => (a.ateco ? settoreDaAteco(a.ateco, a.settore_suggerito) : null)],
   ['oggetto_sociale', 'Oggetto sociale', a => a.oggetto_sociale],
-  ['numero_dipendenti', 'Numero dipendenti', a => Number.isInteger(a.addetti_dipendenti) ? a.addetti_dipendenti : null],
+  ['numero_dipendenti', 'Numero dipendenti', a => addettiDaVisura(a)?.dipendenti ?? null],
 ]
 
 const norm = v => (v == null ? '' : String(v)).trim().replace(/\s+/g, ' ').toLowerCase()
@@ -62,7 +64,8 @@ export default function AggiornaDaVisura({ azienda, onChiudi, onAggiornata }) {
         .filter(r => r.nuovo != null && r.nuovo !== '' && norm(r.nuovo) !== norm(r.attuale))
         .map(r => ({ ...r, sel: true }))
       setDiff(righe)
-      setAddetti(Number.isInteger(a.addetti_dipendenti) ? { n: a.addetti_dipendenti, ind: a.addetti_indipendenti, data: a.addetti_data } : null)
+      const add = addettiDaVisura(a)
+      setAddetti(add ? { n: add.dipendenti, ind: add.indipendenti, data: add.data } : null)
       setStato('confronto')
     } catch (e) {
       setErrore('Non sono riuscito a leggere la visura: ' + (e.message || String(e))); setStato('scelta')

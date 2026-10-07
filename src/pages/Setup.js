@@ -1,19 +1,11 @@
 import React, { useState, useEffect } from 'react'
+import { settoreDaAteco, addettiDaVisura } from '../lib/visura'
 import { supabase } from '../lib/supabase'
 import { RISCHI_DEFAULT, RISCHI_PER_SETTORE, RISCHI_231_EDILIZIA, RISCHI_231_GENERICO } from '../lib/constants'
 import { etichettaModulo } from '../lib/modalitaSolo'
 
 const SETTORI = ['Manifatturiero','Servizi','Commercio','Edilizia','Hotel','Sanità','Tecnologia','Agricoltura','Trasporti','Altro']
 const DIMENSIONI = ['Micro (< 10 dipendenti)','Piccola (10-49)','Media (50-249)','Grande (250+)']
-
-// Riconosce il settore dal codice ATECO della visura (più affidabile del solo
-// suggerimento edilizia/servizi), con lo stesso fallback di prima per tutto il resto.
-function settoreDaAteco(ateco, suggerito) {
-  const cod = (ateco || '').replace(/\D/g, '')
-  if (cod.startsWith('55')) return 'Hotel'                                   // Alloggio (alberghi)
-  if (cod.startsWith('41') || cod.startsWith('42') || cod.startsWith('43')) return 'Edilizia' // Costruzioni
-  return suggerito === 'edilizia' ? 'Edilizia' : 'Servizi'
-}
 
 function pivaValida(p) {
   if (!/^[0-9]{11}$/.test(p)) return false
@@ -123,7 +115,7 @@ export default function Setup({ onDone, onAnnulla, userId, userEmail, nuovaAzien
         capitale_sociale: a.capitale_sociale || null,
         data_costituzione: a.data_costituzione || null,
         ateco: a.ateco || null,
-        numero_dipendenti: Number.isInteger(a.addetti_dipendenti) ? a.addetti_dipendenti : null,
+        numero_dipendenti: addettiDaVisura(a)?.dipendenti ?? null,
         attivita: a.attivita || null,
         oggetto_sociale: a.oggetto_sociale || null,
         modalita_solo: modalitaSolo,
