@@ -10,6 +10,7 @@ import ControlliTesoreria, { periodoMensile, periodoTrimestrale } from '../compo
 import { aggregaBudgetMensile, calcolaLiquidazioniIva, costruisciCeBaseline, analizzaStagionalita } from '../lib/budgetMensile'
 import { caricaContestoSP, processaGruppiSP } from '../lib/statoPatrimoniale'
 import { calcolaRigheAperture } from '../lib/partiteAperte'
+import { tipoControparte } from '../lib/mappatureConti'
 import { vociColonne, RigheRaggruppamenti, ModaleDettaglio } from '../components/DettaglioCashflow'
 
 const TABS = [
@@ -73,7 +74,11 @@ async function caricaAnalisiFlussiAnno(aziendaId, anno) {
   } catch {
     gruppiConti = []
   }
-  return { ...af.dati, _gruppi: gruppiConti, _contiClienti: gruppiConti.find((g) => g.gruppo === '14/C')?.conti || [], _contiFornitori: gruppiConti.find((g) => g.gruppo === '40/F')?.conti || [] }
+  // clienti/fornitori: dal codice TeamSystem (14/C, 40/F) o, per gli altri programmi, dalla Riclassificazione
+  const { data: mapAz } = await supabase.from('mappature_conti').select('*').eq('azienda_id', aziendaId).eq('globale', false)
+  const conti = gruppiConti.flatMap((g) => g.conti || [])
+  const tipo = (c) => tipoControparte(c.conto, c.descrizione, mapAz || [], [])
+  return { ...af.dati, _gruppi: gruppiConti, _contiClienti: conti.filter((c) => tipo(c) === 'cliente'), _contiFornitori: conti.filter((c) => tipo(c) === 'fornitore') }
 }
 
 // Ultimo mese con movimenti bancari/cassa reali: euristica di partenza

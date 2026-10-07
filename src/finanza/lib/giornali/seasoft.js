@@ -178,11 +178,33 @@ export function parseGiornaleSeasoft(righe) {
 const RE_DOC = /\bn\.?\s?(\S+)/i
 const RE_DEL = /\bdel\s+(\d{2})(\d{2})(\d{4})\b/i
 
-// Stessa uscita di estraiMovimenti: un movimento per riga; ogni registrazione e' un segmento bilanciato
+// Emissione di ricevute bancarie: il cliente viene chiuso alla data di emissione contro "Ricevute bancarie", ma
+// l'incasso vero avviene alla scadenza scritta sulla riga della RiBa ("SCADENZA 28.02.25"). Ogni riga del
+// cliente si abbina alla riga RiBa dello stesso importo (una sola volta) e ne prende la data di scadenza.
+const RE_SCADENZA = /SCADENZA\s+(\d{2})[./](\d{2})[./](\d{2,4})/i
+function scadenzeRiba(reg) {
+  const riba = reg.righe.map((r) => ({ r, m: r.descrizioneOperazione.match(RE_SCADENZA) })).filter((x) => x.m && x.r.segno > 0)
+  const date = new Map()
+  if (!riba.length) return date
+  const usate = new Set()
+  for (const r of reg.righe) {
+    if (r.segno > 0 || RE_SCADENZA.test(r.descrizioneOperazione)) continue
+    const x = riba.find((y) => !usate.has(y) && Math.abs(y.r.importo - r.importo) < 0.005)
+    if (!x) continue
+    usate.add(x)
+    const anno = x.m[3].length === 2 ? `20${x.m[3]}` : x.m[3]
+    date.set(r, `${x.m[1]}/${x.m[2]}/${anno}`)
+  }
+  return date
+}
+
+// Stessa uscita di estraiMovimenti: un movimento per riga; ogni registrazione e' un segmento bilanciato.
+// dataEffettiva (se presente) = data reale dell'incasso, diversa dalla data di registrazione (RiBa).
 export function estraiMovimentiSeasoft(righe) {
   const { registrazioni } = leggiRegistrazioniSeasoft(righe)
   const movimenti = []
   for (const reg of registrazioni) {
+    const scadenze = scadenzeRiba(reg)
     reg.righe.forEach((r, i) => {
       const del = r.descrizioneOperazione.match(RE_DEL)
       const doc = r.descrizioneOperazione.match(RE_DOC)
@@ -200,6 +222,7 @@ export function estraiMovimentiSeasoft(righe) {
         nDoc: doc ? doc[1] : null,
         dtDoc: del ? `${del[1]}/${del[2]}/${del[3]}` : null,
         attivita: reg.attivita,
+        ...(scadenze.has(r) ? { dataEffettiva: scadenze.get(r) } : {}),
       })
     })
   }

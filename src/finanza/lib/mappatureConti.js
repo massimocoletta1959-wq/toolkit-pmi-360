@@ -43,3 +43,20 @@ export function contiDelGruppo(g) {
 // dalle mappature di gruppo dentro mappature_conti.
 // (anche i codici solo numerici mastro/conto/sottoconto, es. Seasoft "9/5/494"; il gruppo e' "9/5")
 export const eCodiceConto = (codice) => /^\d{2}\/\d{2}\/\d{3}\/[GFC]$|^\d{2}\/\d{5}\/[GFC]$|^\d{1,3}\/\d{1,3}\/\d{1,6}$/.test(codice || '')
+
+// Clienti e fornitori per i tempi medi (DSO/DPO) e le partite aperte. TeamSystem li distingue nel codice
+// ("/C", "/F"); per gli altri programmi (es. Seasoft "9/5/494") vale la Riclassificazione del gruppo: crediti
+// verso clienti (C.II.1) e debiti verso fornitori (D.7). Sono esclusi i conti tecnici di quei gruppi che non
+// sono una controparte (ricevute bancarie, fatture da emettere/ricevere, anticipi).
+const RE_CONTI_TECNICI = /RICEVUTE|EFFETTI|\bRI\.?BA\b|PORTAFOGLIO|FATTURE DA (EMETTERE|RICEVERE)|NOTE (DI )?CREDITO DA|ANTICIP|ACCONT/i
+export function tipoControparte(conto, descrizione, mappatureAzienda, mappatureGlobali) {
+  if (!conto) return null
+  if (conto.endsWith('/C')) return 'cliente'
+  if (conto.endsWith('/F')) return 'fornitore'
+  if (/\/[GFC]$/.test(conto)) return null
+  const m = trovaMappaturaConto(conto, mappatureAzienda, mappatureGlobali)
+  if (!m || RE_CONTI_TECNICI.test(descrizione || '')) return null
+  if (m.codice_cee === 'ATT_C_II_1') return 'cliente'
+  if (m.codice_cee === 'PAS_D_7') return 'fornitore'
+  return null
+}

@@ -72,3 +72,18 @@ describe('lettori di libro giornale', () => {
     expect(() => leggiGiornale(['testo qualsiasi'])).toThrow(/TeamSystem.*Seasoft/)
   })
 })
+
+test('RiBa: il cliente incassa alla scadenza della ricevuta, non alla sua emissione', () => {
+  const RIBA = [
+    ...INTESTAZIONE,
+    testata('10/01/2025', 'MOVIMENTI DIVERSI'),
+    riga(1, '11 / 5 / 3', 'Ricevute bancarie', 'SCADENZA 28.02.25', '2.133,87', null),
+    riga(2, '11 / 5 / 3', 'Ricevute bancarie', 'SCADENZA 31.03.25', '1.020,00', null),
+    riga(3, '9 / 5 / 423', 'C.M. SRL', 'N.2025 10/E del 09012025', null, '2.133,87'),
+    riga(4, '9 / 5 / 243', 'MARSILLI SPA', 'N.2025 8/E del 09012025', null, '1.020,00'),
+  ]
+  const m = leggiMovimentiGiornale(RIBA)
+  expect(m.find((x) => x.conto === '9/5/423')).toMatchObject({ dtDoc: '09/01/2025', dataEffettiva: '28/02/2025' })
+  expect(m.find((x) => x.conto === '9/5/243').dataEffettiva).toBe('31/03/2025')
+  expect(m.find((x) => x.conto === '11/5/3').dataEffettiva).toBeUndefined()
+})

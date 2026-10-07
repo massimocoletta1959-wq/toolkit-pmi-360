@@ -38,8 +38,11 @@ export function calcolaDsoDpo(movimenti, opzioni = {}) {
 
   for (const m of movimenti) {
     if (m.eApertura || m.eChiusura) continue
-    const isCliente = m.conto.endsWith('/C')
-    const isFornitore = m.conto.endsWith('/F')
+    // opzioni.tipoConto(conto, descrizione) -> 'cliente' | 'fornitore' | null (vedi tipoControparte in
+    // mappatureConti.js); senza, si usa il codice TeamSystem (/C, /F)
+    const tipo = opzioni.tipoConto ? opzioni.tipoConto(m.conto, m.descrizione) : m.conto.endsWith('/C') ? 'cliente' : m.conto.endsWith('/F') ? 'fornitore' : null
+    const isCliente = tipo === 'cliente'
+    const isFornitore = tipo === 'fornitore'
     if (!isCliente && !isFornitore) continue
     // solo le righe di incasso (Avere sul cliente) o di pagamento (Dare sul
     // fornitore): le righe di emissione fattura hanno segno opposto
@@ -49,7 +52,8 @@ export function calcolaDsoDpo(movimenti, opzioni = {}) {
       scartatiSenzaDoc++
       continue
     }
-    const giorni = differenzaGiorni(m.data, m.dtDoc)
+    // data reale dell'incasso/pagamento quando diversa dalla registrazione (es. scadenza di una RiBa)
+    const giorni = differenzaGiorni(m.dataEffettiva || m.data, m.dtDoc)
     if (giorni < 0 || giorni > GIORNI_MASSIMI_PLAUSIBILI) {
       scartatiAnomali++
       continue

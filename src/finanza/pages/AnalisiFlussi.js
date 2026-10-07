@@ -5,6 +5,7 @@ import { estraiRigheLibroGiornale } from '../lib/libroGiornale'
 import { leggiMovimentiGiornale } from '../lib/giornali'
 import { calcolaFlussiCassa } from '../lib/flussiCassa'
 import { calcolaDsoDpo } from '../lib/dsoDpo'
+import { tipoControparte } from '../lib/mappatureConti'
 
 const MESI = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
 const TIPI_LIBRO_GIORNALE = ['prima_nota_precedente', 'prima_nota_corrente', 'libro_giornale_precedente', 'libro_giornale_corrente']
@@ -199,6 +200,7 @@ export default function AnalisiFlussi() {
   const [salvatoIl, setSalvatoIl] = useState(null)
   const [caricandoSalvato, setCaricandoSalvato] = useState(false)
   const [movimentiCache, setMovimentiCache] = useState(null)
+  const [mappatureCache, setMappatureCache] = useState(null)
   const [escludiSottoSoglia, setEscludiSottoSoglia] = useState(false)
   const [sogliaGiorni, setSogliaGiorni] = useState(2)
   const [stampaDsoDpo, setStampaDsoDpo] = useState(true)
@@ -317,7 +319,9 @@ export default function AnalisiFlussi() {
       }
       setProgresso('Classifico i movimenti...')
       const res = calcolaFlussiCassa(movimenti, { ...mappature, saldoInizialeEsterno })
-      const dsoDpo = calcolaDsoDpo(movimenti, { escludiSottoSoglia, sogliaGiorni })
+      const tipoConto = (conto, descr) => tipoControparte(conto, descr, mappature.mappatureContiAzienda, mappature.mappatureContiGlobali)
+      setMappatureCache(mappature)
+      const dsoDpo = calcolaDsoDpo(movimenti, { escludiSottoSoglia, sogliaGiorni, tipoConto })
       const pacchetto = { ...res, dsoDpo }
       setRisultato(pacchetto)
       await salva(pacchetto, doc)
@@ -347,14 +351,15 @@ export default function AnalisiFlussi() {
   // rielaborazione completa.
   const ricalcolaDsoDpo = async () => {
     if (!risultato) return
-    if (!movimentiCache) {
+    if (!movimentiCache || !mappatureCache) {
       await calcola()
       return
     }
     setCalcolando(true)
     try {
       const doc = documenti.find((d) => d.id === documentoId)
-      const dsoDpo = calcolaDsoDpo(movimentiCache, { escludiSottoSoglia, sogliaGiorni })
+      const tipoConto = (conto, descr) => tipoControparte(conto, descr, mappatureCache.mappatureContiAzienda, mappatureCache.mappatureContiGlobali)
+      const dsoDpo = calcolaDsoDpo(movimentiCache, { escludiSottoSoglia, sogliaGiorni, tipoConto })
       const pacchetto = { ...risultato, dsoDpo }
       setRisultato(pacchetto)
       await salva(pacchetto, doc)
