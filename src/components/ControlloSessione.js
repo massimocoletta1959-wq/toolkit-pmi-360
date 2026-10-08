@@ -5,7 +5,10 @@ import { supabase } from '../lib/supabase'
 // supabase/sql/2026-10-08_n_sessione_unica.sql). Appena un altro dispositivo registra il proprio accesso, la riga
 // sessioni_pmi360 dell'utente cambia e arriva qui in tempo reale (Supabase Realtime): l'avviso compare subito.
 // Il controllo periodico e al ritorno sulla scheda resta come rete di sicurezza (es. connessione caduta).
-const INTERVALLO_MS = 60 * 1000
+// rete di sicurezza se la notifica in tempo reale non arriva (es. connessione caduta): controllo frequente
+// quando la scheda e' visibile, poco frequente quando e' nascosta
+const INTERVALLO_VISIBILE_MS = 15 * 1000
+const INTERVALLO_NASCOSTA_MS = 60 * 1000
 
 // id della sessione di Supabase Auth contenuto nel token ("session_id")
 function idSessione(session) {
@@ -38,25 +41,57 @@ export default function ControlloSessione() {
   // notifica immediata: la sessione registrata dell'utente e' cambiata
   useEffect(() => {
     if (!utente?.id || !utente.sessione) return undefined
-    const canale = supabase
-      .channel(`sessione-${utente.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'sessioni_pmi360', filter: `user_id=eq.${utente.id}` }, (payload) => {
-        const nuova = payload.new?.session_id
-        if (nuova && nuova !== utente.sessione) chiudi()
-      })
-      .subscribe()
-    return () => { supabase.removeChannel(canale) }
-  }, [utente, chiudi])
+    let canale = null
+    let attivo = true
+    let riprova = null
+    const collega = async () => {
+      // la libreria passa il token dell'utente al canale solo al login o al rinnovo del token: dopo un
+      // ricaricamento della pagina il canale resterebbe anonimo e le regole di accesso bloccherebbero la notifica
+      const { data } = await supabase.auth.getSession()
+      if (!attivo || !data?.session) return
+      await supabase.realtime.setAuth(data.session.access_token)
+      canale = supabase
+        .channel(`sessione-${utente.id}-${Date.now()}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'sessioni_pmi360', filter: `user_id=eq.${utente.id}` }, (payload) => {
+          const nuova = payload.new?.session_id
+          if (nuova && nuova !== utente.sessione) chiudi()
+        })
+        .subscribe((stato) => {
+          // canale caduto: si ricontrolla subito e ci si ricollega
+          if (stato === 'CHANNEL_ERROR' || stato === 'TIMED_OUT' || stato === 'CLOSED') {
+            if (!attivo) return
+            controlla()
+            clearTimeout(riprova)
+            riprova = setTimeout(() => { if (attivo) { supabase.removeChannel(canale); collega() } }, 5000)
+          }
+        })
+    }
+    collega()
+    return () => {
+      attivo = false
+      clearTimeout(riprova)
+      if (canale) supabase.removeChannel(canale)
+    }
+  }, [utente, chiudi, controlla])
 
   useEffect(() => {
     controlla()
-    const timer = setInterval(controlla, INTERVALLO_MS)
-    const alRitorno = () => { if (document.visibilityState === 'visible') controlla() }
+    let timer = null
+    const programma = () => {
+      clearTimeout(timer)
+      timer = setTimeout(async () => { await controlla(); programma() }, document.visibilityState === 'visible' ? INTERVALLO_VISIBILE_MS : INTERVALLO_NASCOSTA_MS)
+    }
+    programma()
+    const alRitorno = () => { if (document.visibilityState === 'visible') { controlla(); programma() } }
     document.addEventListener('visibilitychange', alRitorno)
+    window.addEventListener('focus', controlla)
+    window.addEventListener('online', controlla)
     const { data: sub } = supabase.auth.onAuthStateChange((evento) => { if (evento === 'SIGNED_IN' || evento === 'TOKEN_REFRESHED') controlla() })
     return () => {
-      clearInterval(timer)
+      clearTimeout(timer)
       document.removeEventListener('visibilitychange', alRitorno)
+      window.removeEventListener('focus', controlla)
+      window.removeEventListener('online', controlla)
       sub?.subscription?.unsubscribe()
     }
   }, [controlla])
