@@ -10,6 +10,23 @@ serve(async (req) => {
     const { membro_id, azienda_id } = await req.json()
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || ''
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuid.test(String(membro_id || '')) || !uuid.test(String(azienda_id || ''))) {
+      return new Response(JSON.stringify({ error: 'Parametri non validi' }), { status: 400, headers })
+    }
+
+    // Chi invia: utente collegato che gestisce l'azienda dell'invito (stessa regola del database,
+    // mie_aziende_gestore, interrogata con il token dell'utente)
+    const auth = req.headers.get('Authorization') || ''
+    const ur = await fetch(`${supabaseUrl}/auth/v1/user`, { headers: { 'apikey': anonKey, 'Authorization': auth } })
+    const utente = ur.ok ? await ur.json() : null
+    if (!utente?.id) return new Response(JSON.stringify({ error: 'Sessione non valida' }), { status: 401, headers })
+    const gr = await fetch(`${supabaseUrl}/rest/v1/rpc/mie_aziende_gestore`, { method: 'POST', headers: { 'apikey': anonKey, 'Authorization': auth, 'Content-Type': 'application/json' }, body: '{}' })
+    const gestite: string[] = gr.ok ? await gr.json() : []
+    if (!Array.isArray(gestite) || !gestite.includes(azienda_id)) {
+      return new Response(JSON.stringify({ error: 'Non gestisci questa azienda' }), { status: 403, headers })
+    }
 
     const [mr, ar] = await Promise.all([
       fetch(`${supabaseUrl}/rest/v1/membri?id=eq.${membro_id}&select=*`, { headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` } }),
@@ -18,6 +35,9 @@ serve(async (req) => {
     const membro  = (await mr.json())[0]
     const azienda = (await ar.json())[0]
     if (!membro || !azienda) return new Response(JSON.stringify({ error: 'Non trovato' }), { status: 404, headers })
+    // il membro invitato deve appartenere all'azienda dell'invito
+    if (membro.azienda_id !== azienda_id) return new Response(JSON.stringify({ error: 'Il membro non appartiene a questa azienda' }), { status: 403, headers })
+    if (!membro.email) return new Response(JSON.stringify({ error: 'Il membro non ha un indirizzo email' }), { status: 422, headers })
 
     const token = crypto.randomUUID().replace(/-/g, '')
     await fetch(`${supabaseUrl}/rest/v1/inviti`, {
