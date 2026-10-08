@@ -6,6 +6,7 @@
 import React from 'react'
 import { supabase } from './supabase'
 import { trovaMappaturaConto, contiDelGruppo } from './mappatureConti'
+import { applicaAssestamentiSP } from './assestamenti'
 
 export const round2 = (n) => Math.round(n * 100) / 100
 export const fmtSP = (n) => (!n ? '—' : n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
@@ -141,12 +142,20 @@ export function buildSp(aggregato, ctx, risultatoEsercizio) {
 // Calcola lo Stato Patrimoniale completo per un documento gia' elaborato.
 // Restituisce null se il documento non ha gruppi di conto (non e' un Libro
 // Giornale/Prima Nota) — in quel caso il chiamante mostra solo il Conto Economico.
-export async function calcolaSpDocumento(aziendaId, dati) {
+// assestamenti (opzionale): { valori, imposte, periodo } — contropartite patrimoniali degli assestamenti di
+// periodo stimati (vedi lib/assestamenti.js), sommati anche al risultato d'esercizio.
+export async function calcolaSpDocumento(aziendaId, dati, assestamenti = null) {
   if (!dati.gruppi) return null
   const ctx = await caricaContestoSP(aziendaId)
-  const { aggregatoSP, nonClassificati, risultatoEsercizio } = processaGruppiSP(dati, ctx)
+  const base = processaGruppiSP(dati, ctx)
+  let { aggregatoSP, risultatoEsercizio } = base
+  if (assestamenti?.valori?.attivi) {
+    const r = applicaAssestamentiSP(aggregatoSP, assestamenti.valori, assestamenti.imposte, assestamenti.periodo)
+    aggregatoSP = r.aggregato
+    risultatoEsercizio = round2(risultatoEsercizio + r.deltaRisultato)
+  }
   const { voci, totAttivo, totPassivo } = buildSp(aggregatoSP, ctx, risultatoEsercizio)
-  return { voci, totAttivo, totPassivo, risultatoEsercizio, nonClassificati, differenza: round2(totAttivo - totPassivo) }
+  return { voci, totAttivo, totPassivo, risultatoEsercizio, risultatoDaGiornale: base.risultatoEsercizio, nonClassificati: base.nonClassificati, differenza: round2(totAttivo - totPassivo) }
 }
 
 export const rowClassSP = (voce) => {

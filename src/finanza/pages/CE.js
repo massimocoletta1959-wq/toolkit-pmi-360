@@ -3,6 +3,9 @@ import { useApp } from '../../App'
 import { supabase } from '../lib/supabase'
 import { calcolaSpDocumento, TabellaSP } from '../lib/statoPatrimoniale'
 import { trovaMappaturaConto, contiDelGruppo } from '../lib/mappatureConti'
+import { proponiAssestamenti, applicaAssestamentiCE } from '../lib/assestamenti'
+import { proposteDaBilancio } from '../lib/bilanciAnalitici/abbina'
+import AssestamentiPeriodo from '../components/AssestamentiPeriodo'
 
 const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
 const MESI_SHORT = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
@@ -228,6 +231,33 @@ export function buildCe(aggregato, vociCee) {
   })
 }
 
+// Ammortamenti e TFR annui dell'esercizio precedente (base degli assestamenti di periodo): dal bilancio
+// analitico di quell'anno, o in mancanza dal suo libro giornale, riclassificati con le mappature dell'azienda.
+async function annualiEsercizioPrecedente(aziendaId, anno, ctx) {
+  const prec = Number(anno) - 1
+  const { data: docs } = await supabase.from('documenti').select('tipo_documento, anno, nome_file, dati_estratti')
+    .eq('azienda_id', aziendaId).in('tipo_documento', ['bilancio_analitico', ...TIPI_LIBRO_GIORNALE]).eq('stato', 'elaborato')
+  const leggi = (d) => { try { return JSON.parse(d.dati_estratti) } catch { return null } }
+  let agg = null
+  let fonte = null
+  const bil = (docs || []).map((d) => ({ d, dati: leggi(d) })).find((x) => x.d.tipo_documento === 'bilancio_analitico' && Number(x.dati?.anno) === prec)
+  if (bil) {
+    const gruppi = proposteDaBilancio(bil.dati).filter((g) => g.sezione === 'CE').map((g) => ({ gruppo: g.gruppo, conti: [{ conto: g.gruppo, valore: g.saldo }] }))
+    agg = processaDocumento({ gruppi }, 12, 'cumulativo', ctx)
+    fonte = `${prec} (bilancio analitico)`
+  } else {
+    const lg = (docs || []).find((d) => TIPI_LIBRO_GIORNALE.includes(d.tipo_documento) && Number(d.anno) === prec && !d.mese_fine)
+    const dati = lg && leggi(lg)
+    if (dati?.gruppi) {
+      agg = processaDocumento(dati, 12, 'cumulativo', ctx)
+      fonte = `${prec} (libro giornale)`
+    }
+  }
+  if (!agg) return null
+  const ammortamenti = Object.entries(agg).filter(([k]) => k.startsWith('B10')).reduce((s, [, v]) => s + v.importo, 0)
+  return { ammortamenti: round2(ammortamenti), tfr: round2(agg.B9c?.importo || 0), fonte }
+}
+
 async function calcolaCeDocumento(aziendaId, documentoId, modalita) {
   const { data: doc } = await supabase.from('documenti').select('*').eq('id', documentoId).single()
   if (!doc || !doc.dati_estratti) throw new Error('Documento non trovato o non elaborato')
@@ -235,14 +265,34 @@ async function calcolaCeDocumento(aziendaId, documentoId, modalita) {
   const meseFine = doc.mese_fine || 12
 
   const ctx = await caricaContesto(aziendaId)
-  const aggregato = processaDocumento(dati, meseFine, modalita, ctx)
+  const aggregatoGiornale = processaDocumento(dati, meseFine, modalita, ctx)
+
+  // Libro giornale infrannuale: assestamenti di periodo stimati (rimanenze finali, ammortamenti, TFR, fatture da
+  // ricevere/emettere, imposte), proposti e salvati sul documento, applicati a CE e SP
+  const infrannuale = TIPI_LIBRO_GIORNALE.includes(doc.tipo_documento) && meseFine < 12 && modalita === 'cumulativo'
+  let assestamenti = null
+  let proposte = null
+  let imposte = 0
+  let aggregato = aggregatoGiornale
+  const periodo = `al ${['31/01', '28/02', '31/03', '30/04', '31/05', '30/06', '31/07', '31/08', '30/09', '31/10', '30/11', '31/12'][meseFine - 1]}`
+  if (infrannuale) {
+    proposte = proponiAssestamenti({ aggregato: aggregatoGiornale, meseFine, annuali: await annualiEsercizioPrecedente(aziendaId, doc.anno, ctx) })
+    assestamenti = doc.assestamenti ? { ...proposte, ...doc.assestamenti, fonti: proposte.fonti } : { ...proposte, attivi: false }
+    const anteImposte = (agg) => { const t = calcolaTotali(agg, ctx.vociCeeList); return t.A - t.B + t.C + t.D }
+    const r = applicaAssestamentiCE(aggregatoGiornale, assestamenti, periodo, anteImposte)
+    aggregato = r.aggregato
+    imposte = r.imposte
+  }
   const voci = buildCe(aggregato, ctx.vociCeeList)
   const totali = calcolaTotali(aggregato, ctx.vociCeeList)
+  const totaliGiornale = calcolaTotali(aggregatoGiornale, ctx.vociCeeList)
 
   // Solo per Libro Giornale/Prima Nota: gli stessi gruppi riclassificati
   // producono anche lo Stato Patrimoniale (i gruppi provvisorio/bilancio non
   // hanno conti di attivo/passivo, solo ricavi/costi).
-  const stataPatrimoniale = TIPI_LIBRO_GIORNALE.includes(doc.tipo_documento) ? await calcolaSpDocumento(aziendaId, dati) : null
+  const stataPatrimoniale = TIPI_LIBRO_GIORNALE.includes(doc.tipo_documento)
+    ? await calcolaSpDocumento(aziendaId, dati, infrannuale ? { valori: assestamenti, imposte, periodo } : null)
+    : null
 
   return {
     anno: doc.anno,
@@ -258,7 +308,13 @@ async function calcolaCeDocumento(aziendaId, documentoId, modalita) {
       // sottostante — altrimenti il riquadro riassuntivo mostra un risultato
       // diverso (piu' alto) di quello della tabella e dello Stato Patrimoniale.
       risultato: round2(totali.A - totali.B + totali.C + totali.D - (aggregato['E20']?.importo || 0)),
+      risultato_ante_imposte: round2(totali.A - totali.B + totali.C + totali.D),
+      imposte_stimate: imposte,
+      risultato_da_giornale: round2(totaliGiornale.A - totaliGiornale.B + totaliGiornale.C + totaliGiornale.D - (aggregatoGiornale['E20']?.importo || 0)),
     },
+    assestamenti,
+    proposteAssestamenti: proposte,
+    periodo,
     statoPatrimoniale: stataPatrimoniale,
   }
 }
@@ -393,6 +449,10 @@ export default function CE() {
   const [errore, setErrore] = useState('')
   const [salvandoProvv, setSalvandoProvv] = useState(false)
   const [messaggioProvv, setMessaggioProvv] = useState('')
+  const [assestamenti, setAssestamenti] = useState(null)
+  const [proposteAss, setProposteAss] = useState(null)
+  const [periodo, setPeriodo] = useState('')
+  const [salvandoAss, setSalvandoAss] = useState(false)
 
   useEffect(() => {
     supabase
@@ -415,6 +475,7 @@ export default function CE() {
       setVociMensili([])
       setSommario(null)
       setStatoPatrimoniale(null)
+      setAssestamenti(null)
       setDocumentoId('')
     }
   }, [aziendaId])
@@ -430,6 +491,7 @@ export default function CE() {
         setVociMensili(res.voci)
         setMesiDisponibili(res.mesi_disponibili)
         setVoci([])
+        setAssestamenti(null)
         setSommario(null)
         setStatoPatrimoniale(null)
       } else {
@@ -439,12 +501,30 @@ export default function CE() {
         setVoci(res.voci)
         setSommario(res.sommario)
         setStatoPatrimoniale(res.statoPatrimoniale)
+        setAssestamenti(res.assestamenti)
+        setProposteAss(res.proposteAssestamenti)
+        setPeriodo(res.periodo)
         setVociMensili([])
       }
     } catch (e) {
       setErrore(e.message || 'Errore nel calcolo')
     } finally {
       setCaricando(false)
+    }
+  }
+
+  // salva gli assestamenti sul documento e ricalcola CE e SP
+  const salvaAssestamenti = async (valori) => {
+    setSalvandoAss(true)
+    try {
+      const { fonti: _f, ...daSalvare } = valori
+      const { error } = await supabase.from('documenti').update({ assestamenti: { ...daSalvare, aggiornato_il: new Date().toISOString() } }).eq('id', documentoId)
+      if (error) throw new Error(error.message)
+      await calcola()
+    } catch (e) {
+      setErrore(`Assestamenti non salvati: ${e.message}`)
+    } finally {
+      setSalvandoAss(false)
     }
   }
 
@@ -624,6 +704,10 @@ export default function CE() {
           )}
         </div>
       </div>
+
+      {assestamenti && sommario && (
+        <AssestamentiPeriodo valori={assestamenti} proposte={proposteAss} periodo={periodo} sommario={sommario} salvando={salvandoAss} onSalva={salvaAssestamenti} />
+      )}
 
       {statoPatrimoniale && (
         <>
