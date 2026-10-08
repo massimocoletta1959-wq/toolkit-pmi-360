@@ -130,11 +130,13 @@ export function processaDocumento(dati, meseFine, modalita, ctx) {
         const codiceCeeAgg = getCodiceConto(c.conto, g.gruppo, bucketRicavo ? 'A1' : 'B14')
         const voceCeeDest = vociCeeByCodice[codiceCeeAgg]
         const tipoDest = voceCeeDest?.tipo || (bucketRicavo ? 'ricavo' : 'costo')
-        const segnoDest = voceCeeDest?.segno ?? (bucketRicavo ? 1 : -1)
         let segnoFlip = 1
         if (bucketRicavo && tipoDest === 'costo') segnoFlip = -1
         else if (!bucketRicavo && tipoDest === 'ricavo') segnoFlip = -1
-        else if (!bucketRicavo && tipoDest === 'finanziario' && segnoDest < 0) segnoFlip = -1
+        // sezioni C/D: proventi positivi e oneri negativi (RIS = A - B + C + D), qualunque sia la categoria del
+        // conto: il valore e' sempre il saldo in Avere (-c.valore). Prima un provento (C15, C16, D18) classificato
+        // dalla Riclassificazione con categoria "costi" veniva sottratto invece che sommato.
+        else if (tipoDest === 'finanziario') segnoFlip = bucketRicavo ? 1 : -1
         // Il drill-down mostra ogni singolo conto, non un'unica riga con
         // l'etichetta del conto piu' rilevante.
         const importoConto = round2((importoRaw / divisore) * segnoFlip)
