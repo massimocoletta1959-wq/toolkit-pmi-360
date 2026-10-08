@@ -15,7 +15,8 @@ export default function AssestamentiPeriodo({ valori, proposte, periodo, sommari
   const [form, setForm] = useState(valori)
   useEffect(() => setForm(valori), [valori])
   if (!form) return null
-  const cambia = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  // modificare un importo attiva gli assestamenti (la spunta resta per disattivarli)
+  const cambia = (k, v) => setForm((f) => ({ ...f, [k]: v, ...(k !== 'attivi' ? { attivi: true } : {}) }))
   const modificato = JSON.stringify({ ...form, fonti: null }) !== JSON.stringify({ ...valori, fonti: null })
 
   return (
@@ -35,7 +36,7 @@ export default function AssestamentiPeriodo({ valori, proposte, periodo, sommari
           {CAMPI.map(([k, label, effetto]) => (
             <div key={k} className="form-group" style={{ marginBottom: 10 }}>
               <label className="form-label">{label}</label>
-              <input className="form-control" type="number" step="0.01" value={form[k] ?? ''} disabled={!form.attivi} onChange={(e) => cambia(k, e.target.value === '' ? 0 : Number(e.target.value))} />
+              <input className="form-control" type="number" step="0.01" value={form[k] ?? ''} onChange={(e) => cambia(k, e.target.value === '' ? 0 : Number(e.target.value))} />
               <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 2 }}>
                 {effetto}
                 {proposte?.fonti?.[k] && <> · proposta: {fmt(proposte[k])} € — {proposte.fonti[k]}</>}
@@ -44,7 +45,7 @@ export default function AssestamentiPeriodo({ valori, proposte, periodo, sommari
           ))}
           <div className="form-group" style={{ marginBottom: 10 }}>
             <label className="form-label">Aliquota imposte stimate (%)</label>
-            <input className="form-control" type="number" step="0.1" value={form.aliquota_imposte ?? ''} disabled={!form.attivi} onChange={(e) => cambia('aliquota_imposte', e.target.value === '' ? 0 : Number(e.target.value))} />
+            <input className="form-control" type="number" step="0.1" value={form.aliquota_imposte ?? ''} onChange={(e) => cambia('aliquota_imposte', e.target.value === '' ? 0 : Number(e.target.value))} />
             <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 2 }}>{proposte?.fonti?.aliquota_imposte} · E.20 a costo, debiti tributari (D.12)</div>
           </div>
         </div>
