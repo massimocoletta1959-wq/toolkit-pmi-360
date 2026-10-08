@@ -2,3 +2,7 @@ node_modules/
 
 # impostazioni locali di Claude Code
 .claude/settings.local.json
+
+# generati a ogni build da scripts/versione.js
+.env.production.local
+public/version.json
