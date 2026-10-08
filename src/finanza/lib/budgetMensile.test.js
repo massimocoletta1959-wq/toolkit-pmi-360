@@ -158,3 +158,12 @@ describe('scorte, vista settimanale, LCR', () => {
     expect(calcolaLcrPmi({ saldoIniziale: -5000, lineeCredito: null, primoMese: { uscite_certe: 1000, uscite_stimate: 0 } }).lcr_pct).toBe(0)
   })
 })
+
+test('variazioni delle rimanenze: a Conto economico ma non in cassa', () => {
+  const { aggregaBudgetMensile } = require('./budgetMensile')
+  const mesi = (v) => Object.fromEntries(['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'].map((k) => [k, v]))
+  const voci = [{ categoria: 'costi', descrizione: 'Variazioni delle rimanenze di materie', soggetto_iva: false, ...mesi(100) }]
+  const [m] = aggregaBudgetMensile(voci, {}, 2026, 1, 1)
+  expect(m.costi_operativi).toBeCloseTo(100, 2)
+  expect(m.cassa.fornitori).toBeCloseTo(0, 2)
+})

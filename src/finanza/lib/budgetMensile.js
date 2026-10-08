@@ -30,6 +30,8 @@ export const RE_AMMORTAMENTI = /ammortament|^\s*[a-z]\)\s*amm\.|\bamm\.\s*imm|sv
 export const RE_ONERI_FIN = /interessi\s+passivi|int\.?\s*passiv|oneri\s+finanziari|interessi\s+e\s+altri\s+oneri|commission\w*\s+(su\s+)?fid|(spese|commission\w*)(\s+e\s+commission\w*)?\s+bancar|perdite\s+su\s+cambi/i
 // Accantonamenti (B12/B13): sopra l'EBITDA (come lib/xbrl.js), ma non monetari
 export const RE_ACCANTONAMENTI = /accantonament/i
+// variazioni delle rimanenze (B11): solo Conto economico, nessun movimento di cassa
+export const RE_RIMANENZE = /rimanenz|esistenze iniziali/i
 export const RE_PROVENTI_FIN = /interessi\s+attivi|int\.?\s*attivi|proventi\s+finanziari|prov\.?\s*da\s+part/i
 
 // Voci energetiche del budget (§2.3 "consumi energetici", §2.5g stress "costi energetici +30%"):
@@ -117,7 +119,7 @@ export function aggregaBudgetMensile(vociBudget, azienda, anno, meseInizio, oriz
         // ma non escono dalla cassa e non hanno IVA. Il personale mantiene sempre il
         // suo trattamento (uscita certa, nessuna IVA). Imposte e oneri finanziari
         // restano uscite di cassa.
-        const nonMonetario = !v.personale && (v.classe.tipo === 'ammortamento' || v.classe.tipo === 'accantonamento')
+        const nonMonetario = !v.personale && (v.classe.tipo === 'ammortamento' || v.classe.tipo === 'accantonamento' || RE_RIMANENZE.test(v.descrizione || ''))
         if (nonMonetario) continue
         // Imposte sul reddito: non seguono i tempi dei fornitori ma il calendario degli acconti
         // (vedi imposteAnnue e caricaRigheDaBudget); qui si tiene solo l'accumulo mensile.
