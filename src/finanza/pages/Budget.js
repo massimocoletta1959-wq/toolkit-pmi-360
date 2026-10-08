@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { trovaMappaturaConto, contiDelGruppo } from '../lib/mappatureConti'
 
 const MESI = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
+const MESI_ESTESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre']
 const MESI_KEYS = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic']
 const ANNI = ['2024', '2025', '2026', '2027']
 
@@ -175,6 +176,7 @@ export default function Budget() {
   const [documentiOrigine, setDocumentiOrigine] = useState([])
   const [documentoOrigineId, setDocumentoOrigineId] = useState('')
   const [errore, setErrore] = useState(null)
+  const [avviso, setAvviso] = useState(null)   // informazioni sulla generazione (es. annualizzazione di un provvisorio)
 
   useEffect(() => {
     supabase
@@ -306,13 +308,19 @@ export default function Budget() {
       throw new Error('Nessuna voce di ricavo/costo trovata nel documento scelto.')
     }
 
+    // Un provvisorio copre solo i primi N mesi (mese_fine): il totale annuo si stima x 12 / N, altrimenti il
+    // budget riceverebbe il risultato di N mesi spalmato su 12 (sottostimato)
+    const mesiCoperti = doc.tipo_documento === 'provvisorio' && doc.mese_fine >= 1 && doc.mese_fine < 12 ? Number(doc.mese_fine) : 12
+    const annualizza = (v) => (mesiCoperti === 12 ? v : (v * 12) / mesiCoperti)
+    if (mesiCoperti < 12) setAvviso(`Il documento è un provvisorio di ${mesiCoperti} mesi (gennaio-${MESI_ESTESI[mesiCoperti - 1]}): gli importi sono stati annualizzati (× 12 / ${mesiCoperti}) e distribuiti in parti uguali sui 12 mesi. Rivedi le voci con andamento non lineare (stagionalità, ricavi o costi una tantum).`)
+
     const righe = []
     for (const [desc, totale] of Object.entries(vociRicavi)) {
-      const tot = round2(totale)
+      const tot = round2(annualizza(totale))
       righe.push({ categoria: 'ricavi', descrizione: desc, soggetto_iva: true, totale_annuo: tot, ...distribuisciMensile(tot) })
     }
     for (const [desc, totale] of Object.entries(vociCosti)) {
-      const tot = round2(totale)
+      const tot = round2(annualizza(totale))
       righe.push({ categoria: 'costi', descrizione: desc, soggetto_iva: !isEsenteIva(desc), totale_annuo: tot, ...distribuisciMensile(tot) })
     }
     await salvaBudgetGenerato(righe)
@@ -390,13 +398,19 @@ export default function Budget() {
       throw new Error('Nessun gruppo del documento scelto risulta classificato su ricavi/costi: completa la riclassificazione prima di generare il budget stagionale.')
     }
 
+    // Libro giornale infrannuale (es. al 30/06): i mesi successivi non hanno dati; si completano con la media
+    // dei mesi registrati, invece di lasciarli a zero
+    const meseFine = doc.mese_fine >= 1 && doc.mese_fine < 12 ? Number(doc.mese_fine) : 12
+    if (meseFine < 12) setAvviso(`Il libro giornale arriva a ${MESI_ESTESI[meseFine - 1]}: i mesi da gennaio a ${MESI_ESTESI[meseFine - 1]} seguono l'andamento registrato, quelli successivi la media mensile dei mesi registrati. Rivedi le voci stagionali.`)
+
     const righe = []
     for (const codice of codici) {
       const { descrizione, categoria, mensile } = perVoce[codice]
+      const media = meseFine < 12 ? round2(Array.from({ length: meseFine }, (_, i) => mensile[i + 1] || 0).reduce((t, x) => t + x, 0) / meseFine) : 0
       const mesiValori = {}
       let totale = 0
       for (let mese = 1; mese <= 12; mese++) {
-        const v = mensile[mese] || 0
+        const v = mese > meseFine ? media : mensile[mese] || 0
         mesiValori[MESI_KEYS[mese - 1]] = v
         totale += v
       }
@@ -422,6 +436,7 @@ export default function Budget() {
 
     setGenerando(true)
     setErrore(null)
+    setAvviso(null)
     try {
       if (modalitaGenerazione === 'stagionale') await generaBudgetStagionale(doc)
       else await generaBudgetUniforme(doc)
@@ -567,6 +582,7 @@ export default function Budget() {
       </p>
 
       {errore && <div className="alert alert-error">{errore}</div>}
+      {avviso && <div className="alert alert-info">{avviso}</div>}
 
       <div className="card no-print" style={{ marginBottom: 20 }}>
         <div className="card-body">
