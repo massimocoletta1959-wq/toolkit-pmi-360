@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
 const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY') || ''
-const APP_URL = 'https://massimocoletta1959-wq.github.io/toolkit-pmi-360'
+const APP_URL = 'https://app.pmi360.it'
 
 // Un'unica email per membro con l'elenco di TUTTE le procedure appena assegnategli
 // (invece di una email per procedura): se il membro non ha ancora un account la
