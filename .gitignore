@@ -6,3 +6,13 @@ node_modules/
 # generati a ogni build da scripts/versione.js
 .env.production.local
 public/version.json
+
+# build di produzione: la genera la CI a ogni push (non si versiona)
+/build
+
+# file di sistema macOS
+.DS_Store
+
+# stato locale della CLI Supabase (si versiona solo il progetto collegato)
+supabase/.temp/*
+!supabase/.temp/linked-project.json
