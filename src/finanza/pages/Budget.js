@@ -11,10 +11,24 @@ const ANNI = ['2024', '2025', '2026', '2027']
 const fmt = (n) => (n ?? 0).toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 const round2 = (n) => Math.round(n * 100) / 100
 
-const VOCI_ESENTI_IVA = ['personale', 'stipendi', 'salari', 'tfr', 'inps', 'inail', 'ammortamenti', 'svalutazioni', 'affitto', 'locazione', 'affitti']
+// Voci di costo senza IVA: personale e oneri sociali, ammortamenti, svalutazioni e accantonamenti, variazioni
+// delle rimanenze, oneri diversi di gestione (imposte indirette, sanzioni, tasse), imposte sul reddito, interessi
+// e oneri finanziari, affitti.
+const VOCI_ESENTI_IVA = [
+  'personale', 'stipendi', 'salari', 'tfr', 'trattamento di fine rapporto', 'quiescenza', 'oneri sociali', 'inps', 'inail',
+  'ammortament', 'amm. ', 'svalutazion', 'accantonament', 'rimanenze', 'oneri diversi', 'imposte', 'tasse',
+  'interessi', 'oneri finanziari', 'affitto', 'locazione', 'affitti',
+]
 const isEsenteIva = (descrizione) => {
   const d = (descrizione || '').toLowerCase()
   return VOCI_ESENTI_IVA.some((p) => d.includes(p))
+}
+// Ricavi senza IVA: proventi finanziari e da partecipazioni, interessi attivi, plusvalenze, sopravvenienze,
+// contributi in conto esercizio
+const RICAVI_SENZA_IVA = ['proventi finanziari', 'proventi da partecipazioni', 'interessi', 'plusvalenz', 'sopravvenienz', 'contribut']
+const ricavoSoggettoIva = (descrizione) => {
+  const d = (descrizione || '').toLowerCase()
+  return !RICAVI_SENZA_IVA.some((p) => d.includes(p))
 }
 
 const TIPI_LIBRO_GIORNALE = ['prima_nota_precedente', 'prima_nota_corrente', 'libro_giornale_precedente', 'libro_giornale_corrente']
@@ -317,7 +331,7 @@ export default function Budget() {
     const righe = []
     for (const [desc, totale] of Object.entries(vociRicavi)) {
       const tot = round2(annualizza(totale))
-      righe.push({ categoria: 'ricavi', descrizione: desc, soggetto_iva: true, totale_annuo: tot, ...distribuisciMensile(tot) })
+      righe.push({ categoria: 'ricavi', descrizione: desc, soggetto_iva: ricavoSoggettoIva(desc), totale_annuo: tot, ...distribuisciMensile(tot) })
     }
     for (const [desc, totale] of Object.entries(vociCosti)) {
       const tot = round2(annualizza(totale))
@@ -414,7 +428,7 @@ export default function Budget() {
         mesiValori[MESI_KEYS[mese - 1]] = v
         totale += v
       }
-      righe.push({ categoria, descrizione, soggetto_iva: categoria === 'ricavi' || !isEsenteIva(descrizione), totale_annuo: round2(totale), ...mesiValori })
+      righe.push({ categoria, descrizione, soggetto_iva: categoria === 'ricavi' ? ricavoSoggettoIva(descrizione) : !isEsenteIva(descrizione), totale_annuo: round2(totale), ...mesiValori })
     }
     await salvaBudgetGenerato(righe)
 
