@@ -2,7 +2,7 @@
   "name": "toolkit-pmi-360",
   "version": "1.0.0",
   "private": true,
-  "homepage": "https://massimocoletta1959-wq.github.io/toolkit-pmi-360",
+  "homepage": ".",
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
     "chart.js": "^4.5.1",
