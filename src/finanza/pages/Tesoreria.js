@@ -12,6 +12,7 @@ import { caricaContestoSP, processaGruppiSP } from '../lib/statoPatrimoniale'
 import { calcolaRigheAperture } from '../lib/partiteAperte'
 import { tipoControparte } from '../lib/mappatureConti'
 import { vociColonne, RigheRaggruppamenti, ModaleDettaglio } from '../components/DettaglioCashflow'
+import GraficoTesoreria from '../components/GraficoTesoreria'
 
 const TABS = [
   { id: 'kpi', label: '📊 KPI' },
@@ -939,6 +940,8 @@ export default function Tesoreria() {
                   <div className="kpi-value">{fmtSaldo(piano.mesi[piano.mesi.length - 1]?.saldo_base ?? 0)}</div>
                 </div>
               </div>
+
+              <GraficoTesoreria piano={piano} />
 
               <ModaleDettaglio key={dettaglioCf ? `${dettaglioCf.colonna.chiave}-${dettaglioCf.gruppo}-${dettaglioCf.direzione}` : 'chiuso'} dettaglio={dettaglioCf} onClose={() => setDettaglioCf(null)} />
               <div className="card table-scroll">
