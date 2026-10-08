@@ -35,15 +35,19 @@ export function estraiDati(doc) {
   }
 }
 
-export function calcolaIndici(d, meseFineParam = null) {
+// annoParam: anno del documento, se i dati estratti non lo riportano (es. i provvisori)
+export function calcolaIndici(d, meseFineParam = null, annoParam = null) {
   let ricavi = d.ricavi?.totale ?? (typeof d.ricavi === 'object' ? 0 : d.ricavi) ?? 0
   if (typeof ricavi === 'object') ricavi = ricavi.totale ?? 0
   let costi = d.costi?.totale ?? (typeof d.costi === 'object' ? 0 : d.costi) ?? 0
   if (typeof costi === 'object') costi = costi.totale ?? 0
 
   const ebit = d.margine_operativo ?? d.ebit ?? d.reddito_operativo ?? ricavi - costi
-  const ebitda = d.ebitda ?? ebit + (d.ammortamenti || 0)
-  const utile = d.risultato_esercizio ?? d.utile_esercizio ?? d.utile ?? 0
+  // i provvisori salvati da "Bilancio riclassificato" prima della correzione avevano ebitda = ebit: in quel caso
+  // si sommano gli ammortamenti
+  const ebitda = d.ebitda != null && !(d.ebitda === d.margine_operativo && d.ammortamenti) ? d.ebitda : ebit + (d.ammortamenti || 0)
+  // "utile_netto" e' il campo dei provvisori creati da Bilancio riclassificato
+  const utile = d.risultato_esercizio ?? d.utile_esercizio ?? d.utile_netto ?? d.utile ?? 0
   const amm = d.ammortamenti || 0
   const oneriFin = Math.abs(d.oneri_finanziari || 0)
   const imposte = d.imposte || 0
@@ -58,7 +62,7 @@ export function calcolaIndici(d, meseFineParam = null) {
   const totDebiti = d.totale_debiti || 0
   const debitiBreve = d.debiti_breve || totDebiti
 
-  const annoInt = parseInt(String(d.anno || '').slice(0, 4), 10) || null
+  const annoInt = parseInt(String(d.anno || annoParam || '').slice(0, 4), 10) || null
 
   let meseFineVal = meseFineParam != null ? meseFineParam : d.mese_fine || d.mese_chiusura || d.mese_periodo
   meseFineVal = parseInt(meseFineVal, 10) || 12
@@ -110,7 +114,7 @@ export function calcolaIndici(d, meseFineParam = null) {
     liquidita, crediti, pn, tfr, tot_debiti: totDebiti, debiti_breve: debitiBreve,
     roi, ros, rot, roe, ebitda_margin: ebitdaMargin, ccn, current_ratio: currentRatio, lev,
     dso, debiti_ebitda: debitiEbitda, incid_personale: incidPersonale,
-    anno: d.anno || '',
+    anno: d.anno || annoParam || '',
     anno_int: annoInt,
     mese_fine: meseFineVal,
     is_infrannuale: isInfrannuale,

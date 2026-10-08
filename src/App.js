@@ -1,4 +1,4 @@
-import React, { useState, useEffect, createContext, useContext } from 'react'
+import React, { useState, useEffect, useRef, createContext, useContext } from 'react'
 import { supabase } from './lib/supabase'
 import Login from './pages/Login'
 import ResetPassword from './pages/ResetPassword'
@@ -43,6 +43,38 @@ export default function App() {
   const [adunanzaId, setAdunanzaId] = useState(null)   // id adunanza da aprire nel dettaglio
   const [pagMembro, setPagMembro]  = useState(new URLSearchParams(window.location.search).get('vista') === 'organi' ? 'organi' : 'task') // vista membro: 'task' | 'procedure' | 'governance' | 'organi'
   const [mieiOrgani, setMieiOrgani] = useState([])        // organi di cui l'utente è incaricato (elenco_miei_organi)
+
+  // Freccia "indietro" del browser: il portale e' una pagina unica, quindi la freccia uscirebbe dal portale
+  // perdendo il lavoro non salvato. Si tiene una "sentinella" nella cronologia del browser: la freccia torna alla
+  // pagina precedente DEL PORTALE, dopo una conferma; dalla prima pagina non si esce per errore.
+  const cronologia = useRef([])        // pagine visitate: [{ page, modulo, pagMembro }]
+  const daIndietro = useRef(false)     // il cambio di pagina viene dalla freccia: non va registrato
+  const posizione = useRef(null)
+  useEffect(() => {
+    const attuale = { page, modulo, pagMembro }
+    if (daIndietro.current) daIndietro.current = false
+    else if (posizione.current && JSON.stringify(posizione.current) !== JSON.stringify(attuale)) {
+      cronologia.current.push(posizione.current)
+      if (cronologia.current.length > 50) cronologia.current.shift()
+    }
+    posizione.current = attuale
+  }, [page, modulo, pagMembro])
+  useEffect(() => {
+    window.history.pushState({ pmi360: true }, '')
+    const indietro = () => {
+      window.history.pushState({ pmi360: true }, '')   // si resta nel portale
+      const precedente = cronologia.current[cronologia.current.length - 1]
+      if (!precedente) return
+      if (!window.confirm('Tornare alla pagina precedente del portale?\nLe modifiche non salvate in questa pagina andranno perse.')) return
+      cronologia.current.pop()
+      daIndietro.current = true
+      setModulo(precedente.modulo)
+      setPage(precedente.page)
+      setPagMembro(precedente.pagMembro)
+    }
+    window.addEventListener('popstate', indietro)
+    return () => window.removeEventListener('popstate', indietro)
+  }, [])
   const [organoIncarico, setOrganoIncarico] = useState(null) // organo che l'incaricato sta gestendo
   const [showSetup, setShowSetup]  = useState(false)
   const [recoveryMode, setRecoveryMode] = useState(false) // true = utente ha cliccato il link "recupera password"

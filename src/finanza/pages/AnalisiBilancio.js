@@ -93,12 +93,12 @@ export default function AnalisiBilancio() {
         setErrore('Impossibile leggere i dati dal documento corrente.')
         return
       }
-      setIndCorr(calcolaIndici(datiCorr, docCorr.mese_fine))
+      setIndCorr(calcolaIndici(datiCorr, docCorr.mese_fine, docCorr.anno))
 
       if (docIdPrecedente) {
         const docPrev = documenti.find((d) => d.id === docIdPrecedente)
         const datiPrev = estraiDati(docPrev)
-        setIndPrev(datiPrev ? calcolaIndici(datiPrev, docPrev.mese_fine) : null)
+        setIndPrev(datiPrev ? calcolaIndici(datiPrev, docPrev.mese_fine, docPrev.anno) : null)
       } else {
         setIndPrev(null)
       }

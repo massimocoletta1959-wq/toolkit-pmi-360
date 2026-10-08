@@ -570,9 +570,11 @@ export default function CE() {
         costi: { totale: sommario.costi_produzione, voci: costiVoci },
         ammortamenti,
         oneri_finanziari: sommario.oneri_finanziari < 0 ? round2(-sommario.oneri_finanziari) : 0,
-        ebitda: sommario.ebit,
+        ebitda: round2(sommario.ebit + ammortamenti),
         margine_operativo: sommario.ebit,
+        imposte: round2(voci.find((v) => v.codice === 'E20')?.importo || 0),
         utile_netto: sommario.risultato,
+        risultato_esercizio: sommario.risultato,
         note: `Generato da Bilancio Riclassificato — ${doc?.nome_file || ''} (${new Date().toLocaleDateString('it-IT')})`,
         ...(statoPatrimoniale
           ? {
