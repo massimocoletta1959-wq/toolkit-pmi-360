@@ -79,3 +79,22 @@ export function calcolaRigheAperture({ contiClienti, contiFornitori, dsoDettagli
 
   return righe
 }
+
+// Differimento dichiarato dall'utente per singola partita (per conto): la partita resta nei flussi ma la scadenza
+// stimata slitta di N giorni, e con lei il mese di cassa. differimenti: Map conto -> giorni (interi > 0).
+export function applicaDifferimenti(righe, differimenti) {
+  if (!differimenti || differimenti.size === 0) return righe
+  return righe.map((r) => {
+    const giorni = differimenti.get(r.conto)
+    if (!giorni) return r
+    const dataScadenza = addDays(r.dataScadenza, giorni)
+    return {
+      ...r,
+      dataScadenza,
+      giorniDilazione: r.giorniDilazione + giorni,
+      differimentoGiorni: giorni,
+      meseBudget: meseBudgetDi(dataScadenza),
+      note: `${r.note} — differita di ${giorni}gg su indicazione dell'utente`,
+    }
+  })
+}

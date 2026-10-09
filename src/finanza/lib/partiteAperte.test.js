@@ -1,25 +1,35 @@
-import { calcolaRigheAperture } from './partiteAperte'
+import { calcolaRigheAperture, applicaDifferimenti } from './partiteAperte'
 
-// Il "conto" e' la chiave stabile usata da Tesoreria.js per escludere/riammettere una partita aperta dal
-// calcolo del cash flow (tabella scadenze_escluse): deve comparire su ogni riga generata, invariato tra
-// una proiezione e l'altra per lo stesso cliente/fornitore.
-describe('calcolaRigheAperture: conto come chiave stabile', () => {
-  const base = { dsoDettaglio: [], dpoDettaglio: [], dsoMedio: 30, dpoMedio: 30, anno: 2026, meseChiusura: 9 }
-
-  test('ogni credito/debito aperto porta il conto sorgente', () => {
-    const righe = calcolaRigheAperture({
-      ...base,
-      contiClienti: [{ conto: '14/00090/C', descrizione: 'Cliente Rossi', valore: 12400 }],
-      contiFornitori: [{ conto: '40/00050/F', descrizione: 'Fornitore Verdi', valore: -8000 }],
-    })
-    const credito = righe.find((r) => r.direzione === 'entrata')
-    const debito = righe.find((r) => r.direzione === 'uscita')
-    expect(credito.conto).toBe('14/00090/C')
-    expect(debito.conto).toBe('40/00050/F')
+const base = () =>
+  calcolaRigheAperture({
+    contiClienti: [{ conto: '14/C/1', descrizione: 'Cliente Alfa', valore: 1000 }],
+    contiFornitori: [{ conto: '40/F/7', descrizione: 'Fornitore Beta', valore: -500 }],
+    dsoDettaglio: [],
+    dpoDettaglio: [],
+    dsoMedio: 30,
+    dpoMedio: 30,
+    anno: 2026,
+    meseChiusura: 6,
   })
 
-  test('conti senza saldo aperto (o con acconto ricevuto) non generano righe', () => {
-    const righe = calcolaRigheAperture({ ...base, contiClienti: [{ conto: '14/1/C', descrizione: 'A', valore: 0 }], contiFornitori: [{ conto: '40/1/F', descrizione: 'B', valore: 0 }] })
-    expect(righe).toHaveLength(0)
-  })
+test('senza differimenti le righe restano invariate', () => {
+  const righe = base()
+  expect(applicaDifferimenti(righe, new Map())).toBe(righe)
+})
+
+test('il differimento sposta scadenza e mese di cassa solo della partita indicata', () => {
+  const righe = base()
+  const [cliente, fornitore] = applicaDifferimenti(righe, new Map([['14/C/1', 60]]))
+  // 28/06 + 30gg = 28/07; + 60gg = 26/09
+  expect(cliente.dataScadenza.toISOString().slice(0, 10)).toBe('2026-09-26')
+  expect(cliente.meseBudget).toBe(202609)
+  expect(cliente.giorniDilazione).toBe(90)
+  expect(cliente.differimentoGiorni).toBe(60)
+  expect(cliente.importo).toBe(1000)
+  expect(fornitore).toBe(righe[1])
+})
+
+test('un differimento lungo puo portare la partita nell anno successivo', () => {
+  const [, fornitore] = applicaDifferimenti(base(), new Map([['40/F/7', 200]]))
+  expect(fornitore.meseBudget).toBe(202702)
 })

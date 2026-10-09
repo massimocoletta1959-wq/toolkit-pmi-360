@@ -9,7 +9,7 @@ import VistaSettimanale from '../components/VistaSettimanale'
 import ControlliTesoreria, { periodoMensile, periodoTrimestrale } from '../components/ControlliTesoreria'
 import { aggregaBudgetMensile, calcolaLiquidazioniIva, costruisciCeBaseline, analizzaStagionalita } from '../lib/budgetMensile'
 import { caricaContestoSP, processaGruppiSP } from '../lib/statoPatrimoniale'
-import { calcolaRigheAperture } from '../lib/partiteAperte'
+import { calcolaRigheAperture, applicaDifferimenti } from '../lib/partiteAperte'
 import { tipoControparte } from '../lib/mappatureConti'
 import { vociColonne, RigheRaggruppamenti, ModaleDettaglio } from '../components/DettaglioCashflow'
 import GraficoTesoreria from '../components/GraficoTesoreria'
@@ -214,14 +214,44 @@ export default function Tesoreria() {
   // se ce n'e' gia' una, cosi' l'effetto sul cash flow e' immediato.
   const toggleScadenzaEsclusa = async (riga) => {
     const gia = scadenzeEscluse.find((e) => e.conto === riga.conto)
-    if (gia) {
+    if (gia && gia.differimento_giorni == null) {
       await supabase.from('scadenze_escluse').delete().eq('id', gia.id)
     } else {
       const motivo = window.prompt(`Escludere "${riga.descrizione}" (${riga.conto}) dal calcolo del cash flow?\n\nMotivo (opzionale):`, '')
       if (motivo === null) return // annullato
+      if (gia) await supabase.from('scadenze_escluse').delete().eq('id', gia.id) // era differita: diventa esclusa
       const { error } = await supabase.from('scadenze_escluse').insert({ id: crypto.randomUUID(), azienda_id: aziendaId, conto: riga.conto, direzione: riga.direzione, descrizione: riga.descrizione, motivo: motivo || null })
       if (error) return setErroreReale(error.message)
     }
+    await caricaScadenzeEscluse(aziendaId)
+    if (piano?.ancora) await generaProiezioneReale()
+  }
+
+  // Differisce di N giorni una partita aperta (per conto): resta nel cash flow, con la scadenza stimata spostata in
+  // avanti. Stessa tabella delle esclusioni (una riga per conto) con differimento_giorni valorizzato. Con giorni
+  // vuoti o annullando la richiesta non cambia nulla; "Annulla differimento" la riporta alla scadenza stimata.
+  const differisciScadenza = async (riga) => {
+    const gia = scadenzeEscluse.find((e) => e.conto === riga.conto)
+    const risposta = window.prompt(
+      `Differire "${riga.descrizione}" (${riga.conto})?\n\nDi quanti giorni va spostata la scadenza stimata del ${riga.data_originale.split('-').reverse().join('/')}? (da 1 a 730)`,
+      gia?.differimento_giorni ? String(gia.differimento_giorni) : '30'
+    )
+    if (risposta === null) return
+    const giorni = Number(String(risposta).trim())
+    if (!Number.isInteger(giorni) || giorni < 1 || giorni > 730) return setErroreReale('Differimento non valido: indica un numero intero di giorni tra 1 e 730.')
+    const motivo = window.prompt('Motivo del differimento (opzionale):', gia?.motivo || '')
+    if (motivo === null) return
+    if (gia) await supabase.from('scadenze_escluse').delete().eq('id', gia.id)
+    const { error } = await supabase.from('scadenze_escluse').insert({ id: crypto.randomUUID(), azienda_id: aziendaId, conto: riga.conto, direzione: riga.direzione, descrizione: riga.descrizione, motivo: motivo || null, differimento_giorni: giorni })
+    if (error) return setErroreReale(error.message)
+    await caricaScadenzeEscluse(aziendaId)
+    if (piano?.ancora) await generaProiezioneReale()
+  }
+
+  const annullaDifferimento = async (riga) => {
+    const gia = scadenzeEscluse.find((e) => e.conto === riga.conto && e.differimento_giorni != null)
+    if (!gia) return
+    await supabase.from('scadenze_escluse').delete().eq('id', gia.id)
     await caricaScadenzeEscluse(aziendaId)
     if (piano?.ancora) await generaProiezioneReale()
   }
@@ -374,8 +404,11 @@ export default function Tesoreria() {
       // Esclusione per conto (scadenze_escluse, dichiarata dall'utente): tolta PRIMA di ogni calcolo di cassa,
       // cosi' l'esclusione incide davvero sul cash flow e non e' solo un filtro di visualizzazione.
       const { data: escluseRighe } = await supabase.from('scadenze_escluse').select('*').eq('azienda_id', aziendaId)
-      const contiEsclusi = new Set((escluseRighe || []).map((e) => e.conto))
-      const righeAperture = righeApertureTutte.filter((r) => !contiEsclusi.has(r.conto))
+      // Stessa tabella per i differimenti (differimento_giorni valorizzato): la partita resta nei flussi, spostata.
+      const contiEsclusi = new Set((escluseRighe || []).filter((e) => e.differimento_giorni == null).map((e) => e.conto))
+      const differimenti = new Map((escluseRighe || []).filter((e) => e.differimento_giorni != null).map((e) => [e.conto, e.differimento_giorni]))
+      const righeApertureConDifferimenti = applicaDifferimenti(righeApertureTutte, differimenti)
+      const righeAperture = righeApertureConDifferimenti.filter((r) => !contiEsclusi.has(r.conto))
 
       const mesiReali = []
       for (let m = 1; m <= meseCorrente; m++) {
@@ -419,8 +452,8 @@ export default function Tesoreria() {
       }
       // Elenco completo (incluse ed escluse) per la scheda "Partite aperte": ogni cliente/fornitore col saldo
       // ancora aperto a fine mese chiuso, con l'azione per escluderlo dal conteggio o riammetterlo.
-      pianoProiettato.partite_aperte_lista = righeApertureTutte
-        .map((r) => ({ conto: r.conto, descrizione: r.controparte, direzione: r.direzione, importo: round2Local(r.importo), data: r.dataScadenza.toISOString().slice(0, 10), giorni: r.giorniDilazione, escluso: contiEsclusi.has(r.conto), motivo: (escluseRighe || []).find((e) => e.conto === r.conto)?.motivo || null }))
+      pianoProiettato.partite_aperte_lista = righeApertureConDifferimenti
+        .map((r, i) => ({ conto: r.conto, descrizione: r.controparte, direzione: r.direzione, importo: round2Local(r.importo), data: r.dataScadenza.toISOString().slice(0, 10), data_originale: righeApertureTutte[i].dataScadenza.toISOString().slice(0, 10), giorni: r.giorniDilazione, differimento: r.differimentoGiorni || null, escluso: contiEsclusi.has(r.conto), motivo: (escluseRighe || []).find((e) => e.conto === r.conto)?.motivo || null }))
         .sort((a, b) => a.data.localeCompare(b.data) || b.importo - a.importo)
 
       // Snapshot del baseline economico e IVA, calcolato dallo STESSO budget e
@@ -428,7 +461,7 @@ export default function Tesoreria() {
       // coerenti e condividono il timestamp del salvataggio (motore di
       // valutazione d'impatto, contratto §4.G). Budget pieno, costi netti.
       const mesiBudget = aggregaBudgetMensile(vociBudget || [], azienda, annoRiferimento, meseInizioProiezione, ORIZZONTE_CNDCEC, invRighe || [], manovreRighe || [])
-      pianoProiettato.modello_cassa = 10 // 10 = elenco completo e esclusione delle partite aperte (scadenze_escluse); 9 = + dettaglio linee di credito e costi energetici per mese (stress del motore d'impatto); 8 = + vista 13 settimane, scorte, termini contrattuali, Past Due dichiarato, LCR; 7 = acconti imposte 50/50; 6 = + rate da piano di ammortamento, investimenti pianificati; 5 = + contributi F24, acconti imposte, stagionalità, cruscotto, KPI; 4 = + DIO da anagrafica, stress energia, copertura linee; 2 = budget netto + IVA per liquidazione + costi non monetari fuori cassa; 3 = + scenari coerenti col base, DSO misurato, concentrazione; 4 = + DIO da anagrafica, stress energia sulle sole voci energetiche, copertura con le linee di credito (vedi CHANGELOG.md)
+      pianoProiettato.modello_cassa = 10 // 10 = elenco completo, esclusione e differimento delle partite aperte (scadenze_escluse); 9 = + dettaglio linee di credito e costi energetici per mese (stress del motore d'impatto); 8 = + vista 13 settimane, scorte, termini contrattuali, Past Due dichiarato, LCR; 7 = acconti imposte 50/50; 6 = + rate da piano di ammortamento, investimenti pianificati; 5 = + contributi F24, acconti imposte, stagionalità, cruscotto, KPI; 4 = + DIO da anagrafica, stress energia, copertura linee; 2 = budget netto + IVA per liquidazione + costi non monetari fuori cassa; 3 = + scenari coerenti col base, DSO misurato, concentrazione; 4 = + DIO da anagrafica, stress energia sulle sole voci energetiche, copertura con le linee di credito (vedi CHANGELOG.md)
       pianoProiettato.ce_baseline = costruisciCeBaseline(mesiBudget, vociBudget || [], { budget_id: budgetScelto.id, anno_budget: annoRiferimento })
       pianoProiettato.iva_baseline = {
         liquidazione: azienda?.liquidazione_iva || 'trimestrale',
@@ -877,11 +910,16 @@ export default function Tesoreria() {
                       <tbody>
                         {piano.partite_aperte_lista.map((sc) => (
                           <tr key={sc.conto} style={sc.escluso ? { opacity: 0.55 } : sc.importo >= 50000 ? { background: '#fff7ed' } : undefined}>
-                            <td style={{ whiteSpace: 'nowrap' }}>{sc.data.split('-').reverse().join('/')}</td>
+                            <td style={{ whiteSpace: 'nowrap', color: !sc.escluso && sc.differimento ? '#1d4ed8' : undefined, fontWeight: !sc.escluso && sc.differimento ? 600 : undefined }}>{sc.data.split('-').reverse().join('/')}</td>
                             <td>
                               {sc.descrizione}
                               {sc.escluso && (
                                 <div style={{ fontSize: 10, color: '#9a3412' }}>Esclusa dal conteggio{sc.motivo ? `: ${sc.motivo}` : ''}</div>
+                              )}
+                              {!sc.escluso && sc.differimento && (
+                                <div style={{ fontSize: 10, color: '#1d4ed8' }}>
+                                  Differita di {sc.differimento} gg (era il {(sc.data_originale || sc.data).split('-').reverse().join('/')}){sc.motivo ? `: ${sc.motivo}` : ''}
+                                </div>
                               )}
                             </td>
                             <td>{sc.direzione === 'entrata' ? 'incasso' : 'pagamento'}</td>
@@ -890,9 +928,22 @@ export default function Tesoreria() {
                               {!sc.escluso && sc.importo >= 50000 ? ' ⚠️' : ''}
                             </td>
                             <td style={{ whiteSpace: 'nowrap' }}>
-                              <button className="btn btn-outline btn-sm no-print" onClick={() => toggleScadenzaEsclusa(sc)}>
-                                {sc.escluso ? 'Includi' : 'Escludi'}
-                              </button>
+                              {sc.escluso ? (
+                                <button className="btn btn-outline btn-sm no-print" onClick={() => toggleScadenzaEsclusa(sc)}>Includi</button>
+                              ) : (
+                                <>
+                                  <button className="btn btn-outline btn-sm no-print" onClick={() => toggleScadenzaEsclusa(sc)}>Escludi</button>{' '}
+                                  <button className="btn btn-outline btn-sm no-print" title="Sposta in avanti la scadenza stimata di un numero di giorni" onClick={() => differisciScadenza(sc)}>
+                                    {sc.differimento ? 'Modifica differimento' : 'Differisci'}
+                                  </button>
+                                  {sc.differimento && (
+                                    <>
+                                      {' '}
+                                      <button className="btn btn-outline btn-sm no-print" onClick={() => annullaDifferimento(sc)}>Annulla differimento</button>
+                                    </>
+                                  )}
+                                </>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -903,7 +954,8 @@ export default function Tesoreria() {
                 <div style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55, marginTop: 6 }}>
                   Saldo a 30/60/90 giorni approssimato con la fine dei primi tre mesi della proiezione. Importi al 100%, non pesati per probabilità; ⚠️ = oltre 50.000 € (soglia di esempio del documento). Le partite
                   escluse (es. un credito in contenzioso, un debito rinegoziato) non entrano nel calcolo del cash flow, nella vista a 13 settimane né negli stress test, e restano escluse anche nelle proiezioni
-                  successive finché non le riammetti.
+                  successive finché non le riammetti. Le partite differite restano nel cash flow con la scadenza spostata del numero di giorni indicato (data in blu), anche nella vista a 13 settimane e negli
+                  stress test, finché non annulli il differimento.
                 </div>
               </div>
             </div>
