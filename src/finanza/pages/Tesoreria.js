@@ -12,6 +12,7 @@ import { caricaContestoSP, processaGruppiSP } from '../lib/statoPatrimoniale'
 import { calcolaRigheAperture, applicaDifferimenti } from '../lib/partiteAperte'
 import { tipoControparte } from '../lib/mappatureConti'
 import { vociColonne, RigheRaggruppamenti, ModaleDettaglio } from '../components/DettaglioCashflow'
+import { EditorDifferimento, ScadenzeModificate, dataOriginale } from '../components/DifferimentoPartite'
 import GraficoTesoreria from '../components/GraficoTesoreria'
 
 const TABS = [
@@ -133,6 +134,8 @@ export default function Tesoreria() {
   const [erroreReale, setErroreReale] = useState('')
   const [richiestaDati, setRichiestaDati] = useState(false)
   const [scadenzeEscluse, setScadenzeEscluse] = useState([]) // righe scadenze_escluse dell'azienda corrente
+  const [modificaPartita, setModificaPartita] = useState(null) // { conto, origine: 'tabella'|'riepilogo', giorni, motivo } in corso
+  const [salvandoPartita, setSalvandoPartita] = useState(false)
 
   useEffect(() => {
     supabase
@@ -228,32 +231,32 @@ export default function Tesoreria() {
   }
 
   // Differisce di N giorni una partita aperta (per conto): resta nel cash flow, con la scadenza stimata spostata in
-  // avanti. Stessa tabella delle esclusioni (una riga per conto) con differimento_giorni valorizzato. Con giorni
-  // vuoti o annullando la richiesta non cambia nulla; "Annulla differimento" la riporta alla scadenza stimata.
-  const differisciScadenza = async (riga) => {
+  // avanti. Stessa tabella delle esclusioni (una riga per conto) con differimento_giorni valorizzato. I giorni li
+  // scrive l'utente nel campo della riga (modificaPartita); "Ripristina" riporta la partita alla scadenza stimata.
+  const salvaDifferimento = async (riga) => {
+    const giorni = Number(modificaPartita?.giorni)
+    if (!Number.isInteger(giorni) || giorni < 1 || giorni > 730) return
+    setSalvandoPartita(true)
     const gia = scadenzeEscluse.find((e) => e.conto === riga.conto)
-    const risposta = window.prompt(
-      `Differire "${riga.descrizione}" (${riga.conto})?\n\nDi quanti giorni va spostata la scadenza stimata del ${riga.data_originale.split('-').reverse().join('/')}? (da 1 a 730)`,
-      gia?.differimento_giorni ? String(gia.differimento_giorni) : '30'
-    )
-    if (risposta === null) return
-    const giorni = Number(String(risposta).trim())
-    if (!Number.isInteger(giorni) || giorni < 1 || giorni > 730) return setErroreReale('Differimento non valido: indica un numero intero di giorni tra 1 e 730.')
-    const motivo = window.prompt('Motivo del differimento (opzionale):', gia?.motivo || '')
-    if (motivo === null) return
     if (gia) await supabase.from('scadenze_escluse').delete().eq('id', gia.id)
-    const { error } = await supabase.from('scadenze_escluse').insert({ id: crypto.randomUUID(), azienda_id: aziendaId, conto: riga.conto, direzione: riga.direzione, descrizione: riga.descrizione, motivo: motivo || null, differimento_giorni: giorni })
-    if (error) return setErroreReale(error.message)
+    const { error } = await supabase.from('scadenze_escluse').insert({ id: crypto.randomUUID(), azienda_id: aziendaId, conto: riga.conto, direzione: riga.direzione, descrizione: riga.descrizione, motivo: modificaPartita.motivo?.trim() || null, differimento_giorni: giorni })
+    if (error) { setSalvandoPartita(false); return setErroreReale(error.message) }
+    setModificaPartita(null)
     await caricaScadenzeEscluse(aziendaId)
     if (piano?.ancora) await generaProiezioneReale()
+    setSalvandoPartita(false)
   }
 
-  const annullaDifferimento = async (riga) => {
-    const gia = scadenzeEscluse.find((e) => e.conto === riga.conto && e.differimento_giorni != null)
+  // Annulla la modifica (differimento o esclusione): la partita torna com'era, alla scadenza stimata.
+  const ripristinaScadenza = async (riga) => {
+    const gia = scadenzeEscluse.find((e) => e.conto === riga.conto)
     if (!gia) return
+    setSalvandoPartita(true)
     await supabase.from('scadenze_escluse').delete().eq('id', gia.id)
+    setModificaPartita(null)
     await caricaScadenzeEscluse(aziendaId)
     if (piano?.ancora) await generaProiezioneReale()
+    setSalvandoPartita(false)
   }
 
   useEffect(() => {
@@ -893,6 +896,16 @@ export default function Tesoreria() {
                     </div>
                   )}
                 </div>
+                <ScadenzeModificate
+                  modificate={scadenzeEscluse}
+                  lista={piano.partite_aperte_lista}
+                  modifica={modificaPartita}
+                  setModifica={setModificaPartita}
+                  onApplica={salvaDifferimento}
+                  onRipristina={ripristinaScadenza}
+                  onEscludi={toggleScadenzaEsclusa}
+                  salvando={salvandoPartita}
+                />
                 {(piano.partite_aperte_lista || []).length === 0 ? (
                   <div style={{ fontSize: 12.5, color: '#5f6b7a', lineHeight: 1.55 }}>{piano.partite_aperte_lista ? 'Nessuna partita aperta a fine mese chiuso.' : 'Rigenera la proiezione per vedere le partite aperte.'}</div>
                 ) : (
@@ -909,7 +922,8 @@ export default function Tesoreria() {
                       </thead>
                       <tbody>
                         {piano.partite_aperte_lista.map((sc) => (
-                          <tr key={sc.conto} style={sc.escluso ? { opacity: 0.55 } : sc.importo >= 50000 ? { background: '#fff7ed' } : undefined}>
+                          <React.Fragment key={sc.conto}>
+                          <tr style={sc.escluso ? { opacity: 0.55 } : sc.importo >= 50000 ? { background: '#fff7ed' } : undefined}>
                             <td style={{ whiteSpace: 'nowrap', color: !sc.escluso && sc.differimento ? '#1d4ed8' : undefined, fontWeight: !sc.escluso && sc.differimento ? 600 : undefined }}>{sc.data.split('-').reverse().join('/')}</td>
                             <td>
                               {sc.descrizione}
@@ -918,7 +932,7 @@ export default function Tesoreria() {
                               )}
                               {!sc.escluso && sc.differimento && (
                                 <div style={{ fontSize: 10, color: '#1d4ed8' }}>
-                                  Differita di {sc.differimento} gg (era il {(sc.data_originale || sc.data).split('-').reverse().join('/')}){sc.motivo ? `: ${sc.motivo}` : ''}
+                                  Differita di {sc.differimento} gg (era il {dataOriginale(sc).split('-').reverse().join('/')}){sc.motivo ? `: ${sc.motivo}` : ''}
                                 </div>
                               )}
                             </td>
@@ -929,23 +943,29 @@ export default function Tesoreria() {
                             </td>
                             <td style={{ whiteSpace: 'nowrap' }}>
                               {sc.escluso ? (
-                                <button className="btn btn-outline btn-sm no-print" onClick={() => toggleScadenzaEsclusa(sc)}>Includi</button>
+                                <button className="btn btn-outline btn-sm no-print" disabled={salvandoPartita} onClick={() => toggleScadenzaEsclusa(sc)}>Includi</button>
+                              ) : sc.differimento ? (
+                                <>
+                                  <button className="btn btn-outline btn-sm no-print" disabled={salvandoPartita} onClick={() => setModificaPartita({ conto: sc.conto, origine: 'tabella', giorni: String(sc.differimento), motivo: sc.motivo || '' })}>Modifica giorni</button>{' '}
+                                  <button className="btn btn-outline btn-sm no-print" disabled={salvandoPartita} onClick={() => ripristinaScadenza(sc)}>Ripristina</button>{' '}
+                                  <button className="btn btn-outline btn-sm no-print" disabled={salvandoPartita} onClick={() => toggleScadenzaEsclusa(sc)}>Escludi</button>
+                                </>
                               ) : (
                                 <>
-                                  <button className="btn btn-outline btn-sm no-print" onClick={() => toggleScadenzaEsclusa(sc)}>Escludi</button>{' '}
-                                  <button className="btn btn-outline btn-sm no-print" title="Sposta in avanti la scadenza stimata di un numero di giorni" onClick={() => differisciScadenza(sc)}>
-                                    {sc.differimento ? 'Modifica differimento' : 'Differisci'}
-                                  </button>
-                                  {sc.differimento && (
-                                    <>
-                                      {' '}
-                                      <button className="btn btn-outline btn-sm no-print" onClick={() => annullaDifferimento(sc)}>Annulla differimento</button>
-                                    </>
-                                  )}
+                                  <button className="btn btn-outline btn-sm no-print" disabled={salvandoPartita} onClick={() => toggleScadenzaEsclusa(sc)}>Escludi</button>{' '}
+                                  <button className="btn btn-outline btn-sm no-print" disabled={salvandoPartita} title="Sposta in avanti la scadenza stimata del numero di giorni che indichi" onClick={() => setModificaPartita({ conto: sc.conto, origine: 'tabella', giorni: '', motivo: '' })}>Differisci</button>
                                 </>
                               )}
                             </td>
                           </tr>
+                          {modificaPartita?.conto === sc.conto && modificaPartita.origine === 'tabella' && (
+                            <tr>
+                              <td colSpan={5}>
+                                <EditorDifferimento modifica={modificaPartita} setModifica={setModificaPartita} base={dataOriginale(sc)} salvando={salvandoPartita} onApplica={() => salvaDifferimento(sc)} />
+                              </td>
+                            </tr>
+                          )}
+                          </React.Fragment>
                         ))}
                       </tbody>
                     </table>
