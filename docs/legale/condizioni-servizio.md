@@ -10,9 +10,9 @@ Queste condizioni si applicano al Cliente e a ogni utente che il Cliente abilita
 
 ## 2. Attivazione, account e utenti
 
-- Il Cliente attiva il Servizio con il piano scelto ([DA DEFINIRE: durata, numero di aziende, moduli, utenti]).
+- Il Cliente attiva il Servizio con il piano indicato nell'offerta accettata, che stabilisce il numero di aziende gestibili, i moduli attivi e gli utenti.
 - Il Cliente invita i propri utenti e ne stabilisce ruoli e permessi. Risponde del loro operato e del fatto che siano autorizzati a vedere i dati a cui li abilita.
-- Le credenziali sono personali. Il portale consente una sola sessione attiva per utente. Ogni uso sospetto va segnalato subito a [DA DEFINIRE, es. assistenza@pmi360.it].
+- Le credenziali sono personali. Il portale consente una sola sessione attiva per utente. Ogni uso sospetto va segnalato subito ad assistenza@pmi360.it.
 
 ## 3. Obblighi del Cliente
 
@@ -27,25 +27,25 @@ Analisi, simulazioni, indicatori, riclassificazioni, testi proposti e verifiche 
 
 ## 5. Disponibilità, assistenza e manutenzione
 
-Il Fornitore si impegna a mantenere il Servizio disponibile con la diligenza professionale dovuta, salvo manutenzioni (preferibilmente annunciate) e cause non imputabili al Fornitore. [DA DEFINIRE: livelli di servizio, orari e canali dell'assistenza.]
+Il Fornitore si impegna a mantenere il Servizio disponibile con la diligenza professionale dovuta, salvo manutenzioni (preferibilmente annunciate) e cause non imputabili al Fornitore. Per ottenere assistenza sull'uso della procedura o su eventuali problemi tecnici riscontrati è possibile scrivere ad assistenza@pmi360.it. È garantito il riscontro entro 24 ore lavorative.
 
 ## 6. Dati, sicurezza e protezione dei dati personali
 
 - I dati del Cliente restano del Cliente. Il Fornitore li tratta solo per erogare il Servizio, come responsabile del trattamento, secondo l'«Accordo per il trattamento dei dati personali» che fa parte di queste condizioni.
 - Il Fornitore adotta misure di sicurezza adeguate: cifratura delle connessioni, separazione dei dati tra clienti, controllo degli accessi per ruolo, registro degli accessi, impronte SHA-256 dei documenti circolarizzati.
-- Alla cessazione del contratto il Cliente può esportare i propri dati entro [DA DEFINIRE, proposta: 30 giorni]; poi i dati vengono cancellati, salvo obblighi di legge.
+- Alla cessazione del contratto il Cliente può esportare i propri dati entro 30 giorni; poi i dati vengono cancellati, salvo obblighi di legge.
 
 ## 7. Corrispettivi
 
-[DA DEFINIRE: canone, fatturazione, pagamento, rinnovo, adeguamenti.]
+Il Servizio prevede un canone annuale, secondo il listino o l'offerta accettata dal Cliente. Il canone è fatturato in via anticipata all'inizio di ogni annualità ed è pagabile entro [DA CONFERMARE, proposta: 30 giorni] dalla data della fattura. Il Fornitore può aggiornare il canone per le annualità successive comunicandolo almeno 4 mesi prima della scadenza, così che il Cliente possa esercitare il recesso previsto al punto 9.
 
 ## 8. Responsabilità
 
-[DA DEFINIRE CON IL LEGALE: limitazione di responsabilità nei limiti di legge, esclusione per uso improprio o per dati inseriti dal Cliente.]
+Il Fornitore risponde dei danni causati da proprio dolo o colpa grave. Negli altri casi, e nei limiti consentiti dall'art. 1229 del codice civile, la responsabilità complessiva del Fornitore è limitata all'importo dei canoni pagati dal Cliente nei 12 mesi precedenti l'evento. Il Fornitore non risponde dei danni indiretti o del mancato guadagno, dei danni derivanti da uso improprio del Servizio o da dati e contenuti inseriti dal Cliente, né delle decisioni assunte sulla base dei risultati del Servizio (punto 4). [DA CONFERMARE: limite proposto, 12 mesi di canone]
 
 ## 9. Durata e recesso
 
-[DA DEFINIRE: durata, rinnovo, preavviso, sospensione per mancato pagamento o violazioni.]
+Il contratto ha durata annuale dalla data di attivazione e si rinnova tacitamente di anno in anno. Ciascuna parte può recedere con un preavviso di almeno 3 mesi rispetto alla scadenza dell'annualità in corso, comunicato per PEC o per email con conferma di ricezione. Il Fornitore può sospendere il Servizio, previo avviso, in caso di mancato pagamento del canone oltre 30 giorni dalla scadenza o di violazione grave di queste condizioni; la sospensione non incide sui dati, che restano esportabili dal Cliente.
 
 ## 10. Modifiche
 
@@ -53,6 +53,6 @@ Il Fornitore può aggiornare queste condizioni dandone comunicazione. Le nuove v
 
 ## 11. Legge applicabile e foro
 
-Si applica la legge italiana. Foro competente: [DA DEFINIRE], salvo i casi in cui la legge stabilisca un foro diverso.
+Si applica la legge italiana. Foro competente: Roma, salvo i casi in cui la legge stabilisca un foro diverso.
 
-Versione [1.0] del [DATA].
+Versione 1.2 del 10 ottobre 2026.

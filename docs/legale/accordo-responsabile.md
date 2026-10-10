@@ -13,7 +13,7 @@ Parte integrante delle Condizioni generali di servizio di Pmi 360°.
 - **Durata:** quella del contratto, più il periodo per l'esportazione e la cancellazione.
 - **Interessati:** soci, amministratori, sindaci e revisori, dipendenti e collaboratori, consulenti, clienti e fornitori del Cliente, iscritti ai corsi.
 - **Tipi di dati:** dati anagrafici e di contatto, ruoli e incarichi, contenuti di atti, verbali e documenti, dati contabili e di bilancio che possono riferirsi a persone fisiche; per la formazione, dati di frequenza, esiti e attestati.
-- **Categorie particolari e giudiziari:** non previsti; il Cliente si impegna a non caricarli se non strettamente necessario e previa valutazione. [DA VERIFICARE]
+- **Categorie particolari e giudiziari:** non previsti; il Cliente si impegna a non caricarli se non strettamente necessario e previa valutazione.
 
 ## 3. Obblighi del Responsabile
 
@@ -23,13 +23,13 @@ Il Responsabile:
 3. adotta le misure di sicurezza dell'art. 32 descritte in allegato;
 4. ricorre a sub-responsabili solo alle condizioni del punto 4;
 5. assiste il Cliente nel rispondere alle richieste degli interessati e negli obblighi degli articoli 32-36 (sicurezza, violazioni, valutazioni d'impatto);
-6. notifica al Cliente ogni violazione dei dati personali senza ingiustificato ritardo e comunque entro [DA DEFINIRE, proposta: 48 ore] dalla scoperta;
+6. notifica al Cliente ogni violazione dei dati personali senza ingiustificato ritardo e comunque entro 48 ore dalla scoperta;
 7. alla fine del contratto restituisce o cancella i dati, a scelta del Cliente, salvo obblighi di conservazione;
 8. mette a disposizione le informazioni necessarie a dimostrare il rispetto di questo accordo e consente verifiche ragionevoli, con preavviso.
 
 ## 4. Sub-responsabili
 
-Il Cliente autorizza in via generale i sub-responsabili indicati nell'«Elenco dei sub-responsabili», consultabile dal portale. Il Responsabile informa il Cliente delle modifiche con almeno [30] giorni di anticipo; il Cliente può opporsi per motivi legittimi e, in mancanza di una soluzione, recedere. Il Responsabile impone ai sub-responsabili gli stessi obblighi e ne risponde.
+Il Cliente autorizza in via generale i sub-responsabili indicati nell'«Elenco dei sub-responsabili», consultabile dal portale. Il Responsabile informa il Cliente delle modifiche con almeno 30 giorni di anticipo; il Cliente può opporsi per motivi legittimi e, in mancanza di una soluzione, recedere. Il Responsabile impone ai sub-responsabili gli stessi obblighi e ne risponde.
 
 ## 5. Trasferimenti extra UE
 
@@ -42,6 +42,6 @@ Avvengono solo con le garanzie del Capo V del GDPR (decisione di adeguatezza, in
 - Accesso per ruolo (gestore, membro operativo, incaricato d'organo), una sola sessione attiva per utente, registro degli accessi.
 - Documenti circolarizzati con impronta SHA-256 e registro delle prese visione; testi dei documenti legali immutabili dopo la pubblicazione.
 - Ogni modifica alla struttura del database viene provata prima in un ambiente separato senza dati reali.
-- [DA COMPLETARE: backup e ripristino, autenticazione a due fattori, procedura di gestione delle violazioni.]
+- Backup e ripristino, autenticazione a due fattori, procedura di gestione delle violazioni. [DA CONFERMARE PRIMA DELLA PUBBLICAZIONE: oggi non attivi, vedi nota]
 
-Versione [1.0] del [DATA].
+Versione 1.2 del 10 ottobre 2026.

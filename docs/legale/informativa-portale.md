@@ -22,7 +22,7 @@ Questa informativa riguarda i dati che trattiamo **come titolari** per gestire i
 - **Accettazione dei documenti legali:** quali documenti hai accettato, in quale versione, quando, da quale indirizzo IP e con quale browser.
 - **Comunicazioni email** inviate dal portale (inviti, assegnazioni, promemoria, richieste di presa visione): destinatario, data ed esito dell'invio.
 
-Non trattiamo categorie particolari di dati (art. 9 GDPR) per finalità nostre. [DA VERIFICARE: se le aziende clienti caricano documenti che le contengono, il trattamento ricade nell'accordo art. 28.]
+Non trattiamo categorie particolari di dati (art. 9 GDPR) per finalità nostre.
 
 ## 4. Perché trattiamo i dati e su quale base giuridica
 
@@ -38,9 +38,9 @@ Non usiamo i tuoi dati per pubblicità, profilazione o decisioni automatizzate.
 
 ## 5. Per quanto tempo conserviamo i dati
 
-- Dati dell'account: per tutta la durata del rapporto con il cliente per cui operi e per [DA DEFINIRE, proposta: 12 mesi] dopo la sua cessazione o la chiusura dell'account.
-- Registro degli accessi (IP, browser): [DA DEFINIRE, proposta: 12 mesi].
-- Registro delle accettazioni dei documenti legali e delle prese visione: per [DA DEFINIRE, proposta: 10 anni], perché servono a dimostrare comunicazioni e consensi.
+- Dati dell'account: per tutta la durata del rapporto con il cliente per cui operi e per 12 mesi dopo la sua cessazione o la chiusura dell'account.
+- Registro degli accessi (IP, browser): 12 mesi.
+- Registro delle accettazioni dei documenti legali e delle prese visione: per 10 anni, perché servono a dimostrare comunicazioni e consensi.
 - Dati necessari per obblighi di legge o per difendere un diritto: per il tempo previsto dalla legge o fino alla definizione della controversia.
 
 ## 6. A chi comunichiamo i dati
@@ -51,7 +51,7 @@ I dati sono visibili anche agli altri utenti autorizzati dell'azienda o dello st
 
 ## 7. Trasferimenti fuori dall'Unione europea
 
-Il database, i file e l'elaborazione con l'intelligenza artificiale restano nell'Unione europea (Francoforte). Alcuni fornitori di servizi tecnici (ad esempio la rete che consegna le pagine) possono trattare dati tecnici come l'indirizzo IP negli Stati Uniti o in altri paesi: in questi casi il trasferimento avviene sulla base del Data Privacy Framework UE-USA, se il fornitore vi aderisce, oppure delle clausole contrattuali standard approvate dalla Commissione europea. [DA VERIFICARE per ciascun fornitore.]
+Il database, i file e l'elaborazione con l'intelligenza artificiale restano nell'Unione europea (Francoforte). Alcuni fornitori di servizi tecnici (ad esempio la rete che consegna le pagine) possono trattare dati tecnici come l'indirizzo IP negli Stati Uniti o in altri paesi: in questi casi il trasferimento avviene sulla base del Data Privacy Framework UE-USA (Cloudflare vi aderisce) o delle clausole contrattuali standard approvate dalla Commissione europea (decisione 2021/914), previste dagli accordi sul trattamento dei dati dei fornitori. Il dettaglio è nell'«Elenco dei sub-responsabili».
 
 ## 8. I tuoi diritti
 
@@ -67,4 +67,4 @@ Il portale usa solo strumenti tecnici necessari al funzionamento: la sessione di
 
 Possiamo aggiornare questa informativa. Ogni versione ha un numero e una data; quando cambia in modo rilevante, il portale te la ripropone al primo accesso.
 
-Versione [1.0] del [DATA].
+Versione 1.2 del 10 ottobre 2026.

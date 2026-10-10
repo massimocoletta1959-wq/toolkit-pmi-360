@@ -15,12 +15,11 @@ Ai sensi dell'articolo 13 del Regolamento (UE) 2016/679 («GDPR»).
 
 - Mostrare il sito e proteggerlo da abusi: legittimo interesse (art. 6.1.f).
 - Rispondere alla tua richiesta di demo e ricontattarti per fissarla: misure precontrattuali richieste da te (art. 6.1.b). Non serve il tuo consenso: con la casella confermi solo di aver letto questa informativa.
-- [Facoltativo, solo con consenso separato: inviarti aggiornamenti e novità sul prodotto (art. 6.1.a), revocabile in ogni momento.]
 
 ## Conservazione
 
-- Dati tecnici di navigazione: [DA DEFINIRE con le impostazioni di Cloudflare].
-- Richieste di demo: [DA DEFINIRE, proposta: 24 mesi] dall'ultimo contatto, se non diventi cliente.
+- Dati tecnici di navigazione: non conserviamo registri delle visite; i dati tecnici sono trattati da Cloudflare, che pubblica il sito, per il tempo necessario a consegnare le pagine e a proteggerle da abusi.
+- Richieste di demo: 24 mesi dall'ultimo contatto, se non diventi cliente.
 
 ## Destinatari
 
@@ -30,4 +29,4 @@ Fornitori che ci aiutano a gestire il sito e la posta, nominati responsabili del
 
 Puoi chiedere accesso, rettifica, cancellazione, limitazione, portabilità e opporti al trattamento scrivendo a privacy@pmi360.it. Puoi proporre reclamo al Garante per la protezione dei dati personali (www.garanteprivacy.it).
 
-Versione [1.0] del [DATA].
+Versione 1.2 del 10 ottobre 2026.
