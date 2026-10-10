@@ -37,11 +37,11 @@ Il Fornitore si impegna a mantenere il Servizio disponibile con la diligenza pro
 
 ## 7. Corrispettivi
 
-Il Servizio prevede un canone annuale, secondo il listino o l'offerta accettata dal Cliente. Il canone è fatturato in via anticipata all'inizio di ogni annualità ed è pagabile entro [DA CONFERMARE, proposta: 30 giorni] dalla data della fattura. Il Fornitore può aggiornare il canone per le annualità successive comunicandolo almeno 4 mesi prima della scadenza, così che il Cliente possa esercitare il recesso previsto al punto 9.
+Il Servizio prevede un canone annuale, secondo il listino o l'offerta accettata dal Cliente. Il canone è fatturato in via anticipata all'inizio di ogni annualità ed è pagabile entro 30 giorni dalla data della fattura. Il Fornitore può aggiornare il canone per le annualità successive comunicandolo almeno 4 mesi prima della scadenza, così che il Cliente possa esercitare il recesso previsto al punto 9.
 
 ## 8. Responsabilità
 
-Il Fornitore risponde dei danni causati da proprio dolo o colpa grave. Negli altri casi, e nei limiti consentiti dall'art. 1229 del codice civile, la responsabilità complessiva del Fornitore è limitata all'importo dei canoni pagati dal Cliente nei 12 mesi precedenti l'evento. Il Fornitore non risponde dei danni indiretti o del mancato guadagno, dei danni derivanti da uso improprio del Servizio o da dati e contenuti inseriti dal Cliente, né delle decisioni assunte sulla base dei risultati del Servizio (punto 4). [DA CONFERMARE: limite proposto, 12 mesi di canone]
+Il Fornitore risponde dei danni causati da proprio dolo o colpa grave. Negli altri casi, e nei limiti consentiti dall'art. 1229 del codice civile, la responsabilità complessiva del Fornitore è limitata all'importo dei canoni pagati dal Cliente nei 12 mesi precedenti l'evento. Il Fornitore non risponde dei danni indiretti o del mancato guadagno, dei danni derivanti da uso improprio del Servizio o da dati e contenuti inseriti dal Cliente, né delle decisioni assunte sulla base dei risultati del Servizio (punto 4).
 
 ## 9. Durata e recesso
 
