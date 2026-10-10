@@ -1,5 +1,6 @@
 import React from 'react'
 import { useApp } from '../App'
+import { LinkDocumentiLegali } from './DocumentiLegali'
 export default function LayoutMembro({ children, page = 'task', setPage }) {
   const { azienda, profilo, logout, puoTornareGestore, tornaGestore, mieiOrgani } = useApp()
   const voci = [
@@ -40,6 +41,7 @@ export default function LayoutMembro({ children, page = 'task', setPage }) {
               ← Torna alla vista gestore
             </button>
           )}
+          <LinkDocumentiLegali />
           <button
             className="btn btn-sm"
             style={{ width: '100%', justifyContent: 'center', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)' }}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../App'
+import { LinkDocumentiLegali } from './DocumentiLegali'
 import { etichettaModulo, etichettaAttiGovernance, nomeAtto } from '../lib/modalitaSolo'
 
 // Funzioni comuni, disponibili sia dalla Home sia dentro un modulo
@@ -171,6 +172,7 @@ export default function Layout({ children }) {
               🏛️ I miei organi (incarichi)
             </button>
           )}
+          <LinkDocumentiLegali />
           <button className="btn btn-sm" style={{ width: '100%', justifyContent: 'center', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)' }} onClick={logout}>
             Esci
           </button>

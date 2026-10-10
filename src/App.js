@@ -27,6 +27,7 @@ import Layout from './components/Layout'
 import LayoutMembro from './components/LayoutMembro'
 import IncarichiOrgani from './pages/IncarichiOrgani'
 import { PAGINE_FINANZA } from './finanza'
+import { AccettazioneDocumenti } from './components/DocumentiLegali'
 
 export const AppContext = createContext(null)
 export const useApp = () => useContext(AppContext)
@@ -79,6 +80,7 @@ export default function App() {
   const [showSetup, setShowSetup]  = useState(false)
   const [recoveryMode, setRecoveryMode] = useState(false) // true = utente ha cliccato il link "recupera password"
   const [licenzaBloccata, setLicenzaBloccata] = useState(null) // null = ok; altrimenti motivo del blocco per un consulente
+  const [documentiDaAccettare, setDocumentiDaAccettare] = useState([]) // documenti legali in vigore non ancora accettati
 
   // Leggi token invito dall'URL e salvalo in localStorage per sopravvivere al redirect
   const urlParams = new URLSearchParams(window.location.search)
@@ -181,6 +183,7 @@ export default function App() {
     }
     setLicenzaBloccata(null)
     setProfilo(prof)
+    caricaDocumentiDaAccettare()
     // registro accessi (consultabile dal proprietario nel portale licenze; al massimo uno ogni 30 minuti)
     supabase.rpc('registra_accesso').then(() => {}, () => {})
 
@@ -250,10 +253,17 @@ export default function App() {
     setPage('home')
   }
 
+  // Documenti legali in vigore che l'utente deve ancora accettare. Se la lettura non riesce non si blocca il
+  // portale: il controllo si ripete al prossimo caricamento.
+  async function caricaDocumentiDaAccettare() {
+    const { data, error } = await supabase.rpc('documenti_da_accettare')
+    setDocumentiDaAccettare(error ? [] : data || [])
+  }
+
   async function logout() {
     await supabase.rpc('registra_accesso', { p_evento: 'uscita' }).then(() => {}, () => {})
     await supabase.auth.signOut()
-    setSession(null); setProfilo(null); setAziende([]); setAziendaState(null)
+    setSession(null); setProfilo(null); setAziende([]); setAziendaState(null); setDocumentiDaAccettare([])
   }
 
   // Apre il wizard di creazione azienda, rispettando il limite max_aziende del gestore (null = illimitato)
@@ -319,6 +329,10 @@ export default function App() {
       <Setup onDone={() => loadDati(session.user.id)} userId={session.user.id} userEmail={session.user.email} />
     )
   }
+
+  if (documentiDaAccettare.length > 0) return (
+    <AccettazioneDocumenti key={documentiDaAccettare.map(d => d.id).join()} documenti={documentiDaAccettare} onAccettati={caricaDocumentiDaAccettare} onEsci={logout} />
+  )
 
   if (showSetup) return (
     <Setup onDone={onNuovaAziendaDone} onAnnulla={() => setShowSetup(false)} userId={session.user.id} userEmail={session.user.email} nuovaAzienda={true} />
