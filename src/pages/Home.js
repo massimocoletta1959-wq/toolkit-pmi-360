@@ -3,6 +3,9 @@ import { supabase } from '../lib/supabase'
 import { useApp } from '../App'
 import { CATALOGO_PROCEDURE } from '../lib/procedure'
 import { etichettaModulo } from '../lib/modalitaSolo'
+import { descriviVersione } from '../lib/versione'
+
+const versione = descriviVersione()
 
 // ============================================================
 // Home — la "ruota dei moduli": un cerchio diviso in quattro spicchi
@@ -366,6 +369,11 @@ export default function Home() {
           )}
         </div>
       </div>
+      {versione && (
+        <div style={{ textAlign: 'center', fontSize: 11.5, color: '#8A94A0', padding: '18px 0 6px' }}>
+          Versione {versione.codice}{versione.pubblicata ? ` · pubblicata il ${versione.pubblicata.replace(', ', ' alle ')}` : ''}
+        </div>
+      )}
     </div>
   )
 }
