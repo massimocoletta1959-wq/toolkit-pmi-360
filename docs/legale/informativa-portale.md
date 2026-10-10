@@ -4,14 +4,14 @@ Ai sensi degli articoli 13 e 14 del Regolamento (UE) 2016/679 («GDPR»).
 
 ## 1. Titolare del trattamento
 
-**F.C. CONSULTING S.A.S. DI MASSIMO COLETTA & C.**, con sede in Via Giovanni Botero 14, 00179 Roma, P. IVA e codice fiscale 06395831008, REA RM-965345, PEC fcconsulting@pec.it, email privacy@pmi360.it («Pmi 360°» o «noi»).
+**F.C. CONSULTING S.A.S. DI MASSIMO COLETTA & C.**, con sede in Via Giovanni Botero 14, 00179 Roma, P. IVA e codice fiscale 06395831008, REA RM-965345, PEC fcconsulting@pec.it, email privacy@pmi360.it («F.C. Consulting» o «noi»).
 Non è stato nominato un Responsabile della protezione dei dati (DPO), non essendo obbligatorio per il titolare.
 
 ## 2. A chi si rivolge questa informativa
 
 Riguarda le persone che usano il portale app.pmi360.it: consulenti e studi professionali, amministratori e dipendenti delle aziende clienti, membri degli organi sociali (consiglieri, sindaci, revisori) e collaboratori invitati.
 
-Questa informativa riguarda i dati che trattiamo **come titolari** per gestire il tuo account e il funzionamento del portale. I dati che l'azienda o lo studio per cui operi inserisce nel portale (organigramma, rischi, procedure, delibere, verbali, documenti contabili, eccetera) sono trattati **per conto di quell'azienda o studio**, che ne è titolare: per quei dati devi fare riferimento alla sua informativa. Su quei dati Pmi 360° agisce come responsabile del trattamento, in base a un accordo con il cliente (art. 28 GDPR).
+Questa informativa riguarda i dati che trattiamo **come titolari** per gestire il tuo account e il funzionamento del portale. I dati che l'azienda o lo studio per cui operi inserisce nel portale (organigramma, rischi, procedure, delibere, verbali, documenti contabili, eccetera) sono trattati **per conto di quell'azienda o studio**, che ne è titolare: per quei dati devi fare riferimento alla sua informativa. Su quei dati F.C. Consulting agisce come responsabile del trattamento, in base a un accordo con il cliente (art. 28 GDPR).
 
 ## 3. Quali dati trattiamo
 
