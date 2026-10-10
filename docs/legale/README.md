@@ -9,6 +9,7 @@
 | `accordo-responsabile.md` | Accordo art. 28 GDPR | accettazione insieme alle condizioni, per i consulenti | `accordo_responsabile`, destinatari `consulenti` |
 | `sub-responsabili.md` | Elenco dei sub-responsabili | solo consultazione | `sub_responsabili`, `richiede_accettazione = false` |
 | `informativa-sito.md` | Informativa del sito pmi360.it | pagina del sito e modulo demo | — (sito) |
+| `procedura-violazioni.md` | Procedura di gestione delle violazioni (art. 33-34 GDPR) | uso interno, richiamata nell'accordo art. 28 | — (interno) |
 
 La cookie policy si genera con il servizio di gestione dei cookie acquistato su Aruba.
 
