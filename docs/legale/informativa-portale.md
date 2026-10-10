@@ -45,13 +45,13 @@ Non usiamo i tuoi dati per pubblicità, profilazione o decisioni automatizzate.
 
 ## 6. A chi comunichiamo i dati
 
-I dati sono trattati dal nostro personale autorizzato e dai fornitori che ci aiutano a erogare il servizio, nominati responsabili del trattamento. L'elenco aggiornato è nel documento «Elenco dei sub-responsabili», consultabile dal portale: hosting e database (Supabase, Unione europea), pubblicazione del portale e del sito (Cloudflare), invio delle email (Brevo), lettura automatica dei documenti e redazione di analisi con l'intelligenza artificiale (Anthropic).
+I dati sono trattati dal nostro personale autorizzato e dai fornitori che ci aiutano a erogare il servizio, nominati responsabili del trattamento. L'elenco aggiornato è nel documento «Elenco dei sub-responsabili», consultabile dal portale: hosting e database (Supabase, Unione europea), pubblicazione del portale e del sito (Cloudflare), invio delle email (Brevo), lettura automatica dei documenti e redazione di analisi con l'intelligenza artificiale (Amazon Bedrock, nell'Unione europea).
 
 I dati sono visibili anche agli altri utenti autorizzati dell'azienda o dello studio per cui operi, nei limiti del ruolo di ciascuno.
 
 ## 7. Trasferimenti fuori dall'Unione europea
 
-Il database e i file sono conservati nell'Unione europea (Francoforte). Alcuni fornitori possono trattare dati negli Stati Uniti o in altri paesi: in questi casi il trasferimento avviene sulla base del Data Privacy Framework UE-USA, se il fornitore vi aderisce, oppure delle clausole contrattuali standard approvate dalla Commissione europea. [DA VERIFICARE per ciascun fornitore.]
+Il database, i file e l'elaborazione con l'intelligenza artificiale restano nell'Unione europea (Francoforte). Alcuni fornitori di servizi tecnici (ad esempio la rete che consegna le pagine) possono trattare dati tecnici come l'indirizzo IP negli Stati Uniti o in altri paesi: in questi casi il trasferimento avviene sulla base del Data Privacy Framework UE-USA, se il fornitore vi aderisce, oppure delle clausole contrattuali standard approvate dalla Commissione europea. [DA VERIFICARE per ciascun fornitore.]
 
 ## 8. I tuoi diritti
 
