@@ -2,8 +2,11 @@
 //  Edge Function: extract-visura
 //  Estrae i dati di una visura camerale (PDF) tramite Claude e li
 //  restituisce in JSON: anagrafica azienda, organo, componenti, soci.
-//  Segreto richiesto: ANTHROPIC_API_KEY
+//  Segreti: BEDROCK_API_KEY (+ modelli) per elaborare nell'UE, altrimenti ANTHROPIC_API_KEY
+//  (vedi ../_shared/claude.ts)
 // =====================================================================
+
+import { chiamaClaude, fornitoreConfigurato } from '../_shared/claude.ts'
 
 const MODEL = 'claude-sonnet-5' // per risparmiare: 'claude-haiku-4-5-20251001'
 
@@ -77,35 +80,21 @@ export default {
       const { pdf_base64 } = await req.json()
       if (!pdf_base64) return json({ error: 'PDF mancante' }, 400)
 
-      const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
-      if (!apiKey) return json({ error: 'ANTHROPIC_API_KEY non configurata' }, 500)
+      if (!fornitoreConfigurato()) return json({ error: 'Servizio di intelligenza artificiale non configurato' }, 500)
 
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: MODEL,
-          max_tokens: 3000,
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdf_base64 } },
-              { type: 'text', text: ISTRUZIONI },
-            ],
-          }],
-        }),
+      const { ok, data } = await chiamaClaude({
+        modello: MODEL,
+        max_tokens: 3000,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdf_base64 } },
+            { type: 'text', text: ISTRUZIONI },
+          ],
+        }],
       })
 
-      if (!resp.ok) {
-        const err = await resp.text()
-        return json({ error: 'Errore API: ' + err }, 502)
-      }
-
-      const data = await resp.json()
+      if (!ok) return json({ error: 'Errore API: ' + (data?.error?.message || 'risposta non valida') }, 502)
       let testo = (data.content || []).map((b) => (b.type === 'text' ? b.text : '')).join('').trim()
       testo = testo.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim()
 

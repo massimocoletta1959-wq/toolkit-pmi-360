@@ -8,7 +8,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
-const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
+import { chiamaClaude, fornitoreConfigurato } from '../_shared/claude.ts'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
 const MODEL = 'claude-sonnet-5'
@@ -33,8 +33,8 @@ function puliciJson(testo: string): unknown {
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
-  if (!ANTHROPIC_API_KEY) {
-    return new Response(JSON.stringify({ errore: 'ANTHROPIC_API_KEY non configurata come secret su questo progetto Supabase.' }), {
+  if (!fornitoreConfigurato()) {
+    return new Response(JSON.stringify({ errore: 'Servizio di intelligenza artificiale non configurato (BEDROCK_API_KEY o ANTHROPIC_API_KEY) su questo progetto Supabase.' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
@@ -54,23 +54,9 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ errore: 'Prompt mancante o troppo corto.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 8192,
-        messages: [{ role: 'user', content: String(prompt) }],
-      }),
-    })
-
-    const data = await resp.json()
-    if (!resp.ok) {
-      return new Response(JSON.stringify({ errore: data?.error?.message || `Errore Anthropic API (${resp.status})` }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    const { ok, status, data } = await chiamaClaude({ modello: MODEL, max_tokens: 8192, messages: [{ role: 'user', content: String(prompt) }] })
+    if (!ok) {
+      return new Response(JSON.stringify({ errore: data?.error?.message || `Errore del servizio di intelligenza artificiale (${status})` }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     const bloccoTesto = (data?.content || []).find((b: { type?: string }) => b?.type === 'text')

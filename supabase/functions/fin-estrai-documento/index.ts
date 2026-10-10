@@ -24,7 +24,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
-const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
+import { chiamaClaude, fornitoreConfigurato } from '../_shared/claude.ts'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')
@@ -203,19 +203,9 @@ async function chiamaAnthropic(tipoFile: string, tipoDocumento: string, anno: st
     content = promptTesto(tipoFile, tipoDocumento, anno, String(testo))
   }
 
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': ANTHROPIC_API_KEY as string,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({ model: MODEL, max_tokens: 16000, messages: [{ role: 'user', content }] }),
-  })
-
-  const data = await resp.json()
-  if (!resp.ok) {
-    throw new Error(data?.error?.message || `Errore Anthropic API (${resp.status})`)
+  const { ok, status, data } = await chiamaClaude({ modello: MODEL, max_tokens: 16000, messages: [{ role: 'user', content }] })
+  if (!ok) {
+    throw new Error(data?.error?.message || `Errore del servizio di intelligenza artificiale (${status})`)
   }
 
   // Non assumiamo che il testo sia nel primo blocco: alcuni modelli possono
@@ -237,7 +227,7 @@ Deno.serve(async (req: Request) => {
 
   const rispondi = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
-  if (!ANTHROPIC_API_KEY) return rispondi({ errore: 'ANTHROPIC_API_KEY non configurata come secret su questo progetto Supabase.' }, 500)
+  if (!fornitoreConfigurato()) return rispondi({ errore: 'Servizio di intelligenza artificiale non configurato (BEDROCK_API_KEY o ANTHROPIC_API_KEY) su questo progetto Supabase.' }, 500)
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return rispondi({ errore: 'Configurazione Supabase (URL/service role) mancante nella function.' }, 500)
 
   let body: Record<string, unknown>
