@@ -4,8 +4,8 @@ Ai sensi degli articoli 13 e 14 del Regolamento (UE) 2016/679 («GDPR»).
 
 ## 1. Titolare del trattamento
 
-**[RAGIONE SOCIALE]**, con sede in [INDIRIZZO], P. IVA [P. IVA], email [EMAIL PRIVACY] («Pmi 360°» o «noi»).
-[Se nominato: Responsabile della protezione dei dati (DPO): [NOME], [EMAIL DPO].]
+**F.C. CONSULTING S.A.S. DI MASSIMO COLETTA & C.**, con sede in Via Giovanni Botero 14, 00179 Roma, P. IVA e codice fiscale 06395831008, REA RM-965345, PEC fcconsulting@pec.it, email privacy@pmi360.it («Pmi 360°» o «noi»).
+Non è stato nominato un Responsabile della protezione dei dati (DPO), non essendo obbligatorio per il titolare.
 
 ## 2. A chi si rivolge questa informativa
 
@@ -55,7 +55,7 @@ Il database, i file e l'elaborazione con l'intelligenza artificiale restano nell
 
 ## 8. I tuoi diritti
 
-Puoi chiedere l'accesso ai tuoi dati, la rettifica, la cancellazione, la limitazione del trattamento, la portabilità e opporti ai trattamenti basati sul legittimo interesse (articoli 15-22 GDPR), scrivendo a [EMAIL PRIVACY]. Rispondiamo entro un mese.
+Puoi chiedere l'accesso ai tuoi dati, la rettifica, la cancellazione, la limitazione del trattamento, la portabilità e opporti ai trattamenti basati sul legittimo interesse (articoli 15-22 GDPR), scrivendo a privacy@pmi360.it. Rispondiamo entro un mese.
 
 Hai anche il diritto di proporre reclamo al Garante per la protezione dei dati personali (www.garanteprivacy.it).
 

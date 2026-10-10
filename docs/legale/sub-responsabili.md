@@ -1,6 +1,6 @@
 # Elenco dei sub-responsabili del trattamento
 
-Fornitori di cui **[RAGIONE SOCIALE]** si avvale per erogare Pmi 360°, che possono trattare dati personali per conto dei clienti. Ciascuno è vincolato da un accordo sul trattamento dei dati (art. 28 GDPR). Il cliente viene informato con almeno [DA DEFINIRE, proposta: 30 giorni] di anticipo dell'aggiunta o della sostituzione di un sub-responsabile e può opporsi.
+Fornitori di cui **F.C. CONSULTING S.A.S. DI MASSIMO COLETTA & C.** si avvale per erogare Pmi 360°, che possono trattare dati personali per conto dei clienti. Ciascuno è vincolato da un accordo sul trattamento dei dati (art. 28 GDPR). Il cliente viene informato con almeno [DA DEFINIRE, proposta: 30 giorni] di anticipo dell'aggiunta o della sostituzione di un sub-responsabile e può opporsi.
 
 | Fornitore | Servizio | Dati trattati | Luogo del trattamento | Garanzie per i trasferimenti |
 |---|---|---|---|---|

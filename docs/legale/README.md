@@ -1,6 +1,6 @@
 # Documenti legali di Pmi 360° — bozze
 
-**Stato: BOZZE da completare e far verificare al DPO o al legale prima della pubblicazione.** Le parti tra parentesi quadre sono dati da inserire o scelte da confermare.
+**Stato: BOZZE da completare e rivedere (revisione a cura del titolare) prima della pubblicazione.** Le parti tra parentesi quadre sono dati da inserire o scelte da confermare.
 
 | File | Documento | Dove va | Nel portale (`documenti_legali.tipo`) |
 |---|---|---|---|

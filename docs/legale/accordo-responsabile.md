@@ -5,7 +5,7 @@ Parte integrante delle Condizioni generali di servizio di Pmi 360°.
 ## 1. Ruoli
 
 - Il **Cliente** è titolare dei dati personali che inserisce nel Servizio o che i suoi utenti vi caricano.
-- **[RAGIONE SOCIALE]** (il «Responsabile») tratta quei dati per conto del Cliente, esclusivamente per erogare il Servizio.
+- **F.C. CONSULTING S.A.S. DI MASSIMO COLETTA & C.** (il «Responsabile») tratta quei dati per conto del Cliente, esclusivamente per erogare il Servizio.
 
 ## 2. Oggetto del trattamento
 

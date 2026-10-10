@@ -2,7 +2,7 @@
 
 ## 1. Le parti e l'oggetto
 
-Il servizio Pmi 360° (il «Servizio») è fornito da **[RAGIONE SOCIALE]**, sede [INDIRIZZO], P. IVA [P. IVA] (il «Fornitore»), al cliente che lo attiva, studio professionale o impresa (il «Cliente»).
+Il servizio Pmi 360° (il «Servizio») è fornito da **F.C. CONSULTING S.A.S. DI MASSIMO COLETTA & C.**, sede Via Giovanni Botero 14, 00179 Roma, P. IVA 06395831008, REA RM-965345 (il «Fornitore»), al cliente che lo attiva, studio professionale o impresa (il «Cliente»).
 
 Il Servizio è una piattaforma web per la gestione dei rischi, delle procedure operative, della governance societaria, del controllo di gestione e, quando disponibile, della formazione, con i moduli previsti dal piano sottoscritto.
 
@@ -12,7 +12,7 @@ Queste condizioni si applicano al Cliente e a ogni utente che il Cliente abilita
 
 - Il Cliente attiva il Servizio con il piano scelto ([DA DEFINIRE: durata, numero di aziende, moduli, utenti]).
 - Il Cliente invita i propri utenti e ne stabilisce ruoli e permessi. Risponde del loro operato e del fatto che siano autorizzati a vedere i dati a cui li abilita.
-- Le credenziali sono personali. Il portale consente una sola sessione attiva per utente. Ogni uso sospetto va segnalato subito a [EMAIL ASSISTENZA].
+- Le credenziali sono personali. Il portale consente una sola sessione attiva per utente. Ogni uso sospetto va segnalato subito a [DA DEFINIRE, es. assistenza@pmi360.it].
 
 ## 3. Obblighi del Cliente
 
