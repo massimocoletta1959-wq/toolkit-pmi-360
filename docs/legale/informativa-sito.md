@@ -4,7 +4,7 @@ Ai sensi dell'articolo 13 del Regolamento (UE) 2016/679 («GDPR»).
 
 ## Titolare
 
-**F.C. CONSULTING S.A.S. DI MASSIMO COLETTA & C.**, sede Via Giovanni Botero 14, 00179 Roma, P. IVA e codice fiscale 06395831008, REA RM-965345, PEC fcconsulting@pec.it, email privacy@pmi360.it.
+**F.C. CONSULTING S.A.S. DI MASSIMO COLETTA & C.**, sede Via Giovanni Botero 14, 00179 Roma, P. IVA e codice fiscale 06395831008, REA RM-965345, PEC fcconsulting@pec.pmi360.it, email privacy@pmi360.it.
 
 ## Dati trattati
 

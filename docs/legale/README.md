@@ -32,3 +32,7 @@ values ('informativa_portale', '1.0', 'Informativa privacy per gli utenti del po
 ```
 
 Per una prova senza bloccare gli utenti si può inserire il documento con `pubblicato_il` nel futuro: non è in vigore finché non arriva quella data.
+
+## Da includere alla prossima versione dei documenti del portale
+
+- PEC del titolare: fcconsulting@pec.pmi360.it (nella 1.2 è indicata fcconsulting@pec.it, ancora valida).
