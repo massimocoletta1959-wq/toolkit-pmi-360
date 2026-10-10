@@ -1,6 +1,6 @@
 # Documenti legali di Pmi 360° — bozze
 
-**Stato: BOZZE da completare e rivedere (revisione a cura del titolare) prima della pubblicazione.** Le parti tra parentesi quadre sono dati da inserire o scelte da confermare.
+**Stato: versione 1.2 pubblicata il 10/10/2026** (portale: informativa, condizioni, accordo art. 28, sub-responsabili; sito: informativa in public/privacy.html del repository pmi360-sito). I testi pubblicati sono immutabili: ogni modifica si pubblica come nuova versione.
 
 | File | Documento | Dove va | Nel portale (`documenti_legali.tipo`) |
 |---|---|---|---|
