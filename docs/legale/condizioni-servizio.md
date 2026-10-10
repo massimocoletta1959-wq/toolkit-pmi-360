@@ -37,7 +37,7 @@ Il Fornitore si impegna a mantenere il Servizio disponibile con la diligenza pro
 
 ## 7. Corrispettivi
 
-Il Servizio prevede un canone annuale, secondo il listino o l'offerta accettata dal Cliente. Il canone è fatturato in via anticipata all'inizio di ogni annualità ed è pagabile entro 30 giorni dalla data della fattura. Il Fornitore può aggiornare il canone per le annualità successive comunicandolo almeno 4 mesi prima della scadenza, così che il Cliente possa esercitare il recesso previsto al punto 9.
+Il Servizio prevede un canone annuale, secondo il listino o l'offerta accettata dal Cliente. Il canone è fatturato in via anticipata all'inizio di ogni periodo di fatturazione indicato nell'offerta accettata (mese, trimestre, semestre o anno) ed è pagabile entro 30 giorni dalla data della fattura. Il Fornitore può aggiornare il canone per le annualità successive comunicandolo almeno 4 mesi prima della scadenza, così che il Cliente possa esercitare il recesso previsto al punto 9.
 
 ## 8. Responsabilità
 
