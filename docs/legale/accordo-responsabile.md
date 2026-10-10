@@ -42,7 +42,7 @@ Avvengono solo con le garanzie del Capo V del GDPR (decisione di adeguatezza, in
 - Accesso per ruolo (gestore, membro operativo, incaricato d'organo), una sola sessione attiva per utente, registro degli accessi.
 - Documenti circolarizzati con impronta SHA-256 e registro delle prese visione; testi dei documenti legali immutabili dopo la pubblicazione.
 - Ogni modifica alla struttura del database viene provata prima in un ambiente separato senza dati reali.
-- Backup automatici giornalieri del database, conservati per 7 giorni, con possibilità di ripristino. [DA CONFERMARE: attivi dopo il passaggio di Supabase al piano Pro]
+- Copia di sicurezza automatica del database e dei file, eseguita ogni giorno lavorativo e conservata per 30 giorni su un supporto cifrato separato dall'infrastruttura del servizio, con possibilità di ripristino.
 - Autenticazione a due fattori obbligatoria per tutti gli utenti (codice di un'app di autenticazione), imposta anche nel database: senza il secondo passaggio nessun dato è leggibile; l'azzeramento per smarrimento del telefono è riservato al gestore o al titolare ed è registrato.
 - Procedura scritta di gestione delle violazioni dei dati: rilevazione, contenimento, valutazione del rischio, notifica al Cliente entro 48 ore dalla scoperta, registro delle violazioni.
 

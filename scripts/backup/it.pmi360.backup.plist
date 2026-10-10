@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>it.pmi360.backup</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>/Users/massimocoletta/Library/Application Support/pmi360-backup/backup_pmi360.py</string>
+  </array>
+  <!-- all'accesso e poi ogni ora: lo script fa una sola copia al giorno -->
+  <key>RunAtLoad</key><true/>
+  <key>StartInterval</key><integer>3600</integer>
+  <key>StandardOutPath</key><string>/Users/massimocoletta/Backup-pmi360/backup.log</string>
+  <key>StandardErrorPath</key><string>/Users/massimocoletta/Backup-pmi360/backup.log</string>
+  <key>ProcessType</key><string>Background</string>
+</dict>
+</plist>
