@@ -123,7 +123,10 @@ export function FinestraDocumentiLegali({ onChiudi }) {
               <div key={d.id} style={{ borderBottom: '1px solid #eef1f4', padding: '10px 0' }}>
                 <button type="button" onClick={() => setAperto(aperto === d.id ? null : d.id)}
                   style={{ all: 'unset', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', width: '100%', gap: 12 }}>
-                  <span style={{ fontWeight: 600, color: '#1A3A5C' }}>{d.titolo} <span style={{ fontWeight: 400, color: '#6b7280', fontSize: 12 }}>versione {d.versione}</span></span>
+                  <span style={{ fontWeight: 600, color: '#1A3A5C' }}>
+                    {d.titolo} <span style={{ fontWeight: 400, color: '#6b7280', fontSize: 12 }}>versione {d.versione}</span>
+                    {d.anteprima && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, background: '#FCE9B8', color: '#5E4200', borderRadius: 999, padding: '1px 8px' }}>anteprima · visibile solo a te</span>}
+                  </span>
                   <span style={{ fontSize: 12, color: accettazioni[d.id] ? '#1D9E75' : '#6b7280', whiteSpace: 'nowrap' }}>
                     {accettazioni[d.id] ? `accettato il ${fmtData(accettazioni[d.id])}` : d.richiede_accettazione ? '' : 'da consultare'} {aperto === d.id ? '▾' : '▸'}
                   </span>
@@ -131,7 +134,7 @@ export function FinestraDocumentiLegali({ onChiudi }) {
                 {aperto === d.id && (
                   <div style={{ marginTop: 10 }}>
                     <TestoDocumento testo={d.testo} />
-                    <div style={{ fontSize: 11, color: '#8A94A0', marginTop: 6 }}>In vigore dal {fmtData(d.pubblicato_il)} · impronta SHA-256 {d.sha256}</div>
+                    <div style={{ fontSize: 11, color: '#8A94A0', marginTop: 6 }}>{d.anteprima ? 'Anteprima, non ancora pubblicato' : `In vigore dal ${fmtData(d.pubblicato_il)}`} · impronta SHA-256 {d.sha256}</div>
                   </div>
                 )}
               </div>
