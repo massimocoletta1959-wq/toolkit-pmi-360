@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { richiedeUtenteAal2 } from '../_shared/mfa.ts'
 
 const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY') || ''
 const APP_URL = 'https://app.pmi360.it'
@@ -6,6 +7,8 @@ const APP_URL = 'https://app.pmi360.it'
 serve(async (req) => {
   const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Content-Type': 'application/json' }
   if (req.method === 'OPTIONS') return new Response('ok', { headers })
+  const negato = await richiedeUtenteAal2(req, headers)
+  if (negato) return negato
   try {
     const { ticket_id, tipo } = await req.json()
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''

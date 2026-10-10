@@ -25,6 +25,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
 import { chiamaClaude, fornitoreConfigurato } from '../_shared/claude.ts'
+import { richiedeUtenteAal2 } from '../_shared/mfa.ts'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')
@@ -224,6 +225,8 @@ async function chiamaAnthropic(tipoFile: string, tipoDocumento: string, anno: st
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  const negato = await richiedeUtenteAal2(req, corsHeaders)
+  if (negato) return negato
 
   const rispondi = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 

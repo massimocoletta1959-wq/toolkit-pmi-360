@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { richiedeUtenteAal2 } from '../_shared/mfa.ts'
 
 // Nomina di un incaricato alla gestione di un organo.
 // Solo un gestore dell'azienda (o lo Studio) può nominare. Registra la nomina,
@@ -13,6 +14,8 @@ const risposta = (status: number, body: unknown) => new Response(JSON.stringify(
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers })
+  const negato = await richiedeUtenteAal2(req, headers)
+  if (negato) return negato
   try {
     const { organo_id, membro_id } = await req.json()
     if (!organo_id || !membro_id) return risposta(400, { error: 'Parametri mancanti' })

@@ -9,6 +9,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
 import { chiamaClaude, fornitoreConfigurato } from '../_shared/claude.ts'
+import { richiedeUtenteAal2 } from '../_shared/mfa.ts'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
 const MODEL = 'claude-sonnet-5'
@@ -32,6 +33,8 @@ function puliciJson(testo: string): unknown {
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  const negato = await richiedeUtenteAal2(req, corsHeaders)
+  if (negato) return negato
 
   if (!fornitoreConfigurato()) {
     return new Response(JSON.stringify({ errore: 'Servizio di intelligenza artificiale non configurato (BEDROCK_API_KEY o ANTHROPIC_API_KEY) su questo progetto Supabase.' }), {

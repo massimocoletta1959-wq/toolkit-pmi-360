@@ -7,6 +7,7 @@ import { calcolaSimulazione, ErroreMotore, VERSIONE_MOTORE, MODELLO_CASSA_MINIMO
 import { generaPdfImpatto } from '../../../src/finanza/lib/impatto/pdf.js'
 import { calcolaBudgetRettificato, annoEsercizio } from '../../../src/finanza/lib/impatto/budgetRettificato.js'
 import { testoAnalisiEconomica, testoAnalisiFinanziaria } from '../../../src/finanza/lib/impatto/testiAnalisi.js'
+import { richiedeUtenteAal2 } from '../_shared/mfa.ts'
 
 // Simulazione d'impatto di una decisione (delibera/determina in bozza) calcolata in Pmi 360° sui dati del
 // modulo Finanza e Controllo: baseline = ultima proiezione di Tesoreria salvata (fin_scenari_tesoreria),
@@ -213,6 +214,8 @@ function valutaBaseline(riga: Record<string, any> | null): { ok: true; baseline:
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers })
+  const negato = await richiedeUtenteAal2(req, headers)
+  if (negato) return negato
   if (req.method !== 'POST') return errore(405, 'METODO_NON_CONSENTITO', 'Usa POST.')
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''

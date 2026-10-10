@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { richiedeUtenteAal2 } from '../_shared/mfa.ts'
 
 const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY') || ''
 const APP_URL = 'https://app.pmi360.it'
@@ -6,6 +7,17 @@ const APP_URL = 'https://app.pmi360.it'
 serve(async (req) => {
   const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Content-Type': 'application/json' }
   if (req.method === 'OPTIONS') return new Response('ok', { headers })
+  const negato = await richiedeUtenteAal2(req, headers)
+  if (negato) return negato
+  // solo il proprietario (portale licenze) invita nuovi gestori
+  const proprietario = await fetch(`${Deno.env.get('SUPABASE_URL')}/rest/v1/rpc/is_proprietario`, {
+    method: 'POST',
+    headers: { apikey: Deno.env.get('SUPABASE_ANON_KEY') || '', Authorization: req.headers.get('Authorization') || '', 'Content-Type': 'application/json' },
+    body: '{}',
+  })
+  if (!proprietario.ok || (await proprietario.json()) !== true) {
+    return new Response(JSON.stringify({ error: 'Riservato al proprietario' }), { status: 403, headers })
+  }
   try {
     const { email, ragione_sociale } = await req.json()
     if (!email) return new Response(JSON.stringify({ error: 'Email mancante' }), { status: 400, headers })

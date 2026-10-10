@@ -7,6 +7,7 @@
 // =====================================================================
 
 import { chiamaClaude, fornitoreConfigurato } from '../_shared/claude.ts'
+import { richiedeUtenteAal2 } from '../_shared/mfa.ts'
 
 const MODEL = 'claude-sonnet-5' // per risparmiare: 'claude-haiku-4-5-20251001'
 
@@ -75,6 +76,8 @@ Regole per "soci" (compagine sociale / elenco soci / titolari di quote o azioni)
 export default {
   async fetch(req: Request): Promise<Response> {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+    const negato = await richiedeUtenteAal2(req, CORS)
+    if (negato) return negato
 
     try {
       const { pdf_base64 } = await req.json()
