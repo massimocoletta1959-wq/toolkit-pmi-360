@@ -28,6 +28,7 @@ import LayoutMembro from './components/LayoutMembro'
 import IncarichiOrgani from './pages/IncarichiOrgani'
 import { PAGINE_FINANZA } from './finanza'
 import { AccettazioneDocumenti } from './components/DocumentiLegali'
+import VerificaDueFattori, { livelloAccesso } from './components/VerificaDueFattori'
 
 export const AppContext = createContext(null)
 export const useApp = () => useContext(AppContext)
@@ -79,6 +80,7 @@ export default function App() {
   const [organoIncarico, setOrganoIncarico] = useState(null) // organo che l'incaricato sta gestendo
   const [showSetup, setShowSetup]  = useState(false)
   const [recoveryMode, setRecoveryMode] = useState(false) // true = utente ha cliccato il link "recupera password"
+  const [richiedeMfa, setRichiedeMfa] = useState(false) // sessione aperta ma senza il secondo passaggio (aal1)
   const [licenzaBloccata, setLicenzaBloccata] = useState(null) // null = ok; altrimenti motivo del blocco per un consulente
   const [documentiDaAccettare, setDocumentiDaAccettare] = useState([]) // documenti legali in vigore non ancora accettati
 
@@ -95,13 +97,21 @@ export default function App() {
   const [vistaMembroForzata, setVistaMembroForzata] = useState(['membro', 'organi'].includes(urlParams.get('vista')))
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Verifica in due passaggi obbligatoria: finche' la sessione non e' aal2 il database non risponde, quindi
+    // inviti, collegamento del gestore e caricamento dei dati partono solo dopo il codice.
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session && (await livelloAccesso()) !== 'aal2') setRichiedeMfa(true)
       setSession(session)
-      if (session) loadDati(session.user.id)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session)
-      if (event === 'PASSWORD_RECOVERY') { setRecoveryMode(true); return }
+      if (event === 'PASSWORD_RECOVERY') {
+        setRecoveryMode(true)
+        if ((await livelloAccesso()) !== 'aal2') setRichiedeMfa(true)
+        return
+      }
+      if (session && (await livelloAccesso()) !== 'aal2') { setRichiedeMfa(true); return }
+      setRichiedeMfa(false)
       if (session) {
         // Se c'è un token invito, collegalo dopo il login/registrazione
         if (tokenInvito) await accettaInvito(session.user.id, tokenInvito)
@@ -263,7 +273,7 @@ export default function App() {
   async function logout() {
     await supabase.rpc('registra_accesso', { p_evento: 'uscita' }).then(() => {}, () => {})
     await supabase.auth.signOut()
-    setSession(null); setProfilo(null); setAziende([]); setAziendaState(null); setDocumentiDaAccettare([])
+    setSession(null); setProfilo(null); setAziende([]); setAziendaState(null); setDocumentiDaAccettare([]); setRichiedeMfa(false)
   }
 
   // Apre il wizard di creazione azienda, rispettando il limite max_aziende del gestore (null = illimitato)
@@ -289,6 +299,11 @@ export default function App() {
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh' }}>
       <div className="spinner" />
     </div>
+  )
+
+  // Secondo passaggio: prima di qualsiasi altra schermata (anche del cambio password)
+  if (session && richiedeMfa) return (
+    <VerificaDueFattori email={session.user.email} onVerificato={() => setRichiedeMfa(false)} onEsci={logout} />
   )
 
   // Link "recupera password" cliccato: mostra il form per impostare la nuova password

@@ -4,6 +4,27 @@ import { useApp } from '../App'
 import { RUOLI_STANDARD_PER_SETTORE } from './Organigramma'
 import { repartiConMembri } from '../lib/reparti'
 
+// Azzera la verifica in due passaggi di un membro che ha perso o cambiato il telefono (funzione azzera-mfa:
+// autorizza il database, l'operazione resta registrata). Al prossimo accesso il membro la riattiva.
+function AzzeraVerifica({ membro }) {
+  const [stato, setStato] = useState('')
+  const azzera = async () => {
+    const nome = `${membro.nome || ''} ${membro.cognome || ''}`.trim() || membro.email
+    const motivo = window.prompt(`Azzerare la verifica in due passaggi di ${nome}?\n\nServe se ha perso o cambiato il telefono: al prossimo accesso la riattiverà con un nuovo codice QR.\n\nMotivo:`, 'Telefono perso o sostituito')
+    if (motivo === null) return
+    setStato('…')
+    const { data, error } = await supabase.functions.invoke('azzera-mfa', { body: { utente_id: membro.user_id, motivo } })
+    if (error || data?.errore) { setStato(''); window.alert(`Azzeramento non riuscito: ${data?.errore || error.message}`); return }
+    setStato('✓')
+    window.alert(`Verifica azzerata per ${nome}. Al prossimo accesso dovrà attivarla di nuovo con il telefono.`)
+  }
+  return (
+    <button className="btn btn-sm btn-icon" title="Azzera la verifica in due passaggi (telefono perso o cambiato)" onClick={azzera} disabled={stato === '…'}>
+      {stato || '📱'}
+    </button>
+  )
+}
+
 // Qualifiche generiche valide per ogni settore (in coda ai ruoli del settore)
 const QUALIFICHE_GENERICHE = [
   'Dipendente / Operativo',
@@ -358,6 +379,7 @@ export default function GestioneMembri() {
                     <td>
                       <div style={{ display: 'flex', gap: 4 }}>
                         <button className="btn btn-sm btn-icon" title="Modifica" onClick={() => setModal(m)}>✏️</button>
+                        {m.user_id && <AzzeraVerifica membro={m} />}
                         <button className="btn btn-sm btn-icon btn-danger" title="Elimina" onClick={() => setDelConfirm(m)}>🗑️</button>
                       </div>
                     </td>

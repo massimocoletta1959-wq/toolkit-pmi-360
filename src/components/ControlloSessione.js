@@ -86,7 +86,7 @@ export default function ControlloSessione() {
     document.addEventListener('visibilitychange', alRitorno)
     window.addEventListener('focus', controlla)
     window.addEventListener('online', controlla)
-    const { data: sub } = supabase.auth.onAuthStateChange((evento) => { if (evento === 'SIGNED_IN' || evento === 'TOKEN_REFRESHED') controlla() })
+    const { data: sub } = supabase.auth.onAuthStateChange((evento) => { if (evento === 'SIGNED_IN' || evento === 'TOKEN_REFRESHED' || evento === 'MFA_CHALLENGE_VERIFIED') controlla() })
     return () => {
       clearTimeout(timer)
       document.removeEventListener('visibilitychange', alRitorno)
