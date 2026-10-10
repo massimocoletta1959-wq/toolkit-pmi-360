@@ -2,7 +2,8 @@
 // (extract-visura, fin-estrai-documento, fin-genera-narrativa).
 //
 // Dove viene elaborato il contenuto:
-//  - se e' configurato BEDROCK_API_KEY -> Amazon Bedrock nell'Unione europea (regione BEDROCK_REGIONE, default
+//  - se sono configurate le credenziali Bedrock (chiavi IAM BEDROCK_ACCESS_KEY_ID/BEDROCK_SECRET_ACCESS_KEY, firma
+//    SigV4, oppure chiave API BEDROCK_API_KEY) -> Amazon Bedrock nell'Unione europea (regione BEDROCK_REGIONE, default
 //    eu-central-1 Francoforte, con profilo di inferenza "eu.": l'elaborazione resta nelle regioni UE);
 //  - altrimenti -> API Anthropic (Stati Uniti), con ANTHROPIC_API_KEY.
 // Con Bedrock configurato NON si ripiega mai su Anthropic: se Bedrock non risponde la funzione da' errore, cosi'
@@ -26,8 +27,51 @@ export type RispostaClaude = {
   fornitore: 'bedrock-ue' | 'anthropic'
 }
 
+// Credenziali Bedrock: chiave API (BEDROCK_API_KEY, header Bearer) oppure chiavi di accesso di un utente IAM
+// (BEDROCK_ACCESS_KEY_ID + BEDROCK_SECRET_ACCESS_KEY, firma AWS Signature V4).
+function credenzialiBedrock() {
+  const apiKey = Deno.env.get('BEDROCK_API_KEY')
+  const accessKeyId = Deno.env.get('BEDROCK_ACCESS_KEY_ID')
+  const secretAccessKey = Deno.env.get('BEDROCK_SECRET_ACCESS_KEY')
+  if (accessKeyId && secretAccessKey) return { accessKeyId, secretAccessKey }
+  if (apiKey) return { apiKey }
+  return null
+}
+
+const enc = new TextEncoder()
+const hex = (buf: ArrayBuffer) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('')
+const sha256 = async (s: string) => hex(await crypto.subtle.digest('SHA-256', enc.encode(s)))
+async function hmac(chiave: ArrayBuffer | Uint8Array, s: string): Promise<ArrayBuffer> {
+  const k = await crypto.subtle.importKey('raw', chiave, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  return crypto.subtle.sign('HMAC', k, enc.encode(s))
+}
+
+// Firma AWS Signature V4 per una POST JSON a Bedrock. Per i servizi diversi da S3 il percorso canonico ha ogni
+// segmento codificato due volte (l'id del modello contiene ':' -> '%3A' nell'URL -> '%253A' nella firma).
+export async function firmaSigV4(p: { url: string; body: string; regione: string; accessKeyId: string; secretAccessKey: string; adesso?: Date }) {
+  const u = new URL(p.url)
+  const amzDate = (p.adesso || new Date()).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
+  const giorno = amzDate.slice(0, 8)
+  const percorso = u.pathname.split('/').map((seg) => encodeURIComponent(seg)).join('/')
+  const intestazioni = `content-type:application/json\nhost:${u.host}\nx-amz-date:${amzDate}\n`
+  const firmate = 'content-type;host;x-amz-date'
+  const richiesta = ['POST', percorso, '', intestazioni, firmate, await sha256(p.body)].join('\n')
+  const ambito = `${giorno}/${p.regione}/bedrock/aws4_request`
+  const daFirmare = ['AWS4-HMAC-SHA256', amzDate, ambito, await sha256(richiesta)].join('\n')
+  let k = await hmac(enc.encode(`AWS4${p.secretAccessKey}`), giorno)
+  k = await hmac(k, p.regione)
+  k = await hmac(k, 'bedrock')
+  k = await hmac(k, 'aws4_request')
+  const firma = hex(await hmac(k, daFirmare))
+  return {
+    'content-type': 'application/json',
+    'x-amz-date': amzDate,
+    Authorization: `AWS4-HMAC-SHA256 Credential=${p.accessKeyId}/${ambito}, SignedHeaders=${firmate}, Signature=${firma}`,
+  }
+}
+
 export function fornitoreConfigurato(): 'bedrock-ue' | 'anthropic' | null {
-  if (Deno.env.get('BEDROCK_API_KEY')) return 'bedrock-ue'
+  if (credenzialiBedrock()) return 'bedrock-ue'
   if (Deno.env.get('ANTHROPIC_API_KEY')) return 'anthropic'
   return null
 }
@@ -40,15 +84,15 @@ function modelloBedrock(modello: string): string {
 }
 
 export async function chiamaClaude(r: RichiestaClaude): Promise<RispostaClaude> {
-  const chiaveBedrock = Deno.env.get('BEDROCK_API_KEY')
-  if (chiaveBedrock) {
+  const cred = credenzialiBedrock()
+  if (cred) {
     const regione = Deno.env.get('BEDROCK_REGIONE') || 'eu-central-1'
     const url = `https://bedrock-runtime.${regione}.amazonaws.com/model/${encodeURIComponent(modelloBedrock(r.modello))}/invoke`
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${chiaveBedrock}`, 'content-type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({ anthropic_version: 'bedrock-2023-05-31', max_tokens: r.max_tokens, messages: r.messages }),
-    })
+    const body = JSON.stringify({ anthropic_version: 'bedrock-2023-05-31', max_tokens: r.max_tokens, messages: r.messages })
+    const headers = 'apiKey' in cred
+      ? { Authorization: `Bearer ${cred.apiKey}`, 'content-type': 'application/json' }
+      : await firmaSigV4({ url, body, regione, accessKeyId: cred.accessKeyId as string, secretAccessKey: cred.secretAccessKey as string })
+    const resp = await fetch(url, { method: 'POST', headers, body })
     const testo = await resp.text()
     let data: RispostaClaude['data']
     try {
