@@ -20,6 +20,14 @@ export function TestoDocumento({ testo }) {
           const Lista = b.tipo
           return <Lista key={i} style={{ margin: '4px 0 10px', paddingLeft: 22 }}>{b.voci.map((v, k) => <li key={k} style={{ marginBottom: 3 }}><InLinea testo={v} /></li>)}</Lista>
         }
+        if (b.tipo === 'table') return (
+          <div key={i} style={{ overflowX: 'auto', margin: '6px 0 12px' }}>
+            <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12.5 }}>
+              <thead><tr>{b.intestazione.map((c, k) => <th key={k} style={{ textAlign: 'left', background: '#EBF4FC', color: '#1A3A5C', padding: '6px 8px', border: '1px solid #d5dde6' }}><InLinea testo={c} /></th>)}</tr></thead>
+              <tbody>{b.righe.map((r, k) => <tr key={k}>{r.map((c, n) => <td key={n} style={{ padding: '6px 8px', border: '1px solid #e3e8ee', verticalAlign: 'top' }}><InLinea testo={c} /></td>)}</tr>)}</tbody>
+            </table>
+          </div>
+        )
         return <p key={i} style={{ margin: '0 0 10px' }}><InLinea testo={b.testo} /></p>
       })}
     </div>

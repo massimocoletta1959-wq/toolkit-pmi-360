@@ -18,3 +18,11 @@ test('il grassetto si separa, l HTML resta testo', () => {
     { grassetto: false, testo: ' <b>x</b>' },
   ])
 })
+
+test('tabelle con intestazione', () => {
+  expect(blocchiDaTesto('Prima\n\n| Finalità | Base |\n|---|---|\n| Account | art. 6.1.b |\n| Sicurezza | art. 6.1.f |\n\nDopo')).toEqual([
+    { tipo: 'p', testo: 'Prima' },
+    { tipo: 'table', intestazione: ['Finalità', 'Base'], righe: [['Account', 'art. 6.1.b'], ['Sicurezza', 'art. 6.1.f']] },
+    { tipo: 'p', testo: 'Dopo' },
+  ])
+})
