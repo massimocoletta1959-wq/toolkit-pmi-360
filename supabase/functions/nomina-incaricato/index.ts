@@ -94,7 +94,7 @@ ${intro}
       method: 'POST',
       headers: { 'api-key': BREVO_API_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        sender: { name: 'Toolkit Pmi 360°', email: 'massimocoletta1959@gmail.com' },
+        sender: { name: 'Pmi 360°', email: 'assistenza@pmi360.it' },
         to: [{ email: membro.email, name: `${membro.nome || ''} ${membro.cognome || ''}`.trim() }],
         subject: `Incarico: gestione di ${organo.nome} — ${azienda?.nome || ''}`,
         htmlContent: html,

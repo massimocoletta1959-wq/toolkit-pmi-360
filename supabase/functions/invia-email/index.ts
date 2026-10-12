@@ -61,7 +61,7 @@ ${documenti.length ? `<p style="margin:12px 0 4px;font-size:13px;color:#444;"><s
       method: 'POST',
       headers: { 'api-key': BREVO_API_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        sender: { name: 'Toolkit Pmi 360°', email: 'massimocoletta1959@gmail.com' },
+        sender: { name: 'Pmi 360°', email: 'assistenza@pmi360.it' },
         to: [{ email: membro.email, name: `${membro.nome} ${membro.cognome}` }],
         subject,
         htmlContent: html,

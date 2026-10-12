@@ -54,7 +54,7 @@ serve(async (req) => {
       method: 'POST',
       headers: { 'api-key': BREVO_API_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        sender: { name: 'Toolkit Pmi 360°', email: 'massimocoletta1959@gmail.com' },
+        sender: { name: 'Pmi 360°', email: 'assistenza@pmi360.it' },
         to: [{ email: membro.email, name: `${membro.nome} ${membro.cognome}` }],
         subject: `Invito al portale — ${azienda.nome}`,
         htmlContent: `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:20px;">
