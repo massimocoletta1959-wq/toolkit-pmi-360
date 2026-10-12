@@ -212,6 +212,7 @@ export default function App() {
       mod_governance: !!r.aziende.mod_governance && r.mod_governance !== false,
       mod_finanza:    !!r.aziende.mod_finanza    && r.mod_finanza    !== false,
     })).filter((az, idx, arr) => arr.findIndex(a => a.id === az.id) === idx)
+      .sort((x, y) => (x.nome || '').localeCompare(y.nome || '', 'it', { sensitivity: 'base' })) // elenchi di scelta in ordine alfabetico
 
     setAziende(tutteAziende)
 
