@@ -218,6 +218,7 @@ export default function GestioneTicket() {
   const [filterTier, setFilterTier]       = useState('')
   const [delConfirm, setDelConfirm]       = useState(null)
   const [eliminando, setEliminando]       = useState(false)
+  const [inviaRitiro, setInviaRitiro]     = useState(true) // spedire al membro l'email di incarico ritirato
   const [esitoRitiro, setEsitoRitiro]     = useState(null) // { tipo, testo } dopo la cancellazione di un ticket
   const [tab, setTab]           = useState('tutti') // tutti | miei
 
@@ -238,7 +239,7 @@ export default function GestioneTicket() {
 
   async function deleteTicket(t) {
     setEliminando(true)
-    const { errore, avvisato } = await ritiraTicket(t)
+    const { errore, avvisato } = await ritiraTicket(t, { inviaEmail: inviaRitiro })
     setEliminando(false)
     setDelConfirm(null)
     setEsitoRitiro(errore
@@ -406,7 +407,7 @@ export default function GestioneTicket() {
                       <div style={{ display: 'flex', gap: 4 }}>
                         <button className="btn btn-sm btn-icon" title="Aggiungi nota" onClick={() => setNotaModal(t)}>💬</button>
                         <button className="btn btn-sm btn-icon" onClick={() => setModal(t)}>✏️</button>
-                        <button className="btn btn-sm btn-icon btn-danger" onClick={() => setDelConfirm(t)}>🗑️</button>
+                        <button className="btn btn-sm btn-icon btn-danger" onClick={() => { setInviaRitiro(true); setDelConfirm(t) }}>🗑️</button>
                       </div>
                     </div>
                   </div>
@@ -443,9 +444,16 @@ export default function GestioneTicket() {
             <h3 className="modal-title" style={{ marginBottom: 12 }}>Ritira ed elimina il ticket</h3>
             <p style={{ fontSize: 14, color: '#555' }}>Vuoi eliminare il ticket "<strong>{delConfirm.titolo}</strong>"?</p>
             {delConfirm.membro_id && delConfirm.stato !== 'Completato' && (
-              <p style={{ fontSize: 13, color: '#555', marginTop: 8 }}>
-                {delConfirm.membri ? <strong>{delConfirm.membri.nome} {delConfirm.membri.cognome}</strong> : 'Il membro assegnato'} riceverà un'email di <strong>incarico ritirato</strong> con i dettagli del task.
-              </p>
+              <div style={{ background: '#FEF9E7', border: '1px solid #FAC775', borderRadius: 8, padding: '10px 12px', marginTop: 10 }}>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13.5, cursor: 'pointer', color: '#333' }}>
+                  <input type="checkbox" checked={inviaRitiro} onChange={e => setInviaRitiro(e.target.checked)} style={{ marginTop: 3 }} />
+                  <span>
+                    Invia a {delConfirm.membri ? <strong>{delConfirm.membri.nome} {delConfirm.membri.cognome}</strong> : 'il membro assegnato'}
+                    {delConfirm.membri?.email ? <> ({delConfirm.membri.email})</> : null} l'email di <strong>incarico ritirato</strong> con i dettagli del task
+                  </span>
+                </label>
+                {!inviaRitiro && <div style={{ fontSize: 12, color: '#856404', marginTop: 6 }}>Il ticket sparirà dal portale del membro senza alcun avviso.</div>}
+              </div>
             )}
             <div className="modal-footer">
               <button className="btn" onClick={() => setDelConfirm(null)} disabled={eliminando}>Annulla</button>
