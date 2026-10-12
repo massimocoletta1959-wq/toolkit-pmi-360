@@ -189,6 +189,7 @@ export default function PianoAzione() {
   const [filterTier, setFilterTier] = useState('12')
   const [filterCategoria, setFilterCategoria] = useState('')
   const [delConfirm, setDelConfirm] = useState(null)
+  const [erroreElimina, setErroreElimina] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -205,8 +206,19 @@ export default function PianoAzione() {
 
   useEffect(() => { load() }, [load])
 
-  async function deleteAzione(id) {
-    await supabase.from('azioni').delete().eq('id', id)
+  // Un'azione con ticket assegnati non si elimina: prima si ritira il ticket (pagina Ticket, con email di incarico
+  // ritirato al membro), poi si elimina l'azione. Cosi' nessuno resta con un incarico "orfano".
+  async function deleteAzione(az) {
+    setErroreElimina(null)
+    const { data: tk, error: eTk } = await supabase.from('ticket').select('id, titolo, stato, membri(nome, cognome)').eq('azione_id', az.id)
+    if (eTk) { setErroreElimina(`Controllo dei ticket non riuscito: ${eTk.message}`); return }
+    if (tk && tk.length) {
+      const elenco = tk.map(t => `«${t.titolo}»${t.membri ? ` (${t.membri.nome} ${t.membri.cognome}, ${t.stato})` : ` (${t.stato})`}`).join(', ')
+      setErroreElimina(`Questa azione ha ${tk.length === 1 ? 'un ticket assegnato' : `${tk.length} ticket assegnati`}: ${elenco}. Ritira prima ${tk.length === 1 ? 'il ticket' : 'i ticket'} dalla pagina Ticket, poi potrai eliminare l'azione.`)
+      return
+    }
+    const { data, error } = await supabase.from('azioni').delete().eq('id', az.id).select('id')
+    if (error || !data?.length) { setErroreElimina(`Azione non eliminata: ${error?.message || 'non hai i permessi per farlo.'}`); return }
     setDelConfirm(null); load()
   }
 
@@ -345,10 +357,11 @@ export default function PianoAzione() {
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 380 }}>
             <h3 className="modal-title" style={{ marginBottom: 12 }}>Elimina azione</h3>
-            <p style={{ fontSize: 14, color: '#555' }}>Confermi l'eliminazione di questa azione?</p>
+            <p style={{ fontSize: 14, color: '#555' }}>Confermi l'eliminazione dell'azione «{delConfirm.azione}»?</p>
+            {erroreElimina && <div className="alert alert-error" style={{ marginTop: 10 }}>{erroreElimina}</div>}
             <div className="modal-footer">
-              <button className="btn" onClick={() => setDelConfirm(null)}>Annulla</button>
-              <button className="btn btn-danger" onClick={() => deleteAzione(delConfirm.id)}>Elimina</button>
+              <button className="btn" onClick={() => { setDelConfirm(null); setErroreElimina(null) }}>{erroreElimina ? 'Chiudi' : 'Annulla'}</button>
+              {!erroreElimina && <button className="btn btn-danger" onClick={() => deleteAzione(delConfirm)}>Elimina</button>}
             </div>
           </div>
         </div>

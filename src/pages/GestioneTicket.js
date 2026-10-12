@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { ritiraTicket } from '../lib/ritiroTicket'
 import { useApp } from '../App'
 import { getTier } from '../lib/constants'
 
@@ -216,6 +217,8 @@ export default function GestioneTicket() {
   const [filterCategoria, setFilterCategoria] = useState('')
   const [filterTier, setFilterTier]       = useState('')
   const [delConfirm, setDelConfirm]       = useState(null)
+  const [eliminando, setEliminando]       = useState(false)
+  const [esitoRitiro, setEsitoRitiro]     = useState(null) // { tipo, testo } dopo la cancellazione di un ticket
   const [tab, setTab]           = useState('tutti') // tutti | miei
 
   const load = useCallback(async () => {
@@ -233,9 +236,15 @@ export default function GestioneTicket() {
 
   useEffect(() => { load() }, [load])
 
-  async function deleteTicket(id) {
-    await supabase.from('ticket').delete().eq('id', id)
-    setDelConfirm(null); load()
+  async function deleteTicket(t) {
+    setEliminando(true)
+    const { errore, avvisato } = await ritiraTicket(t)
+    setEliminando(false)
+    setDelConfirm(null)
+    setEsitoRitiro(errore
+      ? { tipo: 'error', testo: `Ticket non cancellato: ${errore}` }
+      : { tipo: 'success', testo: `Ticket «${t.titolo}» cancellato.${avvisato ? ` ${t.membri ? `${t.membri.nome} ${t.membri.cognome}` : 'Il membro'} ha ricevuto l'email di incarico ritirato.` : ''}` })
+    load()
   }
 
   // I record membro che appartengono all'utente loggato (anche se e' Gestore):
@@ -271,6 +280,12 @@ export default function GestioneTicket() {
 
   return (
     <div>
+      {esitoRitiro && (
+        <div className={`alert alert-${esitoRitiro.tipo}`} style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+          <span>{esitoRitiro.testo}</span>
+          <button className="btn btn-sm" onClick={() => setEsitoRitiro(null)}>✕</button>
+        </div>
+      )}
       <div className="page-header">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
@@ -425,11 +440,16 @@ export default function GestioneTicket() {
       {delConfirm && (
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 380 }}>
-            <h3 className="modal-title" style={{ marginBottom: 12 }}>Elimina ticket</h3>
+            <h3 className="modal-title" style={{ marginBottom: 12 }}>Ritira ed elimina il ticket</h3>
             <p style={{ fontSize: 14, color: '#555' }}>Vuoi eliminare il ticket "<strong>{delConfirm.titolo}</strong>"?</p>
+            {delConfirm.membro_id && delConfirm.stato !== 'Completato' && (
+              <p style={{ fontSize: 13, color: '#555', marginTop: 8 }}>
+                {delConfirm.membri ? <strong>{delConfirm.membri.nome} {delConfirm.membri.cognome}</strong> : 'Il membro assegnato'} riceverà un'email di <strong>incarico ritirato</strong> con i dettagli del task.
+              </p>
+            )}
             <div className="modal-footer">
-              <button className="btn" onClick={() => setDelConfirm(null)}>Annulla</button>
-              <button className="btn btn-danger" onClick={() => deleteTicket(delConfirm.id)}>Elimina</button>
+              <button className="btn" onClick={() => setDelConfirm(null)} disabled={eliminando}>Annulla</button>
+              <button className="btn btn-danger" onClick={() => deleteTicket(delConfirm)} disabled={eliminando}>{eliminando ? 'Cancellazione…' : 'Ritira ed elimina'}</button>
             </div>
           </div>
         </div>

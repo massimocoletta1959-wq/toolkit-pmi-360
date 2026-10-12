@@ -155,6 +155,7 @@ export default function Procedure() {
   const [msg, setMsg]           = useState(null)
   const [loading, setLoading]   = useState(true)
   const [areaSel, setAreaSel]   = useState('')
+  const [filtroRiepilogo, setFiltroRiepilogo] = useState(null) // stato scelto cliccando una casella del riepilogo, o 'senza_resp'
   const [error, setError]       = useState(null)
   const [selezionate, setSelezionate] = useState(new Set())   // codici procedura selezionati per la distribuzione multipla
 
@@ -243,15 +244,17 @@ export default function Procedure() {
     load()
   }
 
-  const lista = catalogo.filter(p => !areaSel || p.area === areaSel)
   const tot = catalogo.length
   const statoEff = p => adozioni[p.codice]?.stato || 'Bozza'
+  const senzaResponsabile = p => { const a = adozioni[p.codice]; return ['Approvata','Adottata','Personalizzata'].includes(a?.stato) && !a?.ruolo_id }
+  const lista = catalogo.filter(p => (!areaSel || p.area === areaSel) &&
+    (!filtroRiepilogo || (filtroRiepilogo === 'senza_resp' ? senzaResponsabile(p) : statoEff(p) === filtroRiepilogo)))
   const nBozza  = catalogo.filter(p => statoEff(p) === 'Bozza').length
   const nApprov = catalogo.filter(p => statoEff(p) === 'Approvata').length
   const nAdott  = catalogo.filter(p => statoEff(p) === 'Adottata').length
   const nPers   = catalogo.filter(p => statoEff(p) === 'Personalizzata').length
   const nNA     = catalogo.filter(p => statoEff(p) === 'Non applicabile').length
-  const senzaResp = catalogo.filter(p => { const a = adozioni[p.codice]; return ['Approvata','Adottata','Personalizzata'].includes(a?.stato) && !a?.ruolo_id }).length
+  const senzaResp = catalogo.filter(senzaResponsabile).length
 
   return (
     <div>
@@ -262,23 +265,35 @@ export default function Procedure() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 18 }}>
         {[
-          ['Bozze', nBozza, nBozza > 0 ? '#B7791F' : '#27AE60'],
-          ['Approvate', nApprov, '#0E6655'],
-          ['Adottate', nAdott, '#27AE60'],
-          ['Personalizzate', nPers, '#2B5FA5'],
-          ['Non applicabili', nNA, '#888'],
-          ['Senza responsabile', senzaResp, senzaResp > 0 ? '#C0392B' : '#27AE60'],
-        ].map(([lab, val, col]) => (
-          <div key={lab} className="card" style={{ textAlign: 'center', marginBottom: 0, padding: '14px 8px' }}>
-            <div style={{ fontSize: 26, fontWeight: 700, color: col }}>{val}</div>
-            <div style={{ fontSize: 12, color: '#666' }}>{lab}</div>
-          </div>
-        ))}
+          ['Bozze', nBozza, nBozza > 0 ? '#B7791F' : '#27AE60', 'Bozza'],
+          ['Approvate', nApprov, '#0E6655', 'Approvata'],
+          ['Adottate', nAdott, '#27AE60', 'Adottata'],
+          ['Personalizzate', nPers, '#2B5FA5', 'Personalizzata'],
+          ['Non applicabili', nNA, '#888', 'Non applicabile'],
+          ['Senza responsabile', senzaResp, senzaResp > 0 ? '#C0392B' : '#27AE60', 'senza_resp'],
+        ].map(([lab, val, col, filtro]) => {
+          const attivo = filtroRiepilogo === filtro
+          return (
+            <button key={lab} type="button" className="card" title={attivo ? 'Mostra tutte le procedure' : `Mostra solo: ${lab.toLowerCase()}`}
+              onClick={() => setFiltroRiepilogo(attivo ? null : filtro)}
+              style={{ textAlign: 'center', marginBottom: 0, padding: '14px 8px', cursor: 'pointer', font: 'inherit', border: attivo ? `2px solid ${col}` : undefined, background: attivo ? '#F7F9FC' : undefined }}>
+              <div style={{ fontSize: 26, fontWeight: 700, color: col }}>{val}</div>
+              <div style={{ fontSize: 12, color: '#666' }}>{lab}{attivo ? ' ✓' : ''}</div>
+            </button>
+          )
+        })}
       </div>
 
       <div className="card">
         <div className="card-header">
-          <span className="card-title">📘 Catalogo procedure</span>
+          <span className="card-title">
+            📘 Catalogo procedure
+            {filtroRiepilogo && (
+              <button type="button" className="btn btn-sm" style={{ marginLeft: 10 }} onClick={() => setFiltroRiepilogo(null)}>
+                Filtro: {filtroRiepilogo === 'senza_resp' ? 'senza responsabile' : filtroRiepilogo.toLowerCase()} ({lista.length}) ✕
+              </button>
+            )}
+          </span>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <select className="form-control" style={{ width: 260 }} value={areaSel} onChange={e => setAreaSel(e.target.value)}>
               <option value="">Tutte le aree</option>
