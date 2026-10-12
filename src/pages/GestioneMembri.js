@@ -238,8 +238,10 @@ export default function GestioneMembri() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const { data } = await supabase.from('membri').select('*').eq('azienda_id', azienda.id).order('cognome')
-    setMembri(data || [])
+    const { data } = await supabase.from('membri').select('*').eq('azienda_id', azienda.id)
+    // ordine alfabetico per cognome e nome (le societa', senza cognome, per ragione sociale)
+    const chiave = (m) => `${(m.cognome || m.nome || '').trim()} ${m.cognome ? (m.nome || '') : ''}`.trim()
+    setMembri((data || []).sort((a, b) => chiave(a).localeCompare(chiave(b), 'it', { sensitivity: 'base' })))
     setLoading(false)
   }, [azienda.id])
 
@@ -359,7 +361,7 @@ export default function GestioneMembri() {
                   <tr key={m.id}>
                     <td><input type="checkbox" checked={selezionati.has(m.id)} onChange={() => toggleSel(m.id)} /></td>
                     <td>
-                      <div style={{ fontWeight: 600 }}>{m.nome} {m.cognome}</div>
+                      <div style={{ fontWeight: 600 }}>{m.cognome ? `${m.cognome} ${m.nome || ''}`.trim() : m.nome}</div>
                     </td>
                     <td>
                       {m.ruolo
