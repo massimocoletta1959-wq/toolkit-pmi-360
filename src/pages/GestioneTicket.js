@@ -8,9 +8,11 @@ const STATI    = ['Aperto', 'In lavorazione', 'Completato', 'Scaduto']
 
 // Classifica un ticket nel modulo di appartenenza in base ai collegamenti e al tipo.
 // I ticket manuali/senza collegamento restano nei Rischi (dov'erano storicamente).
+// Il collegamento a un organo o a una riunione prevale sul tipo: la presa visione dei documenti di una seduta
+// appartiene alla Governance, quella di una procedura alle Procedure.
 function moduloDiTicket(t) {
-  if (t.procedura_id || t.tipo === 'presa_visione') return 'procedure'
   if (t.organo_id || t.riunione_id || t.tipo === 'parere' || t.tipo === 'delibera') return 'governance'
+  if (t.procedura_id || t.tipo === 'presa_visione') return 'procedure'
   return 'rischi'
 }
 
@@ -247,8 +249,9 @@ export default function GestioneTicket() {
       .map(m => m.id)
   )
 
-  const filtered = tickets.filter(t => {
-    if (modulo && moduloDiTicket(t) !== modulo) return false
+  // ticket del modulo aperto: su questi si calcolano sia l'elenco sia i contatori
+  const delModulo = tickets.filter(t => !modulo || moduloDiTicket(t) === modulo)
+  const filtered = delModulo.filter(t => {
     if (tab === 'miei' && !mieiIds.has(t.membro_id)) return false
     if (filterStato && t.stato !== filterStato) return false
     if (filterPriorita && t.priorita !== filterPriorita) return false
@@ -261,10 +264,10 @@ export default function GestioneTicket() {
     return true
   })
 
-  const aperti     = tickets.filter(t => t.stato === 'Aperto').length
-  const inLav      = tickets.filter(t => t.stato === 'In lavorazione').length
-  const completati = tickets.filter(t => t.stato === 'Completato').length
-  const scaduti    = tickets.filter(t => t.stato === 'Scaduto').length
+  const aperti     = delModulo.filter(t => t.stato === 'Aperto').length
+  const inLav      = delModulo.filter(t => t.stato === 'In lavorazione').length
+  const completati = delModulo.filter(t => t.stato === 'Completato').length
+  const scaduti    = delModulo.filter(t => t.stato === 'Scaduto').length
 
   return (
     <div>
@@ -306,7 +309,7 @@ export default function GestioneTicket() {
           </select>
           <select className="form-control" style={{ maxWidth: 220 }} value={filterCategoria} onChange={e => setFilterCategoria(e.target.value)}>
             <option value="">Tutte le categorie rischio</option>
-            {[...new Set(tickets.map(t => t.rischi?.categoria).filter(Boolean))].sort().map(cat => (
+            {[...new Set(delModulo.map(t => t.rischi?.categoria).filter(Boolean))].sort().map(cat => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
@@ -325,7 +328,7 @@ export default function GestioneTicket() {
         {loading ? <div className="spinner" /> : filtered.length === 0 ? (
           <div className="empty-state">
             <div style={{ fontSize: 36 }}>✅</div>
-            <p>{tickets.length === 0 ? 'Nessun ticket creato. Clicca "+ Crea ticket" per iniziare.' : 'Nessun ticket corrisponde ai filtri.'}</p>
+            <p>{delModulo.length === 0 ? 'Nessun ticket in questo modulo. Clicca "+ Crea ticket" per crearne uno.' : 'Nessun ticket corrisponde ai filtri.'}</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
