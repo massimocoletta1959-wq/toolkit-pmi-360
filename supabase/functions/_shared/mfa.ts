@@ -18,9 +18,11 @@ export async function richiedeUtenteAal2(req: Request, cors: Record<string, stri
     new Response(JSON.stringify({ error: errore, errore }), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 
   const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '')
+  // chiamate interne con la chiave di servizio (vecchio formato JWT o nuovo formato sb_secret_...)
+  const servizio = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (token && servizio && token === servizio) return null
   const p = token ? payload(token) : null
   if (!p) return rifiuta(401, 'Accesso richiesto')
-  if (p.role === 'service_role' && token === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')) return null
   if (p.role !== 'authenticated') return rifiuta(401, 'Accesso richiesto')
 
   const url = Deno.env.get('SUPABASE_URL') || ''
