@@ -13,6 +13,14 @@ export async function livelloAccesso() {
   return data?.currentLevel || null
 }
 
+// La verifica e' obbligatoria per proprietario, gestori e incaricati d'organo (e per chi l'ha attivata):
+// lo decide il database (controllo_mfa), che senza secondo passaggio risponde 403 "mfa_richiesta".
+export async function serveVerifica() {
+  if ((await livelloAccesso()) === 'aal2') return false
+  const { error } = await supabase.rpc('mfa_stato')
+  return !!error && (error.code === 'PT403' || error.hint === 'mfa_richiesta')
+}
+
 const APP = 'Google Authenticator, Microsoft Authenticator, l\'app Password dell\'iPhone o un\'altra app di autenticazione'
 
 export default function VerificaDueFattori({ email, onVerificato, onEsci }) {
@@ -43,7 +51,7 @@ export default function VerificaDueFattori({ email, onVerificato, onEsci }) {
       const { data: nuovo, error: errEnroll } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `Pmi 360° ${new Date().toISOString().slice(0, 10)}` })
       if (!attivo) return
       if (errEnroll) { setErrore(errEnroll.message); setStato('errore'); return }
-      setFattore({ id: nuovo.id, qr: nuovo.totp.qr_code, segreto: nuovo.totp.secret })
+      setFattore({ id: nuovo.id, qr: nuovo.totp.qr_code, segreto: nuovo.totp.secret, uri: nuovo.totp.uri })
       setStato('attivazione')
     })()
     return () => { attivo = false }
@@ -102,6 +110,10 @@ export default function VerificaDueFattori({ email, onVerificato, onEsci }) {
               <li>aggiungi un nuovo account e inquadra questo codice QR;</li>
               <li>scrivi qui sotto il codice di 6 cifre che compare nell'app.</li>
             </ol>
+            <div style={{ background: '#EBF4FC', borderRadius: 8, padding: '10px 12px', fontSize: 13, color: '#1A3A5C', marginBottom: 10, lineHeight: 1.5 }}>
+              <strong>Sei sul telefono?</strong> Tocca <a href={fattore.uri} style={{ fontWeight: 600 }}>Aggiungi all'app di autenticazione</a>: l'app si apre con l'account già pronto, senza inquadrare nulla. Poi torna qui e scrivi il codice.
+              <br />Preferisci il computer? Puoi chiudere: l'account è già confermato. Dal computer apri <strong>app.pmi360.it</strong> ed entra con email e password.
+            </div>
             <div style={{ textAlign: 'center', margin: '8px 0' }}>
               <img src={fattore.qr} alt="Codice QR da inquadrare con l'app di autenticazione" width={190} height={190} style={{ background: '#fff', padding: 8, borderRadius: 8, border: '1px solid #e3e8ee' }} />
             </div>

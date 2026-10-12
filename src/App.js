@@ -28,7 +28,7 @@ import LayoutMembro from './components/LayoutMembro'
 import IncarichiOrgani from './pages/IncarichiOrgani'
 import { PAGINE_FINANZA } from './finanza'
 import { AccettazioneDocumenti } from './components/DocumentiLegali'
-import VerificaDueFattori, { livelloAccesso } from './components/VerificaDueFattori'
+import VerificaDueFattori, { serveVerifica } from './components/VerificaDueFattori'
 
 export const AppContext = createContext(null)
 export const useApp = () => useContext(AppContext)
@@ -100,17 +100,17 @@ export default function App() {
     // Verifica in due passaggi obbligatoria: finche' la sessione non e' aal2 il database non risponde, quindi
     // inviti, collegamento del gestore e caricamento dei dati partono solo dopo il codice.
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session && (await livelloAccesso()) !== 'aal2') setRichiedeMfa(true)
+      if (session && (await serveVerifica())) setRichiedeMfa(true)
       setSession(session)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session)
       if (event === 'PASSWORD_RECOVERY') {
         setRecoveryMode(true)
-        if ((await livelloAccesso()) !== 'aal2') setRichiedeMfa(true)
+        if (await serveVerifica()) setRichiedeMfa(true)
         return
       }
-      if (session && (await livelloAccesso()) !== 'aal2') { setRichiedeMfa(true); return }
+      if (session && (await serveVerifica())) { setRichiedeMfa(true); return }
       setRichiedeMfa(false)
       if (session) {
         // Se c'è un token invito, collegalo dopo il login/registrazione
@@ -147,6 +147,9 @@ export default function App() {
   }
 
   async function loadDati(userId) {
+    // chi diventa gestore durante la sessione (registrazione completata, prima azienda creata) da qui in poi
+    // deve passare dal secondo passaggio: il database glielo chiede
+    if (await serveVerifica()) { setRichiedeMfa(true); return }
     // Un errore di lettura (es. token appena scaduto, non ancora rinnovato) non
     // vuol dire "profilo inesistente": si rinnova la sessione e si riprova, invece
     // di mandare un utente già configurato alla schermata "Configura la tua azienda".
