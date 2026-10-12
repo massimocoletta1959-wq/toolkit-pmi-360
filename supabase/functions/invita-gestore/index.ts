@@ -19,8 +19,14 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: 'Riservato al proprietario' }), { status: 403, headers })
   }
   try {
-    const { email, ragione_sociale } = await req.json()
+    const { email, ragione_sociale, messaggio } = await req.json()
     if (!email) return new Response(JSON.stringify({ error: 'Email mancante' }), { status: 400, headers })
+    // messaggio personale facoltativo di chi invita: testo semplice, con gli a capo
+    const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    const testoPersonale = String(messaggio || '').trim().slice(0, 2000)
+    const bloccoMessaggio = testoPersonale
+      ? `<div style="border-left:4px solid #E8742A;background:#FFF8F1;padding:14px 18px;margin:20px 0;border-radius:6px;color:#333;line-height:1.55;">${esc(testoPersonale).replace(/\r?\n/g, '<br>')}</div>`
+      : ''
 
     const registerUrl = `${APP_URL}?email=${encodeURIComponent(email)}`
     const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -29,13 +35,14 @@ serve(async (req) => {
       body: JSON.stringify({
         sender: { name: 'Pmi 360°', email: 'assistenza@pmi360.it' },
         to: [{ email, name: ragione_sociale || email }],
-        subject: 'Sei stato invitato al Toolkit Pmi 360°',
+        subject: 'Il tuo accesso a Pmi 360° è pronto',
         htmlContent: `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:20px;">
 <div style="max-width:600px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.1);">
-<div style="background:#1A3A5C;padding:24px;text-align:center;"><h1 style="color:white;margin:0;font-size:18px;">🛡️ Toolkit Pmi 360°</h1></div>
+<div style="background:#1A3A5C;padding:24px;text-align:center;"><h1 style="color:white;margin:0;font-size:18px;">Pmi 360°</h1></div>
 <div style="padding:32px;">
 <p style="color:#555;">Ciao${ragione_sociale ? ' ' + ragione_sociale : ''},</p>
-<p style="color:#555;">sei stato invitato ad attivare il tuo account sul Toolkit Pmi 360°, il sistema di gestione rischi e governance aziendale.</p>
+<p style="color:#555;">sei stato invitato ad attivare il tuo account su Pmi 360°, la piattaforma per gli adeguati assetti: rischi, procedure, governance, finanza e controllo.</p>
+${bloccoMessaggio}
 <p style="color:#555;">Il tuo piano è già pronto: ti basta completare la registrazione con questa stessa email.</p>
 <div style="text-align:center;margin:24px 0;">
 <a href="${registerUrl}" style="background:#2B5FA5;color:white;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">Completa la registrazione →</a>
