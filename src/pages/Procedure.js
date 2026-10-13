@@ -144,8 +144,43 @@ function DistribuzioneModal({ procs, suggeritiIds, sigleRilevanti, membri, azien
   )
 }
 
+// Il catalogo propone le procedure del settore dell'azienda (piu' quelle generiche, come GDPR e sicurezza):
+// un'azienda senza settore (es. creata solo per Finanza e Controllo) vede soltanto le generiche finche' non lo sceglie.
+function SceltaSettore({ azienda, onSalvato }) {
+  const [settori, setSettori] = useState([])
+  const [scelto, setScelto] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const [errore, setErrore] = useState('')
+  useEffect(() => {
+    supabase.from('procedure_catalogo').select('settore').neq('settore', 'generico').then(({ data }) => {
+      setSettori([...new Set((data || []).map(r => r.settore).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'it')))
+    })
+  }, [])
+  const salva = async () => {
+    setSalvando(true); setErrore('')
+    const { error } = await supabase.from('aziende').update({ settore: scelto }).eq('id', azienda.id)
+    setSalvando(false)
+    if (error) { setErrore(error.message); return }
+    onSalvato && onSalvato()
+  }
+  return (
+    <div className="alert alert-warning" style={{ marginBottom: 16 }}>
+      <strong>Manca il settore dell'azienda.</strong> Il catalogo propone le procedure in base al settore: per ora vedi solo quelle valide per tutti (GDPR, sicurezza).
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+        <select className="form-control" style={{ width: 220 }} value={scelto} onChange={e => setScelto(e.target.value)}>
+          <option value="">— Scegli il settore —</option>
+          {settori.map(x => <option key={x} value={x}>{x}</option>)}
+        </select>
+        <button className="btn btn-primary btn-sm" disabled={!scelto || salvando} onClick={salva}>{salvando ? 'Salvataggio…' : 'Salva e mostra le procedure'}</button>
+        <span style={{ fontSize: 12.5, color: '#6b7280' }}>Si può anche ricavare dalla visura camerale, in Impostazioni.</span>
+      </div>
+      {errore && <div style={{ color: '#C0392B', marginTop: 6 }}>{errore}</div>}
+    </div>
+  )
+}
+
 export default function Procedure() {
-  const { azienda, profilo } = useApp()
+  const { azienda, profilo, reload } = useApp()
   const [catalogo, setCatalogo] = useState([])   // procedure del settore + generico
   const [adozioni, setAdozioni] = useState({})   // codice -> record procedure_azienda
   const [ruoli, setRuoli]       = useState([])
@@ -185,7 +220,7 @@ export default function Procedure() {
     const catalogoDedup = Object.values(perCodice).sort((a, b) => a.codice.localeCompare(b.codice))
     setCatalogo(catalogoDedup)
     setLoading(false)
-  }, [azienda.id])
+  }, [azienda.id, azienda.settore])
 
   useEffect(() => { load() }, [load])
 
@@ -262,6 +297,7 @@ export default function Procedure() {
         <h2>Procedure Aziendali</h2>
         <p>Il Manuale delle Procedure ({tot}) applicato all'azienda: adozione e responsabilità</p>
       </div>
+      {!azienda.settore && <SceltaSettore azienda={azienda} onSalvato={reload} />}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 18 }}>
         {[
