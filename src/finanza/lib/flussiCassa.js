@@ -45,7 +45,7 @@ export function individuaGruppiBancaCassa(mappatureConti) {
 // 55/05/005 "BILANCIO DI APERTURA") o dalla causale. Non e' un flusso di cassa.
 // NON basta il gruppo 55: contiene anche conti tecnici diversi (es. 55/05/200
 // "CONTO TRANSITORIO", usato per normali fatture e pagamenti).
-const RE_CAUSALE_APERTURA = /BILANCIO DI APERTURA|RIAPERTURA|APERTURA CONTI/i
+const RE_CAUSALE_APERTURA = /BILANCIO DI APERTURA|RIAPERTURA|\bAPE?RT?URA\s+CONTI/i   // anche "aperura conti" (refuso)
 const eRegistrazioneApertura = (segmento) =>
   segmento.some((r) => RE_CAUSALE_APERTURA.test(r.chiave || '') || RE_CAUSALE_APERTURA.test(r.descrizione || ''))
 

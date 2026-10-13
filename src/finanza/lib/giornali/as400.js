@@ -57,7 +57,8 @@ const contoDa = (cod12, soggetto) => {
   return `${cod12.slice(0, 2)}/${cod12.slice(2, 6)}/${finale}`
 }
 
-const eDescrApertura = (d) => /APERTURA CONTI/i.test(d || '')
+// anche con errori di battitura frequenti (es. "aperura conti" nella prima nota Asap 2026)
+const eDescrApertura = (d) => /\bAPE?RT?URA\s+CONTI/i.test(d || '')
 const eDescrChiusura = (d) => /CHIUSURA.*ECON|CHIUS\.?\s*STATO/i.test(d || '')
 
 // Registrazioni con le loro righe, controlli di quadratura giornalieri e descrizioni complete dal riepilogo
