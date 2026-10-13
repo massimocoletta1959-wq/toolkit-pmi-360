@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { richiedeUtenteAal2 } from '../_shared/mfa.ts'
+import { inviaEmail } from '../_shared/posta.ts'
 
-const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY') || ''
 const APP_URL = 'https://app.pmi360.it'
 
 serve(async (req) => {
@@ -70,19 +70,13 @@ ${isRitiro ? '<p style="color:#555;font-size:13px;">Per chiarimenti rivolgiti a 
 <p style="font-size:12px;color:#aaa;text-align:center;">Email inviata automaticamente da Pmi 360°</p>
 </div></div></body></html>`
 
-    const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: { 'api-key': BREVO_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sender: { name: 'Pmi 360°', email: 'assistenza@pmi360.it' },
+    const esito = await inviaEmail({
         to: [{ email: membro.email, name: `${membro.nome} ${membro.cognome}` }],
         subject,
-        htmlContent: html,
-      }),
+        html: html,
     })
 
-    const brevoData = await brevoRes.json()
-    const successo = brevoRes.status === 201
+    const successo = esito.ok
 
     if (!isRitiro) await fetch(`${supabaseUrl}/rest/v1/ticket?id=eq.${ticket_id}`, {
       method: 'PATCH',
@@ -96,7 +90,7 @@ ${isRitiro ? '<p style="color:#555;font-size:13px;">Per chiarimenti rivolgiti a 
       body: JSON.stringify({ ticket_id, tipo, email_destinatario: membro.email, successo }),
     })
 
-    return new Response(JSON.stringify({ successo, brevo: brevoData }), { headers })
+    return new Response(JSON.stringify({ successo, invio: esito }), { headers })
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers })
   }

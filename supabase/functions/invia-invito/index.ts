@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { richiedeUtenteAal2 } from '../_shared/mfa.ts'
+import { inviaEmail } from '../_shared/posta.ts'
 
-const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY') || ''
 const APP_URL = 'https://app.pmi360.it'
 
 serve(async (req) => {
@@ -50,14 +50,10 @@ serve(async (req) => {
     })
 
     const inviteUrl = `${APP_URL}?invito=${token}`
-    const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: { 'api-key': BREVO_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sender: { name: 'Pmi 360°', email: 'assistenza@pmi360.it' },
+    const esito = await inviaEmail({
         to: [{ email: membro.email, name: `${membro.nome} ${membro.cognome}` }],
         subject: `Invito al portale — ${azienda.nome}`,
-        htmlContent: `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:20px;">
+        html: `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:20px;">
 <div style="max-width:600px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.1);">
 <div style="background:#1A3A5C;padding:24px;text-align:center;"><h1 style="color:white;margin:0;font-size:18px;">🛡️ Toolkit Pmi 360°</h1></div>
 <div style="padding:32px;">
@@ -72,12 +68,10 @@ serve(async (req) => {
 </div>
 <p style="font-size:11px;color:#aaa;text-align:center;">Oppure copia: <a href="${inviteUrl}">${inviteUrl}</a></p>
 </div></div></body></html>`,
-      }),
     })
 
-    const brevoData = await brevoRes.json()
-    console.log('Brevo status:', brevoRes.status, JSON.stringify(brevoData))
-    const successo = brevoRes.status === 201
+    console.log('Invio email:', JSON.stringify(esito))
+    const successo = esito.ok
 
     return new Response(JSON.stringify({ successo, token, inviteUrl }), { headers })
   } catch (err) {

@@ -1,12 +1,12 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { richiedeUtenteAal2 } from '../_shared/mfa.ts'
+import { inviaEmail } from '../_shared/posta.ts'
 
 // Nomina di un incaricato alla gestione di un organo.
 // Solo un gestore dell'azienda (o lo Studio) può nominare. Registra la nomina,
 // collega la persona all'azienda e le scrive: se non ha ancora un account,
 // l'email è anche l'invito a registrarsi (stesso flusso degli inviti esistenti).
 
-const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY') || ''
 const APP_URL = 'https://app.pmi360.it'
 
 const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Content-Type': 'application/json' }
@@ -90,17 +90,12 @@ ${intro}
 <p style="font-size:11px;color:#aaa;text-align:center;">Oppure copia: <a href="${ctaUrl}">${ctaUrl}</a></p>
 </div></div></body></html>`
 
-    const br = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: { 'api-key': BREVO_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sender: { name: 'Pmi 360°', email: 'assistenza@pmi360.it' },
+    const esito = await inviaEmail({
         to: [{ email: membro.email, name: `${membro.nome || ''} ${membro.cognome || ''}`.trim() }],
         subject: `Incarico: gestione di ${organo.nome} — ${azienda?.nome || ''}`,
-        htmlContent: html,
-      }),
+        html: html,
     })
-    return risposta(200, { successo: true, email_inviata: br.status === 201, registrato: !!membro.user_id })
+    return risposta(200, { successo: true, email_inviata: esito.ok, registrato: !!membro.user_id })
   } catch (err) {
     console.error('Errore:', (err as Error).message)
     return risposta(500, { error: (err as Error).message })
