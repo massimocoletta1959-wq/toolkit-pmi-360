@@ -1,4 +1,4 @@
-// Libro giornale in formato Seasoft ("GIORNALE DI CONTABILITA'"), cronologico per registrazione:
+// Libro giornale in formato Buffetti ("GIORNALE DI CONTABILITA'"), cronologico per registrazione:
 //
 //   Data registrazione   Causale              Attivita                                   Filiale
 //                 Riga   Conto        Descrizione conto    Descrizione dell'operazione   Dare     Avere
@@ -22,12 +22,12 @@ const CONTI_TECNICI_PREFIX = ['55/']
 const round2 = (n) => Math.round(n * 100) / 100
 const parseNum = (s) => parseFloat(s.replace(/\./g, '').replace(',', '.'))
 
-export const eGiornaleSeasoft = (righe) =>
+export const eGiornaleBuffetti = (righe) =>
   righe.some((ln) => /GIORNALE DI CONTABILITA/.test(ln)) &&
   righe.some((ln) => /\bRiga\b/.test(ln) && /\bConto\b/.test(ln) && /\bDare\b/.test(ln) && /\bAvere\b/.test(ln))
 
 // Legge le registrazioni con le loro righe, piu' i controlli di quadratura sui totali di pagina
-export function leggiRegistrazioniSeasoft(righe) {
+export function leggiRegistrazioniBuffetti(righe) {
   let col = null // colonne della pagina corrente (le intestazioni si ripetono a ogni pagina)
   const registrazioni = []
   let reg = null
@@ -106,8 +106,8 @@ const eChiusura = (reg) => /CHIUSURA ESERCIZIO|CHIUSURA A P\/P|RILEVAZIONE (UTIL
 
 // Stessa uscita di parseLibroGiornale: saldi per conto (apertura + movimenti, senza chiusura), movimenti mensili
 // (esclusi apertura e chiusura), descrizioni dei conti e diagnostica
-export function parseGiornaleSeasoft(righe) {
-  const { registrazioni, controlli } = leggiRegistrazioniSeasoft(righe)
+export function parseGiornaleBuffetti(righe) {
+  const { registrazioni, controlli } = leggiRegistrazioniBuffetti(righe)
   if (!registrazioni.length) throw new Error("Nessuna registrazione trovata nel Giornale di contabilità.")
   const saldoApertura = {}
   const saldoMovimenti = {}
@@ -158,7 +158,7 @@ export function parseGiornaleSeasoft(righe) {
     movimentiMensili,
     descrizioni,
     diagnostica: {
-      formato: 'seasoft',
+      formato: 'buffetti',
       testate: registrazioni.length,
       movimenti: nMovimenti,
       registrazioniNonBilanciate: nNonBilanciate,
@@ -200,8 +200,8 @@ function scadenzeRiba(reg) {
 
 // Stessa uscita di estraiMovimenti: un movimento per riga; ogni registrazione e' un segmento bilanciato.
 // dataEffettiva (se presente) = data reale dell'incasso, diversa dalla data di registrazione (RiBa).
-export function estraiMovimentiSeasoft(righe) {
-  const { registrazioni } = leggiRegistrazioniSeasoft(righe)
+export function estraiMovimentiBuffetti(righe) {
+  const { registrazioni } = leggiRegistrazioniBuffetti(righe)
   const movimenti = []
   for (const reg of registrazioni) {
     const scadenze = scadenzeRiba(reg)

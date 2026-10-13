@@ -22,7 +22,7 @@ const BILANCIO = [
   riga(['33 / 10', 'ONERI SOCIALI', '7.937,41'], ['44 / 5', 'RICAVI DELLE VENDITE ITALIA', '1.531.146,88']),
 ]
 
-describe('bilancio analitico Seasoft e abbinamento', () => {
+describe('bilancio analitico Buffetti e abbinamento', () => {
   test('legge sezioni, lati, livelli e totali', () => {
     const b = leggiBilancioAnalitico(BILANCIO)
     expect(b.anno).toBe(2025)

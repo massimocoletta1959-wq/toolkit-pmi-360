@@ -4,7 +4,7 @@ import { eCodiceConto } from '../mappatureConti'
 
 jest.mock('pdfjs-dist', () => ({ GlobalWorkerOptions: {} }))
 
-// estratto in formato Seasoft (layout a colonne come dal PDF)
+// estratto in formato Buffetti (layout a colonne come dal PDF)
 const INTESTAZIONE = [
   '                                     GIORNALE DI CONTABILITA\'',
   'Data registrazione   Causale                                   Attivita                                    Filiale',
@@ -17,7 +17,7 @@ const riga = (n, conto, descr, op, dare, avere) => {
   if (avere) s = s.padEnd(117 - avere.length) + avere
   return s
 }
-const SEASOFT = [
+const BUFFETTI = [
   ...INTESTAZIONE,
   testata('01/01/2025', 'APERTURA ESERCIZIO'),
   riga(1, '15 / 5 / 1', 'Banca', 'Apertura', '1.000,00', null),
@@ -37,10 +37,10 @@ const SEASOFT = [
 ]
 
 describe('lettori di libro giornale', () => {
-  test('riconosce Seasoft e ricostruisce saldi, quadrature e chiusura a P/P', () => {
-    expect(riconosciLettore(SEASOFT).id).toBe('seasoft')
-    const r = leggiGiornale(SEASOFT)
-    expect(r.diagnostica.formato).toBe('seasoft')
+  test('riconosce Buffetti e ricostruisce saldi, quadrature e chiusura a P/P', () => {
+    expect(riconosciLettore(BUFFETTI).id).toBe('buffetti')
+    const r = leggiGiornale(BUFFETTI)
+    expect(r.diagnostica.formato).toBe('buffetti')
     expect(r.diagnostica.registrazioniNonBilanciate).toBe(0)       // la testata ripetuta non spezza la fattura
     expect(r.diagnostica.checkpointOk).toBe(2)                     // totale pagina + totale generale
     expect(r.saldi['44/5/1']).toBeCloseTo(-1000, 2)                // la chiusura a P/P non azzera il ricavo
@@ -51,14 +51,14 @@ describe('lettori di libro giornale', () => {
   })
 
   test('movimenti per l\'Analisi dei flussi: segmenti, documento d\'origine, apertura', () => {
-    const m = leggiMovimentiGiornale(SEASOFT)
+    const m = leggiMovimentiGiornale(BUFFETTI)
     const fattura = m.filter((x) => x.data === '10/04/2025')
     expect(fattura.map((x) => x.chiudeSegmento)).toEqual([false, false, true])
     expect(fattura[0].dtDoc).toBe('10/04/2025')
     expect(m[0].eApertura).toBe(true)
   })
 
-  test('codici conto: Seasoft numerico, TeamSystem invariato', () => {
+  test('codici conto: Buffetti numerico, TeamSystem invariato', () => {
     expect(gruppoDiConto('9/5/494')).toBe('9/5')
     expect(eCodiceConto('9/5/494')).toBe(true)
     expect(eCodiceConto('9/5')).toBe(false)
@@ -69,7 +69,7 @@ describe('lettori di libro giornale', () => {
   })
 
   test('formato sconosciuto: errore con i formati supportati', () => {
-    expect(() => leggiGiornale(['testo qualsiasi'])).toThrow(/TeamSystem.*Seasoft/)
+    expect(() => leggiGiornale(['testo qualsiasi'])).toThrow(/TeamSystem.*Buffetti/)
   })
 })
 

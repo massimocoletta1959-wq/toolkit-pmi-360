@@ -1,10 +1,10 @@
 // Registro dei lettori di bilancio analitico (bilancio di verifica con il piano dei conti), uno per software
 // house, come per i libri giornale (../giornali). Ogni lettore restituisce le voci con sezione (SP/CE), lato
 // (attivita/passivita/costi/ricavi), livello (1 mastro, 2 gruppo, 3 conto), codice, descrizione e importo.
-import { eBilancioAnaliticoSeasoft, leggiBilancioAnaliticoSeasoft } from './seasoft'
+import { eBilancioAnaliticoBuffetti, leggiBilancioAnaliticoBuffetti } from './buffetti'
 
 export const LETTORI_BILANCIO = [
-  { id: 'seasoft', nome: 'Seasoft (bilancio a sezioni contrapposte)', riconosci: eBilancioAnaliticoSeasoft, leggi: leggiBilancioAnaliticoSeasoft },
+  { id: 'buffetti', nome: 'Buffetti (bilancio a sezioni contrapposte)', riconosci: eBilancioAnaliticoBuffetti, leggi: leggiBilancioAnaliticoBuffetti },
 ]
 
 export function leggiBilancioAnalitico(righe) {

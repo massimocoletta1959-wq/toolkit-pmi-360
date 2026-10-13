@@ -1,4 +1,4 @@
-// Bilancio analitico Seasoft a sezioni contrapposte (Attivita'/Passivita', Costi/Ricavi), con la gerarchia del
+// Bilancio analitico Buffetti a sezioni contrapposte (Attivita'/Passivita', Costi/Ricavi), con la gerarchia del
 // piano dei conti mastro / conto / sottoconto e i saldi:
 //
 //    ATTIVITA'                                              PASSIVITA'
@@ -12,12 +12,12 @@ const RE_TOTALE = /(TOTALE ATTIVITA'|TOTALE PASSIVITA'|TOTALE COSTI|TOTALE RICAV
 
 const parseNum = (s) => parseFloat(s.replace(/\./g, '').replace(',', '.'))
 
-export const eBilancioAnaliticoSeasoft = (righe) =>
+export const eBilancioAnaliticoBuffetti = (righe) =>
   righe.some((ln) => /STATO PATRIMONIALE/.test(ln)) &&
   righe.some((ln) => /ATTIVITA'/.test(ln) && /PASSIVITA'/.test(ln)) &&
   righe.some((ln) => /^\s*\d+\s*\/\s*\d+\s*\/\s*\d+\s{2,}/.test(ln))
 
-export function leggiBilancioAnaliticoSeasoft(righe) {
+export function leggiBilancioAnaliticoBuffetti(righe) {
   let sezione = null
   let split = null
   let anno = null
@@ -44,5 +44,5 @@ export function leggiBilancioAnaliticoSeasoft(righe) {
       voci.push({ sezione, lato, livello: codice.split('/').length, codice, descrizione: m[2].trim(), importo: parseNum(m[3]) })
     }
   }
-  return { formato: 'seasoft', anno, voci, totali }
+  return { formato: 'buffetti', anno, voci, totali }
 }

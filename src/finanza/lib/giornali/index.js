@@ -4,7 +4,7 @@
 // Analisi dei flussi funzionano allo stesso modo qualunque sia il programma di provenienza.
 // Per aggiungere un programma: un file in questa cartella con riconosci / leggiSaldi / leggiMovimenti, e una voce qui.
 import { parseLibroGiornale, estraiMovimenti } from '../libroGiornale'
-import { eGiornaleSeasoft, parseGiornaleSeasoft, estraiMovimentiSeasoft } from './seasoft'
+import { eGiornaleBuffetti, parseGiornaleBuffetti, estraiMovimentiBuffetti } from './buffetti'
 import { eListaPrimaNotaAs400, parseListaPrimaNotaAs400, estraiMovimentiAs400 } from './as400'
 
 export const LETTORI = [
@@ -16,11 +16,11 @@ export const LETTORI = [
     leggiMovimenti: estraiMovimenti,
   },
   {
-    id: 'seasoft',
-    nome: "Seasoft (Giornale di contabilità per registrazione)",
-    riconosci: eGiornaleSeasoft,
-    leggiSaldi: parseGiornaleSeasoft,
-    leggiMovimenti: estraiMovimentiSeasoft,
+    id: 'buffetti',
+    nome: "Buffetti (Giornale di contabilità per registrazione)",
+    riconosci: eGiornaleBuffetti,
+    leggiSaldi: parseGiornaleBuffetti,
+    leggiMovimenti: estraiMovimentiBuffetti,
   },
   {
     id: 'as400',

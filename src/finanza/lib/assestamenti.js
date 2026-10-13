@@ -5,7 +5,7 @@
 //
 // Valori proposti:
 //  - rimanenze finali = esistenze iniziali (le registrazioni in B11 con saldo in Dare), come il bilancio
-//    infrannuale di Seasoft, che lascia la merce in magazzino al valore di apertura;
+//    infrannuale di Buffetti, che lascia la merce in magazzino al valore di apertura;
 //  - ammortamenti e TFR = valore annuo dell'esercizio precedente x mesi / 12 (zero se nel periodo sono gia'
 //    registrati);
 //  - imposte = aliquota (default 27,9% = IRES 24% + IRAP 3,9%, stima semplificata) x risultato ante imposte
