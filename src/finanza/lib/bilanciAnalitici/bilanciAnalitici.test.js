@@ -64,3 +64,31 @@ test('conti bancari a saldo passivo: eccezione verso i debiti verso banche, non 
   expect(g.proposta).toBe('sp:ATT_C_IV_1')
   expect(g.conti).toEqual([expect.objectContaining({ conto: '15/5/5003', proposta: 'sp:PAS_D_4', saldo: -196264.62 })])
 })
+
+test('bilancio di esercizio AS/400: conti di 12 cifre, gruppi GG/SSSS, totali e finanziamento tra le passivita\' delle banche', () => {
+  const r = (sx, dx) => `${(sx || '').padEnd(87)}${dx || ''}`.trimEnd()
+  const B = [
+    'Asap Logistics S.r.l.            Bilancio di esercizio dal       1/01/26    al       31/08/26                            Pagina    1',
+    '--------------------------------------- ATTIVITA  ---------------------------------     ---------------------------------  PASSIVITA  -------------------------------------',
+    'Codice conto Descrizione------------------------ Saldi----------- Totali-----------    Codice conto Descrizione------------------------ Saldi------------ Totali-----------',
+    r('010707000008 Autovetture e autocarri                     74.809,51', '090303000006 Erario c/IRES                               18.523,00'),
+    r('130303000001 UNICREDIT 6608312                          291.975,28', '130303000007 Finanziamento fondo centrale di gar        100.000,00        100.000,00'),
+    r('130303000005 PREPAGATA -6260                              1.447,25       293.422,53', "310202000100 Utile   d'esercizio                        127.858,30        127.858,30"),
+    r('                                      Totale attività                      367.704,04', '                                 Totale passività                   246.381,30'),
+    'Asap Logistics S.r.l.            Bilancio di esercizio dal       1/01/26    al       31/08/26                            Pagina    2',
+    '--------------------------------------- COSTI -------------------------------------    -----------------------------------   RICAVI   ---------------------------------------',
+    'Codice conto Descrizione------------------------ Saldi----------- Totali-----------    Codice conto Descrizione------------------------ Saldi------------ Totali-----------',
+    r('662001000009 SPESE DI RAPPRESENTANZA 1                     224,50', '500101000001 Ricavi di spedizione                     441.337,05        441.337,05'),
+  ]
+  const b = leggiBilancioAnalitico(B)
+  expect(b).toMatchObject({ formato: 'as400', anno: 2026 })
+  expect(b.totali).toMatchObject({ totale_attivita: 367704.04, totale_passivita: 246381.3 })
+  expect(b.voci.find((v) => v.codice === '13/0303/000007')).toMatchObject({ sezione: 'SP', lato: 'passivita', livello: 3, importo: 100000 })
+  expect(b.voci.find((v) => v.codice === '66/2001/000009')).toMatchObject({ descrizione: 'SPESE DI RAPPRESENTANZA 1', importo: 224.5 })
+  const p = Object.fromEntries(proposteDaBilancio(b).map((x) => [x.gruppo, x]))
+  expect(p['13/0303']).toMatchObject({ proposta: 'sp:ATT_C_IV_1', descrizione: 'UNICREDIT 6608312', saldo: 193422.53 })
+  expect(p['13/0303'].conti).toEqual([expect.objectContaining({ conto: '13/0303/000007', proposta: 'sp:PAS_D_4' })])
+  expect(p['01/0707'].proposta).toBe('sp:ATT_B_II_4')
+  expect(p['09/0303'].proposta).toBe('sp:PAS_D_12')
+  expect(p['50/0101'].proposta).toBe('cee:A1')
+})
