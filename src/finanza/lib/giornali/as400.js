@@ -107,8 +107,9 @@ export function leggiRegistrazioniAs400(righe) {
     }
     const mr = ln.match(RE_RIGA)
     if (mr && reg) {
-      const [, cod12, soggetto, descrizioneConto, , importoOrig, da, coda = ''] = mr
-      const importo = parseNum(importoOrig)
+      // primo importo: in euro ("Imp.Div.Richiesta"); il secondo e' nella valuta del documento (es. GBP)
+      const [, cod12, soggetto, descrizioneConto, importoEuro, , da, coda = ''] = mr
+      const importo = parseNum(importoEuro)
       const segno = da === 'D' ? 1 : -1
       // coda: [imponibile] [aliquota] [descrizione aggiuntiva] [data scadenza]
       let altro = coda.replace(RE_DATA_FINALE, '').trim()
