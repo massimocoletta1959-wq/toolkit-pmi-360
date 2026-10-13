@@ -267,6 +267,17 @@ export default function Procedure() {
     load()
   }
 
+  // procedure standard del settore (e generiche) create in Bozza: stessa scelta proposta all'attivazione del modulo
+  async function creaStandard() {
+    setError(null); setLoading(true)
+    const righe = catalogo.filter(p => !adozioni[p.codice]).map(p => ({ azienda_id: azienda.id, codice: p.codice, stato: 'Bozza' }))
+    if (righe.length) {
+      const { error: err } = await supabase.from('procedure_azienda').upsert(righe, { onConflict: 'azienda_id,codice', ignoreDuplicates: true })
+      if (err) setError(err.message)
+    }
+    load()
+  }
+
   async function adottaTutte() {
     setError(null); setLoading(true)
     const mancanti = catalogo.filter(p => !adozioni[p.codice]).map(p => ({
@@ -298,6 +309,12 @@ export default function Procedure() {
         <p>Il Manuale delle Procedure ({tot}) applicato all'azienda: adozione e responsabilità</p>
       </div>
       {!azienda.settore && <SceltaSettore azienda={azienda} onSalvato={reload} />}
+      {azienda.settore && !loading && catalogo.length > 0 && Object.keys(adozioni).length === 0 && (
+        <div className="alert alert-info" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <span>Non hai ancora creato le procedure di questa azienda. Vuoi creare le <strong>{catalogo.length} procedure standard</strong> del settore {azienda.settore} (comprese GDPR e sicurezza), da valutare e approvare?</span>
+          <button className="btn btn-primary btn-sm" onClick={creaStandard}>Sì, crea le procedure standard</button>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 18 }}>
         {[

@@ -36,6 +36,9 @@ export default function Impostazioni() {
   const [impRischi, setImpRischi]   = useState(false)   // mostra la finestra import rischi
   const [impScelta, setImpScelta]   = useState(null)
   const [impLoading, setImpLoading] = useState(false)
+  // attivazione delle Procedure dopo la creazione dell'azienda: si chiede se creare le procedure standard del settore
+  const [impProc, setImpProc]       = useState(null)   // { settori: [...], settore, conteggi: { settore: n } }
+  const [impProcLoading, setImpProcLoading] = useState(false)
 
   useEffect(() => {
     if (!session?.user?.id) return
@@ -57,6 +60,43 @@ export default function Impostazioni() {
       const { count } = await supabase.from('rischi')
         .select('id', { count: 'exact', head: true }).eq('azienda_id', azienda.id)
       if (!count) { setImpScelta(null); setImpRischi(true) }
+    }
+    // se attivo le Procedure e l'azienda non ne ha ancora, chiedo se creare quelle standard del settore
+    if (campo === 'mod_procedure' && attivando) {
+      const { count } = await supabase.from('procedure_azienda')
+        .select('id', { count: 'exact', head: true }).eq('azienda_id', azienda.id)
+      if (!count) {
+        const { data: cat } = await supabase.from('procedure_catalogo').select('codice, settore').eq('attivo', true)
+        const conteggi = {}
+        for (const r of cat || []) conteggi[r.settore] = (conteggi[r.settore] || 0) + 1
+        const settori = Object.keys(conteggi).filter(x => x !== 'generico').sort((a, b) => a.localeCompare(b, 'it'))
+        setImpProc({ settori, conteggi, catalogo: cat || [], settore: settori.includes(azienda.settore) ? azienda.settore : '' })
+      }
+    }
+  }
+
+  // crea le procedure standard (stato Bozza) del settore scelto piu' quelle generiche (GDPR, sicurezza); a parita' di
+  // codice vale la versione del settore. Il settore resta salvato sull'azienda, come nella creazione guidata.
+  async function creaProcedureStandard() {
+    if (!impProc?.settore) return
+    setImpProcLoading(true); setError(null)
+    try {
+      if (impProc.settore !== azienda.settore) {
+        const { error: e1 } = await supabase.from('aziende').update({ settore: impProc.settore }).eq('id', azienda.id)
+        if (e1) throw e1
+      }
+      const codici = [...new Set(impProc.catalogo.filter(r => r.settore === impProc.settore || r.settore === 'generico').map(r => r.codice))]
+      const righe = codici.map(codice => ({ azienda_id: azienda.id, codice, stato: 'Bozza' }))
+      if (righe.length) {
+        const { error: e2 } = await supabase.from('procedure_azienda').upsert(righe, { onConflict: 'azienda_id,codice', ignoreDuplicates: true })
+        if (e2) throw e2
+      }
+      setImpProc(null)
+      await reload()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setImpProcLoading(false)
     }
   }
 
@@ -478,6 +518,34 @@ export default function Impostazioni() {
           </div>
         )
       })()}
+
+      {impProc && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+          <div className="card" style={{ maxWidth:480, width:'100%' }}>
+            <div className="card-header"><span className="card-title">📋 Procedure standard</span></div>
+            <div className="card-body">
+              <p style={{ fontSize:13, color:'#666', marginBottom:14 }}>
+                Hai attivato il modulo Procedure per <strong>{azienda?.nome}</strong>. Vuoi creare le procedure standard del settore, da valutare e approvare? Oltre a quelle del settore sono comprese le procedure valide per tutti (GDPR, sicurezza).
+              </p>
+              {error && <div className="alert alert-error" style={{ marginBottom:10 }}>{error}</div>}
+              <label className="form-label">Settore</label>
+              <select className="form-control" value={impProc.settore} onChange={e => setImpProc({ ...impProc, settore: e.target.value })} style={{ marginBottom:8 }}>
+                <option value="">— Scegli il settore —</option>
+                {impProc.settori.map(x => <option key={x} value={x}>{x} ({impProc.conteggi[x]} procedure)</option>)}
+              </select>
+              {azienda?.settore && !impProc.settori.includes(azienda.settore) && (
+                <p style={{ fontSize:12, color:'#856404', marginBottom:8 }}>Il settore attuale dell'azienda ({azienda.settore}) non ha un catalogo di procedure dedicato: scegli quello più vicino.</p>
+              )}
+              <div style={{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:12 }}>
+                <button className="btn" onClick={() => setImpProc(null)} disabled={impProcLoading}>No, per ora nessuna</button>
+                <button className="btn btn-primary" onClick={creaProcedureStandard} disabled={!impProc.settore || impProcLoading}>
+                  {impProcLoading ? 'Creazione…' : 'Sì, crea le procedure standard'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
