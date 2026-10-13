@@ -167,3 +167,12 @@ test('variazioni delle rimanenze: a Conto economico ma non in cassa', () => {
   expect(m.costi_operativi).toBeCloseTo(100, 2)
   expect(m.cassa.fornitori).toBeCloseTo(0, 2)
 })
+
+test('mesi oltre dicembre: budget dell\'anno dopo se c\'e\', altrimenti replica dell\'anno di riferimento', () => {
+  const voce = (anno) => ({ categoria: 'costi', descrizione: 'Affitti', soggetto_iva: false, ...Object.fromEntries(['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'].map((k) => [k, anno === 2026 ? 100 : 200])) })
+  const senza = aggregaBudgetMensile([voce(2026)], {}, 2026, 9, 12)
+  expect(senza.find((m) => m.anno === 2027 && m.mese === 1)).toMatchObject({ replica: true, costi_operativi: 100 })
+  const con = aggregaBudgetMensile([voce(2026)], {}, 2026, 9, 12, [], [], [voce(2027)])
+  expect(con.find((m) => m.anno === 2026 && m.mese === 12)).toMatchObject({ replica: false, costi_operativi: 100 })
+  expect(con.find((m) => m.anno === 2027 && m.mese === 8)).toMatchObject({ replica: false, costi_operativi: 200 })
+})

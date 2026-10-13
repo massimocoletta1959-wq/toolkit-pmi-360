@@ -398,7 +398,7 @@ const PROB_PROIEZIONE = 60
 // versamento IVA a ogni liquidazione e' il saldo (vendite - acquisti) per
 // competenza, con l'eventuale credito riportato al periodo successivo. Cosi'
 // l'IVA incide sul timing della cassa ma non sul risultato complessivo.
-export function caricaRigheDaBudget(azienda, vociBudget, dsoGiorni, dpoGiorni, anno, meseInizio, investimenti = [], manovreScorte = []) {
+export function caricaRigheDaBudget(azienda, vociBudget, dsoGiorni, dpoGiorni, anno, meseInizio, investimenti = [], manovreScorte = [], vociBudgetSuccessivo = null) {
   if (!vociBudget || !vociBudget.length) return []
 
   const liquidazione = azienda.liquidazione_iva || 'trimestrale'
@@ -406,8 +406,9 @@ export function caricaRigheDaBudget(azienda, vociBudget, dsoGiorni, dpoGiorni, a
   // Finestra sempre di 12 mesi da meseInizio (coerente con l'orizzonte
   // CNDCEC §2.5): i mesi che superano dicembre di "anno" replicano lo stesso
   // mese di calendario del budget di "anno" — un budget "virtuale" dell'anno
-  // successivo uguale a quello approvato, in attesa di uno vero (§3.2).
-  const mesi = aggregaBudgetMensile(vociBudget, azienda, anno, meseInizio, 12, investimenti, manovreScorte)
+  // successivo uguale a quello approvato, in attesa di uno vero (§3.2); se il budget dell'anno successivo
+  // c'e' (vociBudgetSuccessivo), quei mesi usano il suo.
+  const mesi = aggregaBudgetMensile(vociBudget, azienda, anno, meseInizio, 12, investimenti, manovreScorte, vociBudgetSuccessivo)
   const righe = []
 
   mesi.forEach((m, i) => {
@@ -417,7 +418,7 @@ export function caricaRigheDaBudget(azienda, vociBudget, dsoGiorni, dpoGiorni, a
     const meseKey = MESI_KEYS[mese1 - 1]
     const dataCompetenza = dateUTC(annoCorrente, mese1, 1)
     const probabilitaVariabile = m.replica ? PROB_PROIEZIONE : PROB_BUDGET
-    const etichettaAnno = m.replica ? `${annoCorrente} (=budget ${anno})` : `${anno}`
+    const etichettaAnno = m.replica ? `${annoCorrente} (=budget ${anno})` : `${annoCorrente}`
 
     const dataScadenzaAssoluta = (offsetMesi, giorno) => {
       const target = meseAssoluto + offsetMesi

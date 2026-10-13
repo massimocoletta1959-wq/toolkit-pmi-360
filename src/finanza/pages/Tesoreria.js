@@ -355,6 +355,10 @@ export default function Tesoreria() {
       const budgetScelto = await selezionaBudgetPerAnno(aziendaId, annoRiferimento)
       if (!budgetScelto) throw new Error(`Nessun budget ${annoRiferimento} trovato per questa azienda: serve un budget approvato per proiettare i mesi successivi al consuntivo.`)
       const { data: vociBudget } = await supabase.from('budget_voci').select('*').eq('budget_id', budgetScelto.id)
+      // mesi dell'anno dopo (la finestra di 12 mesi supera dicembre): budget di quell'anno se c'e', altrimenti si
+      // replica quello dell'anno di riferimento
+      const budgetSuccessivo = await selezionaBudgetPerAnno(aziendaId, annoRiferimento + 1)
+      const vociBudgetSuccessivo = budgetSuccessivo ? (await supabase.from('budget_voci').select('*').eq('budget_id', budgetSuccessivo.id)).data || [] : null
 
       // DSO/DPO: valore MISURATO dal Libro Giornale (Analisi dei flussi, media ponderata sugli
       // importi) quando c'e'; altrimenti i giorni medi dell'anagrafica; in ultimo 30. Non si
@@ -384,7 +388,7 @@ export default function Tesoreria() {
       const { data: invRighe } = await supabase.from('investimenti').select('*').eq('azienda_id', aziendaId)
       const { data: finRighe } = await supabase.from('finanziamenti').select('*').eq('azienda_id', aziendaId)
       const { data: manovreRighe } = await supabase.from('manovre_scorte').select('*').eq('azienda_id', aziendaId)
-      const righeBudget = caricaRigheDaBudget(azienda, vociBudget || [], dso, dpo, annoRiferimento, meseInizioProiezione, invRighe || [], manovreRighe || [])
+      const righeBudget = caricaRigheDaBudget(azienda, vociBudget || [], dso, dpo, annoRiferimento, meseInizioProiezione, invRighe || [], manovreRighe || [], vociBudgetSuccessivo)
 
       const datiAnnoPrec = await caricaAnalisiFlussiAnno(aziendaId, annoRiferimento - 1)
       const storicoMutuo = storicoRateMutuoPerMese(datiCorrenti, datiAnnoPrec)
@@ -463,7 +467,7 @@ export default function Tesoreria() {
       // sulla stessa finestra del piano di cassa, cosi' i due baseline sono
       // coerenti e condividono il timestamp del salvataggio (motore di
       // valutazione d'impatto, contratto §4.G). Budget pieno, costi netti.
-      const mesiBudget = aggregaBudgetMensile(vociBudget || [], azienda, annoRiferimento, meseInizioProiezione, ORIZZONTE_CNDCEC, invRighe || [], manovreRighe || [])
+      const mesiBudget = aggregaBudgetMensile(vociBudget || [], azienda, annoRiferimento, meseInizioProiezione, ORIZZONTE_CNDCEC, invRighe || [], manovreRighe || [], vociBudgetSuccessivo)
       pianoProiettato.modello_cassa = 10 // 10 = elenco completo, esclusione e differimento delle partite aperte (scadenze_escluse); 9 = + dettaglio linee di credito e costi energetici per mese (stress del motore d'impatto); 8 = + vista 13 settimane, scorte, termini contrattuali, Past Due dichiarato, LCR; 7 = acconti imposte 50/50; 6 = + rate da piano di ammortamento, investimenti pianificati; 5 = + contributi F24, acconti imposte, stagionalità, cruscotto, KPI; 4 = + DIO da anagrafica, stress energia, copertura linee; 2 = budget netto + IVA per liquidazione + costi non monetari fuori cassa; 3 = + scenari coerenti col base, DSO misurato, concentrazione; 4 = + DIO da anagrafica, stress energia sulle sole voci energetiche, copertura con le linee di credito (vedi CHANGELOG.md)
       pianoProiettato.ce_baseline = costruisciCeBaseline(mesiBudget, vociBudget || [], { budget_id: budgetScelto.id, anno_budget: annoRiferimento })
       pianoProiettato.iva_baseline = {

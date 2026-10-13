@@ -84,10 +84,14 @@ export function classificaVoceBudget(descrizione, categoria) {
 //    contributi (personale previdenziale, versati il 16 del mese dopo), imposte (accumulo: si pagano ad acconti). Esclusi
 //    dalla cassa ammortamenti, svalutazioni e accantonamenti (non monetari)
 //  - iva: vendite, acquisti, saldo (per competenza)
-export function aggregaBudgetMensile(vociBudget, azienda, anno, meseInizio, orizzonte = 12, investimenti = [], manovreScorte = []) {
+// vociBudgetSuccessivo: budget dell'anno dopo (facoltativo). Se c'e', i mesi oltre dicembre di "anno" lo usano;
+// altrimenti replicano lo stesso mese del budget di "anno" (replica: true).
+export function aggregaBudgetMensile(vociBudget, azienda, anno, meseInizio, orizzonte = 12, investimenti = [], manovreScorte = [], vociBudgetSuccessivo = null) {
   const aliqV = (azienda?.aliquota_iva_vendite ?? 22) / 100
   const aliqA = (azienda?.aliquota_iva_acquisti ?? 22) / 100
-  const voci = (vociBudget || []).map((v) => ({ ...v, classe: classificaVoceBudget(v.descrizione, v.categoria), personale: v.categoria === 'costi' && isPersonale(v.descrizione) }))
+  const prepara = (xs) => (xs || []).map((v) => ({ ...v, classe: classificaVoceBudget(v.descrizione, v.categoria), personale: v.categoria === 'costi' && isPersonale(v.descrizione) }))
+  const vociAnno = prepara(vociBudget)
+  const vociSuccessivo = vociBudgetSuccessivo?.length ? prepara(vociBudgetSuccessivo) : null
 
   const mesi = []
   for (let i = 0; i < orizzonte; i++) {
@@ -96,11 +100,12 @@ export function aggregaBudgetMensile(vociBudget, azienda, anno, meseInizio, oriz
     const annoMese = anno + Math.floor((meseAssoluto - 1) / 12)
     const key = MESI_KEYS[mese - 1]
     const m = {
-      anno: annoMese, mese, mese_budget: annoMese * 100 + mese, replica: annoMese > anno,
+      anno: annoMese, mese, mese_budget: annoMese * 100 + mese, replica: annoMese > anno && !vociSuccessivo,
       ricavi_operativi: 0, proventi_finanziari: 0, costi_operativi: 0, ammortamenti: 0, oneri_finanziari: 0, imposte: 0,
       cassa: { incassi: 0, fornitori: 0, energia: 0, personale: 0, contributi: 0, imposte: 0, investimenti: 0, scorte: 0 },
       iva: { vendite: 0, acquisti: 0, saldo: 0 },
     }
+    const voci = annoMese > anno && vociSuccessivo ? vociSuccessivo : vociAnno
     for (const v of voci) {
       const val = v[key] || 0
       if (!val) continue
