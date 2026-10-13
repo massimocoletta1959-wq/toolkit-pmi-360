@@ -21,7 +21,23 @@
 
 const AMT = String.raw`\d{1,3}(?:\.\d{3})*,\d{2}`
 const RE_AMOUNT = new RegExp(AMT, 'g')
-const RE_TESTATA = /^\s*(\d{1,2})\/(\d{2})\/(\d{2})\s+(\d+)\s+(\d+)\s+(\d{3})\b(.*)$/
+// Testata: data, [protocollo], anno e numero del movimento (es. "26 15" o "24 616"), causale di 3 cifre, poi
+// eventuali numero e data del documento. Il protocollo c'e' solo su alcune registrazioni (es. fatture d'acquisto):
+// " 9/01/26        4  26       4  001    K26000057      9/01/26   EUR"   " 9/01/26   26   15  120   EUR"
+const RE_DATA_TESTATA = /^\s*(\d{1,2})\/(\d{2})\/(\d{2})\s+(\d.*)$/
+const RE_CON_PROTOCOLLO = /^(\d+)\s+(\d{2})\s+(\d+)\s+(\d{3})\b(.*)$/
+const RE_SENZA_PROTOCOLLO = /^(\d{2})\s+(\d+)\s+(\d{3})\b(.*)$/
+function leggiTestata(ln) {
+  const md = ln.match(RE_DATA_TESTATA)
+  if (!md) return null
+  const [, g, m, a, resto] = md
+  const plausibile = (anno) => Math.abs(Number(anno) - Number(a)) <= 1   // anno del movimento: quello della data o vicino
+  const cp = resto.match(RE_CON_PROTOCOLLO)
+  if (cp && plausibile(cp[2])) return { g, m, a, protocollo: cp[1], numero: cp[3], causale: cp[4], resto: cp[5] }
+  const sp = resto.match(RE_SENZA_PROTOCOLLO)
+  if (sp && plausibile(sp[1])) return { g, m, a, protocollo: null, numero: sp[2], causale: sp[3], resto: sp[4] }
+  return null
+}
 const RE_RIGA = new RegExp(String.raw`^\s*(\d{12})(?:\s+(\d{6}))?\s+(.*?)\s+(${AMT})\s+(${AMT})\s+([DA])(?:\s+(.*))?$`)
 const RE_TOTALI = new RegExp(String.raw`Totali al\s+(\d{1,2}/\d{2}/\d{2}).*Totale Dare\s+(${AMT}).*Totale Avere\s+(${AMT})`)
 const RE_RIEPILOGO = /^\s*Conto\s+Descr\.\s+Importo Dare\s+Importo Avere/
@@ -72,9 +88,9 @@ export function leggiRegistrazioniAs400(righe) {
       else giorniKo.push({ data: chiave, atteso: [td, ta], calcolato: [round2(calc.dare), round2(calc.avere)] })
       continue
     }
-    const mt = ln.match(RE_TESTATA)
+    const mt = leggiTestata(ln)
     if (mt) {
-      const [, g, m, a, protocollo, numero, causale, resto] = mt
+      const { g, m, a, protocollo, numero, causale, resto } = mt
       const doc = resto.match(/^\s*(?:(\S+)\s+)?(\d{1,2}\/\d{2}\/\d{2})\s+EUR\b/)
       reg = {
         data: dataEstesa(g, m, a),
@@ -103,6 +119,7 @@ export function leggiRegistrazioniAs400(righe) {
         conto: contoDa(cod12, soggetto),
         // clienti e fornitori: la descrizione e' il nome del soggetto, non quella del conto riepilogativo
         codice12: soggetto ? null : cod12,
+        soggetto: !!soggetto,
         descrizioneConto: descrizioneConto.trim(),
         descrizioneOperazione: altro,
         scadenza: scad ? (() => { const [sg, sm, sa] = scad[1].split('/'); return dataEstesa(sg, sm, sa) })() : null,
@@ -213,8 +230,48 @@ export function estraiMovimentiAs400(righe) {
         chiudeSegmento: i === reg.righe.length - 1,
         nDoc: reg.nDoc,
         dtDoc: reg.dtDoc,
+        soggetto: r.soggetto,
       })
     })
   }
+  abbinaIncassiPagamenti(movimenti)
   return movimenti
+}
+
+// Le righe di incasso e di pagamento di questa stampa non riportano la fattura a cui si riferiscono (numero e data
+// del documento sono quelli della registrazione). Per i tempi medi (dsoDpo.js) si abbinano alle fatture dello
+// stesso cliente/fornitore in ordine cronologico (prima la fattura piu' vecchia): la riga di incasso/pagamento
+// riceve come Dt. Doc. la data media, ponderata sugli importi, delle fatture che chiude. Le partite di apertura
+// (fatture dell'anno prima, data sconosciuta) si chiudono per prime ma non entrano nella media; un incasso o
+// pagamento che chiude solo partite di apertura resta senza data documento e non viene conteggiato.
+const giornoDa = (s) => { const [d, m, y] = s.split('/').map(Number); return Date.UTC(y, m - 1, d) / 86400000 }
+const dataDa = (giorno) => { const t = new Date(Math.round(giorno) * 86400000); return `${String(t.getUTCDate()).padStart(2, '0')}/${String(t.getUTCMonth() + 1).padStart(2, '0')}/${t.getUTCFullYear()}` }
+export function abbinaIncassiPagamenti(movimenti) {
+  const partite = new Map() // conto -> { segno, aperte: [{ residuo, giorno, nDoc }] }
+  const ordinati = movimenti.filter((x) => x.soggetto && !x.eChiusura).map((x, i) => ({ x, i })).sort((p, q) => giornoDa(p.x.data) - giornoDa(q.x.data) || p.i - q.i)
+  for (const { x } of ordinati) {
+    const p = partite.get(x.conto) || { segno: null, aperte: [] }
+    partite.set(x.conto, p)
+    const nuova = () => ({ residuo: x.importo, giorno: x.eApertura ? null : giornoDa(x.dtDoc || x.data), nDoc: x.nDoc })
+    if (!p.aperte.length || p.segno === x.segno) {
+      p.aperte.push(nuova())
+      p.segno = x.segno
+      continue
+    }
+    let resto = x.importo
+    let somma = 0
+    let quota = 0
+    const documenti = []
+    while (resto > 0.005 && p.aperte.length) {
+      const a = p.aperte[0]
+      const usato = Math.min(resto, a.residuo)
+      if (a.giorno != null) { somma += usato * a.giorno; quota += usato; if (a.nDoc) documenti.push(a.nDoc) }
+      a.residuo -= usato
+      resto -= usato
+      if (a.residuo <= 0.005) p.aperte.shift()
+    }
+    if (resto > 0.005) { p.aperte.push({ ...nuova(), residuo: resto }); p.segno = x.segno }   // eccedenza: anticipo
+    x.dtDoc = quota > 0 ? dataDa(somma / quota) : null
+    x.nDoc = quota > 0 ? (documenti.join(', ') || 'abbinato') : null
+  }
 }

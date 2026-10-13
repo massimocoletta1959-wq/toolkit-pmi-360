@@ -93,7 +93,7 @@ const AS400 = [
   'CGH5PFR                         Stampa Lista Prima Nota                         Pag.     1',
   'Data Reg. Protoc. Num. Mov.    Cau   N. Documento   Data Doc. Val.    Fil. Pr. Utente    Bl. P/E',
   'Conto Cont. Codice Descrizione           Imp.Div.Richiesta Imp.Div.Originale      Imponibile     D Al Desc. Aggiuntiva    Dt. Scad.',
-  ' 1/01/25            1       1  300                    1/01/25   EUR    01    ASAPCOLETT    B   E',
+  ' 1/01/25           24       1  300                    1/01/25   EUR    01    ASAPCOLETT    B   E',
   '130303000001        UNICREDIT 6608312          1.000,00          1.000,00 D                 APERTURA CONTI        1/01/25',
   '310202000001        Capitale Sociale           1.000,00          1.000,00 A                 APERTURA CONTI        1/01/25',
   'Totali al  1/01/25 Num.      1 Totale Dare    1.000,00 Totale Avere    1.000,00  Squadr.',
@@ -102,10 +102,10 @@ const AS400 = [
   '500101000001        Ricavi di spedizione       1.000,00          1.000,00 A                 FATT. 125            10/04/25',
   '090303000002        I.V.A. su vendite            220,00            220,00 A        1.000,00 22 FATT. 125         10/04/25',
   'Totali al 10/04/25 Num.      1 Totale Dare    1.220,00 Totale Avere    1.220,00  Squadr.',
-  '31/12/25          900     866  300                    31/12/25   EUR    01    ASAPCOLETT    B   E',
+  '31/12/25           25     866  300                    31/12/25   EUR    01    ASAPCOLETT    B   E',
   '500101000001        Ricavi di spedizione       1.000,00          1.000,00 D                 CHIUSURA 2025 ECON.  31/12/25',
   '310202000100        Utile   d\'esercizio        1.000,00          1.000,00 A                 CHIUSURA 2025 ECON.  31/12/25',
-  '31/12/25          901     867  300                    31/12/25   EUR    01    ASAPCOLETT    B   E',
+  '31/12/25           25     867  300                    31/12/25   EUR    01    ASAPCOLETT    B   E',
   '130303000001        UNICREDIT 6608312          2.220,00          2.220,00 A                 CHIUS. STATO Patr.   31/12/25',
   '310202000001        Capitale Sociale           1.000,00          1.000,00 D                 CHIUS. STATO Patr.   31/12/25',
   '310202000100        Utile   d\'esercizio        1.000,00          1.000,00 D                 CHIUS. STATO Patr.   31/12/25',
@@ -134,4 +134,26 @@ test('AS/400 Lista Prima Nota: saldi dalla chiusura, conti cliente col codice so
   const m = leggiMovimentiGiornale(AS400)
   expect(m.find((x) => x.conto === '11/0101/000071')).toMatchObject({ dtDoc: '10/04/2025', nDoc: '125', chiudeSegmento: false })
   expect(m[0].eApertura).toBe(true)
+})
+
+test('AS/400: testata con protocollo e incassi senza riferimento alla fattura abbinati in ordine cronologico', () => {
+  const T = [
+    'CGH5PFR                         Stampa Lista Prima Nota                         Pag.     1',
+    'Conto Cont. Codice Descrizione           Imp.Div.Richiesta Imp.Div.Originale      Imponibile     D Al Desc. Aggiuntiva    Dt. Scad.',
+    '31/01/26        1  26      47  102            1     31/01/26   EUR    01    ASAPRUSSO       E',
+    '110104000000 000045 ASAP LOGISTICS UK Lt      1.000,00          1.000,00 D                    28/02/26',
+    '500101000001        Ricavi di spedizione      1.000,00          1.000,00 A                    28/02/26',
+    '28/02/26        6  26      99  102            6     28/02/26   EUR    01    ASAPRUSSO       E',
+    '110104000000 000045 ASAP LOGISTICS UK Lt      3.000,00          3.000,00 D                    31/03/26',
+    '500101000001        Ricavi di spedizione      3.000,00          3.000,00 A                    31/03/26',
+    ' 2/03/26           26     108  120                                  EUR    01    ASAPCOLETT      E',
+    '130303000001        UNICREDIT 6608312         2.000,00          2.000,00 D',
+    '110104000000 000045 ASAP LOGISTICS UK Lt      2.000,00          2.000,00 A',
+  ]
+  const m = leggiMovimentiGiornale(T)
+  expect(m.filter((x) => x.data === '31/01/2026')).toHaveLength(2)          // la testata con protocollo apre la registrazione
+  const incasso = m.find((x) => x.conto === '11/0104/000045' && x.segno === -1)
+  // 1.000 della fattura del 31/01 e 1.000 di quella del 28/02: data media 14/02 (circa)
+  expect(incasso.dtDoc).toBe('14/02/2026')
+  expect(incasso.nDoc).toBe('1, 6')
 })
