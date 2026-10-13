@@ -81,18 +81,25 @@ async function caricaDocumentiReale(aziendaId, anno) {
   return { giornali, provvisori }
 }
 
-// Il libro giornale copre qualunque mese fino all'ultimo registrato, senza
-// bisogno di un provvisorio per ogni chiusura; il provvisorio del mese resta
-// come alternativa quando il giornale non arriva a quel mese.
-async function caricaReale(aziendaId, anno, mese) {
+// Documenti utilizzabili come reale per il mese: prima i provvisori chiusi a quel mese (come in EasyPMI), poi i
+// libri giornale / prime note che arrivano almeno a quel mese. Il primo e' la scelta predefinita.
+export function documentiPerMese({ giornali, provvisori }, mese) {
+  return [
+    ...provvisori.filter((d) => Number(d.mese_fine) === Number(mese)).map((d) => ({ ...d, genere: 'provvisorio' })),
+    ...giornali.filter((g) => g.ultimoMese >= mese).map((g) => ({ ...g, genere: 'giornale' })),
+  ]
+}
+
+// docId: documento scelto nella pagina; senza scelta vale il primo di documentiPerMese.
+async function caricaReale(aziendaId, anno, mese, docId) {
   const { giornali, provvisori } = await caricaDocumentiReale(aziendaId, anno)
-  const giornale = giornali.find((g) => g.ultimoMese >= mese)
-  if (giornale) {
+  const disponibili = documentiPerMese({ giornali, provvisori }, mese)
+  const doc = disponibili.find((d) => d.id === docId) || disponibili[0]
+  if (doc?.genere === 'provvisorio') return { datiReali: JSON.parse(doc.dati_estratti), fonte: `provvisorio «${doc.nome_file}» a fine ${MESI[mese - 1].toLowerCase()}` }
+  if (doc) {
     const ctx = await caricaContesto(aziendaId)
-    return { datiReali: realeDaGiornale(giornale.dati, mese, ctx), fonte: `libro giornale «${giornale.nome_file}», movimenti da gennaio a fine ${MESI[mese - 1].toLowerCase()}` }
+    return { datiReali: realeDaGiornale(doc.dati, mese, ctx), fonte: `libro giornale «${doc.nome_file}», movimenti da gennaio a fine ${MESI[mese - 1].toLowerCase()}` }
   }
-  const provv = provvisori.find((d) => Number(d.mese_fine) === Number(mese))
-  if (provv) return { datiReali: JSON.parse(provv.dati_estratti), fonte: `provvisorio «${provv.nome_file}» a fine ${MESI[mese - 1].toLowerCase()}` }
 
   const nomeMese = MESI[mese - 1].toLowerCase()
   const parti = []
@@ -106,11 +113,11 @@ async function caricaReale(aziendaId, anno, mese) {
 
 // Replica client-side di /scostamento/calcola: budget cumulativo vs reale
 // riclassificato tramite le mappature conti già presenti in Supabase.
-async function calcolaScostamento(aziendaId, anno, mese) {
+async function calcolaScostamento(aziendaId, anno, mese, docId) {
   const { data: budget } = await supabase.from('budget').select('*').eq('azienda_id', aziendaId).eq('anno', anno).eq('stato', 'approvato').maybeSingle()
   if (!budget) throw new Error('Nessun budget approvato trovato per questo anno.')
 
-  const { datiReali, fonte } = await caricaReale(aziendaId, anno, mese)
+  const { datiReali, fonte } = await caricaReale(aziendaId, anno, mese, docId)
 
   const { data: vociBudget } = await supabase.from('budget_voci').select('*').eq('budget_id', budget.id)
   const { data: mappatureAzienda } = await supabase.from('mappature_conti').select('*').eq('azienda_id', aziendaId).eq('globale', false)
@@ -304,14 +311,19 @@ export default function Scostamento() {
   const aziendaId = aziendaAttiva?.id || ''
   const [anno, setAnno] = useState('2026')
   const [mese, setMese] = useState(1)
-  // si parte dall'ultimo mese coperto dal libro giornale o da un provvisorio
+  // documenti dell'anno utilizzabili come reale; si parte dall'ultimo mese coperto
+  const [docReale, setDocReale] = useState({ giornali: [], provvisori: [] })
+  const [docId, setDocId] = useState('')
   useEffect(() => {
     if (!aziendaId || !anno) return
-    caricaDocumentiReale(aziendaId, anno).then(({ giornali, provvisori }) => {
-      const ultimo = Math.max(0, ...giornali.map((g) => g.ultimoMese), ...provvisori.map((d) => Number(d.mese_fine)))
+    caricaDocumentiReale(aziendaId, anno).then((r) => {
+      setDocReale(r)
+      const ultimo = Math.max(0, ...r.giornali.map((g) => g.ultimoMese), ...r.provvisori.map((d) => Number(d.mese_fine)))
       if (ultimo) setMese(ultimo)
     })
   }, [aziendaId, anno])
+  const sceltePerMese = documentiPerMese(docReale, mese)
+  useEffect(() => { setDocId(sceltePerMese[0]?.id || '') }, [mese, docReale])
   const [budgets, setBudgets] = useState([])
   const [voci, setVoci] = useState([])
   const [riepilogo, setRiepilogo] = useState(null)
@@ -344,7 +356,7 @@ export default function Scostamento() {
     setCalcolando(true)
     setErrore('')
     try {
-      const { voci, riepilogo, fonte } = await calcolaScostamento(aziendaId, anno, mese)
+      const { voci, riepilogo, fonte } = await calcolaScostamento(aziendaId, anno, mese, docId)
       setVoci(voci)
       setRiepilogo(riepilogo)
       setFonte(fonte)
@@ -406,6 +418,19 @@ export default function Scostamento() {
                 ))}
               </select>
             </div>
+          </div>
+
+          <div className="form-group" style={{ marginTop: 14, marginBottom: 0 }}>
+            <label className="form-label">Dati reali da</label>
+            <select className="form-control" value={docId} onChange={(e) => setDocId(e.target.value)} disabled={!sceltePerMese.length}>
+              {!sceltePerMese.length && <option value="">Nessun documento per {MESI[mese - 1].toLowerCase()} {anno}</option>}
+              {sceltePerMese.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.genere === 'provvisorio' ? 'Provvisorio' : 'Libro giornale / prima nota'} — {d.nome_file}
+                  {d.genere === 'giornale' ? ` (movimenti fino a ${MESI[d.ultimoMese - 1].toLowerCase()})` : ` (a fine ${MESI[Number(d.mese_fine) - 1].toLowerCase()})`}
+                </option>
+              ))}
+            </select>
           </div>
 
           {budgets.length > 0 && (
