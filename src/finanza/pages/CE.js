@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useApp } from '../../App'
 import { supabase } from '../lib/supabase'
 import { calcolaSpDocumento, TabellaSP } from '../lib/statoPatrimoniale'
-import { trovaMappaturaConto, contiDelGruppo } from '../lib/mappatureConti'
+import { trovaMappaturaConto, contiDelGruppo, datiFinoAlMese } from '../lib/mappatureConti'
 import { proponiAssestamenti, applicaAssestamentiCE } from '../lib/assestamenti'
 import { proposteDaBilancio } from '../lib/bilanciAnalitici/abbina'
 import AssestamentiPeriodo from '../components/AssestamentiPeriodo'
@@ -261,8 +261,8 @@ async function annualiEsercizioPrecedente(aziendaId, anno, ctx) {
 async function calcolaCeDocumento(aziendaId, documentoId, modalita) {
   const { data: doc } = await supabase.from('documenti').select('*').eq('id', documentoId).single()
   if (!doc || !doc.dati_estratti) throw new Error('Documento non trovato o non elaborato')
-  const dati = JSON.parse(doc.dati_estratti)
   const meseFine = doc.mese_fine || 12
+  const dati = TIPI_LIBRO_GIORNALE.includes(doc.tipo_documento) ? datiFinoAlMese(JSON.parse(doc.dati_estratti), meseFine) : JSON.parse(doc.dati_estratti)
 
   const ctx = await caricaContesto(aziendaId)
   const aggregatoGiornale = processaDocumento(dati, meseFine, modalita, ctx)

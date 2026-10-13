@@ -60,3 +60,22 @@ export function tipoControparte(conto, descrizione, mappatureAzienda, mappatureG
   if (m.codice_cee === 'PAS_D_7') return 'fornitore'
   return null
 }
+
+// Libro giornale / prima nota fino a fine mese: il documento puo' contenere anche registrazioni dei mesi
+// successivi (es. stampa fatta a ottobre, documento "a fine agosto"). Si tolgono dai saldi i movimenti dopo il
+// mese, cosi' Conto economico e Stato patrimoniale sono quelli a fine mese.
+export function datiFinoAlMese(dati, meseFine) {
+  if (!dati?.gruppi || !meseFine || meseFine >= 12) return dati
+  const dopo = (mensile) => Object.entries(mensile || {}).filter(([m]) => Number(m) > meseFine).reduce((s, [, v]) => s + (v || 0), 0)
+  const fino = (mensile) => Object.fromEntries(Object.entries(mensile || {}).filter(([m]) => Number(m) <= meseFine))
+  const r2 = (n) => Math.round(n * 100) / 100
+  return {
+    ...dati,
+    gruppi: dati.gruppi.map((g) => ({
+      ...g,
+      importo: r2((g.importo || 0) - dopo(g.mensile)),
+      mensile: fino(g.mensile),
+      conti: (g.conti || []).map((c) => ({ ...c, valore: r2((c.valore || 0) - dopo(c.mensile)), mensile: fino(c.mensile) })),
+    })),
+  }
+}
