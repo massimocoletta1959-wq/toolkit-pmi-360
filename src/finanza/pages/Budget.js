@@ -504,8 +504,16 @@ export default function Budget() {
 
   const toggleIva = async (voce) => {
     const { error } = await supabase.from('budget_voci').update({ soggetto_iva: !voce.soggetto_iva }).eq('id', voce.id)
-    if (error) setErrore(error.message)
-    else setVoci(voci.map((v) => (v.id === voce.id ? { ...v, soggetto_iva: !v.soggetto_iva } : v)))
+    if (error) { setErrore(error.message); return }
+    setVoci(voci.map((v) => (v.id === voce.id ? { ...v, soggetto_iva: !v.soggetto_iva } : v)))
+    // la scelta si ricorda per l'azienda: i prossimi budget "Dai valori effettivi" usano lo stesso flag per la voce
+    const { data: imp } = await supabase.from('budget_impostazioni').select('impostazioni').eq('azienda_id', aziendaId).maybeSingle()
+    const impostazioni = imp?.impostazioni || {}
+    await supabase.from('budget_impostazioni').upsert({
+      azienda_id: aziendaId,
+      impostazioni: { ...impostazioni, ivaVoci: { ...(impostazioni.ivaVoci || {}), [voce.descrizione]: !voce.soggetto_iva } },
+      aggiornato_il: new Date().toISOString(),
+    })
   }
 
   const aggiornaVoce = async (voce, campo, valoreRaw) => {
@@ -696,7 +704,8 @@ export default function Budget() {
       )}
 
       {modalitaGenerazione === 'effettivi' && !budgetSel && aziendaId && (
-        <BudgetConsuntivo aziendaId={aziendaId} budgets={budgets} onSalvato={() => caricaBudgets(aziendaId)} />
+        <BudgetConsuntivo aziendaId={aziendaId} budgets={budgets} onSalvato={() => caricaBudgets(aziendaId)}
+          ivaPredefinita={(categoria, descrizione) => (categoria === 'ricavi' ? ricavoSoggettoIva(descrizione) : !isEsenteIva(descrizione))} />
       )}
 
       {budgetSel && (

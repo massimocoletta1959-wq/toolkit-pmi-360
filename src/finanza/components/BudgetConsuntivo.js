@@ -14,7 +14,7 @@ const CHIAVI = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', '
 const cella = { textAlign: 'right', whiteSpace: 'nowrap', padding: '6px 8px' }
 const prima = { position: 'sticky', left: 0, background: '#fff', zIndex: 1, minWidth: 250, maxWidth: 320, padding: '6px 10px' }
 
-export default function BudgetConsuntivo({ aziendaId, budgets, onSalvato }) {
+export default function BudgetConsuntivo({ aziendaId, budgets, onSalvato, ivaPredefinita = () => true }) {
   const [stato, setStato] = useState({ caricando: true })
   const [impostazioni, setImpostazioni] = useState({})
   const [aperte, setAperte] = useState({})
@@ -75,7 +75,10 @@ export default function BudgetConsuntivo({ aziendaId, budgets, onSalvato }) {
       const id = crypto.randomUUID()
       const { error: e1 } = await supabase.from('budget').insert({ id, azienda_id: aziendaId, anno: String(anno), stato: 'bozza', note: `Dai valori effettivi (ultimo mese chiuso ${etichettaMese(risultato.ultimoMeseChiuso)})`, creato_il: new Date().toISOString() })
       if (e1) throw new Error(e1.message)
-      const righe = vociBudgetAnno(risultato, anno).map((r) => ({ id: crypto.randomUUID(), budget_id: id, soggetto_iva: true, ...r }))
+      // flag IVA: quello scelto per la voce nei budget precedenti dell'azienda (ivaVoci), altrimenti il predefinito
+      const ivaVoci = impostazioni.ivaVoci || {}
+      const righe = vociBudgetAnno(risultato, anno).map((r) => ({ id: crypto.randomUUID(), budget_id: id, ...r,
+        soggetto_iva: ivaVoci[r.descrizione] ?? ivaPredefinita(r.categoria, r.descrizione) }))
       const { error: e2 } = await supabase.from('budget_voci').insert(righe)
       if (e2) throw new Error(e2.message)
       setMessaggio({ tipo: 'success', testo: `Budget ${anno} salvato (${righe.length} voci). Lo trovi nell'elenco dei budget qui sopra.` })
