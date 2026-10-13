@@ -42,7 +42,7 @@ export function contiDelGruppo(g) {
 // false se e' un gruppo ("06/05/G", "14/C"): distingue le eccezioni per conto
 // dalle mappature di gruppo dentro mappature_conti.
 // (anche i codici solo numerici mastro/conto/sottoconto, es. Seasoft "9/5/494"; il gruppo e' "9/5")
-export const eCodiceConto = (codice) => /^\d{2}\/\d{2}\/\d{3}\/[GFC]$|^\d{2}\/\d{5}\/[GFC]$|^\d{1,3}\/\d{1,3}\/\d{1,6}$/.test(codice || '')
+export const eCodiceConto = (codice) => /^\d{2}\/\d{2}\/\d{3}\/[GFC]$|^\d{2}\/\d{5}\/[GFC]$|^\d{1,3}\/\d{1,4}\/\d{1,6}$/.test(codice || '')
 
 // Clienti e fornitori per i tempi medi (DSO/DPO) e le partite aperte. TeamSystem li distingue nel codice
 // ("/C", "/F"); per gli altri programmi (es. Seasoft "9/5/494") vale la Riclassificazione del gruppo: crediti

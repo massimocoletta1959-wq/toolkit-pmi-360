@@ -668,7 +668,9 @@ export default function Documenti() {
                     </div>
                   </div>
                 </div>
-                {dettaglio.diagnostica?.checkpointKo > 0 || dettaglio.diagnostica?.verificaKo > 0 ? (
+                {dettaglio.diagnostica?.avviso ? (
+                  <div className="alert alert-warning" style={{ marginBottom: 16 }}>⚠️ {dettaglio.diagnostica.avviso}</div>
+                ) : dettaglio.diagnostica?.checkpointKo > 0 || dettaglio.diagnostica?.verificaKo > 0 ? (
                   <div className="alert alert-error" style={{ marginBottom: 16 }}>
                     ⚠️ Alcuni controlli di quadratura non tornano — i saldi potrebbero non essere accurati per tutti i conti. Verifica il documento originale prima di usare questi dati.
                   </div>

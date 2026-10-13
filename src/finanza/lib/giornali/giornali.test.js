@@ -87,3 +87,51 @@ test('RiBa: il cliente incassa alla scadenza della ricevuta, non alla sua emissi
   expect(m.find((x) => x.conto === '9/5/243').dataEffettiva).toBe('31/03/2025')
   expect(m.find((x) => x.conto === '11/5/3').dataEffettiva).toBeUndefined()
 })
+
+// estratto di "Stampa Lista Prima Nota" da AS/400 (filtrata per utente: manca l'incasso del cliente)
+const AS400 = [
+  'CGH5PFR                         Stampa Lista Prima Nota                         Pag.     1',
+  'Data Reg. Protoc. Num. Mov.    Cau   N. Documento   Data Doc. Val.    Fil. Pr. Utente    Bl. P/E',
+  'Conto Cont. Codice Descrizione           Imp.Div.Richiesta Imp.Div.Originale      Imponibile     D Al Desc. Aggiuntiva    Dt. Scad.',
+  ' 1/01/25            1       1  300                    1/01/25   EUR    01    ASAPCOLETT    B   E',
+  '130303000001        UNICREDIT 6608312          1.000,00          1.000,00 D                 APERTURA CONTI        1/01/25',
+  '310202000001        Capitale Sociale           1.000,00          1.000,00 A                 APERTURA CONTI        1/01/25',
+  'Totali al  1/01/25 Num.      1 Totale Dare    1.000,00 Totale Avere    1.000,00  Squadr.',
+  '10/04/25           24     616  020          125    10/04/25   EUR    01    ASAPCOLETT    B   E',
+  '110101000000 000071 OFFICINE MECCANICHE        1.220,00          1.220,00 D                 FATT. 125            10/05/25',
+  '500101000001        Ricavi di spedizione       1.000,00          1.000,00 A                 FATT. 125            10/04/25',
+  '090303000002        I.V.A. su vendite            220,00            220,00 A        1.000,00 22 FATT. 125         10/04/25',
+  'Totali al 10/04/25 Num.      1 Totale Dare    1.220,00 Totale Avere    1.220,00  Squadr.',
+  '31/12/25          900     866  300                    31/12/25   EUR    01    ASAPCOLETT    B   E',
+  '500101000001        Ricavi di spedizione       1.000,00          1.000,00 D                 CHIUSURA 2025 ECON.  31/12/25',
+  '310202000100        Utile   d\'esercizio        1.000,00          1.000,00 A                 CHIUSURA 2025 ECON.  31/12/25',
+  '31/12/25          901     867  300                    31/12/25   EUR    01    ASAPCOLETT    B   E',
+  '130303000001        UNICREDIT 6608312          2.220,00          2.220,00 A                 CHIUS. STATO Patr.   31/12/25',
+  '310202000001        Capitale Sociale           1.000,00          1.000,00 D                 CHIUS. STATO Patr.   31/12/25',
+  '310202000100        Utile   d\'esercizio        1.000,00          1.000,00 D                 CHIUS. STATO Patr.   31/12/25',
+  '090303000002        I.V.A. su vendite            220,00            220,00 D                 CHIUS. STATO Patr.   31/12/25',
+  'Totali al 31/12/25 Num.      2 Totale Dare    3.220,00 Totale Avere    3.220,00  Squadr.',
+  'Conto        Descr.                                   Importo Dare      Importo Avere',
+  '500101000001 Ricavi di spedizione aerea                 1.000,00           1.000,00',
+]
+
+test('AS/400 Lista Prima Nota: saldi dalla chiusura, conti cliente col codice soggetto, stampa parziale segnalata', () => {
+  expect(riconosciLettore(AS400).id).toBe('as400')
+  const r = leggiGiornale(AS400)
+  expect(r.diagnostica).toMatchObject({ formato: 'as400', testate: 4, registrazioniNonBilanciate: 0, checkpointOk: 3, checkpointKo: 0 })
+  expect(r.saldi['13/0303/000001']).toBeCloseTo(2220, 2)            // dalla chiusura, anche senza l'incasso stampato
+  expect(r.saldi['11/0101/000071']).toBeUndefined()                  // non chiuso: saldo zero a fine anno
+  expect(r.saldi['50/0101/000001']).toBeCloseTo(-1000, 2)
+  expect(r.saldi['31/0202/000100']).toBeUndefined()                  // il risultato resta nei costi e ricavi
+  expect(Object.values(r.saldi).reduce((a, b) => a + b, 0)).toBeCloseTo(0, 2)
+  expect(r.movimentiMensili[4]['11/0101/000071']).toBeCloseTo(1220, 2)
+  expect(r.descrizioni['11/0101/000071']).toBe('OFFICINE MECCANICHE')
+  expect(r.descrizioni['50/0101/000001']).toBe('Ricavi di spedizione aerea')
+  expect(r.diagnostica.verificaKo).toBe(2)                           // banca e cliente: movimenti mancanti
+  expect(r.diagnostica.avviso).toMatch(/filtrata/)
+  expect(gruppoDiConto('11/0101/000071')).toBe('11/0101')
+  expect(eCodiceConto('11/0101/000071')).toBe(true)
+  const m = leggiMovimentiGiornale(AS400)
+  expect(m.find((x) => x.conto === '11/0101/000071')).toMatchObject({ dtDoc: '10/04/2025', nDoc: '125', chiudeSegmento: false })
+  expect(m[0].eApertura).toBe(true)
+})

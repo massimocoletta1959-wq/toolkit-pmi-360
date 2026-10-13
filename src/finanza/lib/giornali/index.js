@@ -5,6 +5,7 @@
 // Per aggiungere un programma: un file in questa cartella con riconosci / leggiSaldi / leggiMovimenti, e una voce qui.
 import { parseLibroGiornale, estraiMovimenti } from '../libroGiornale'
 import { eGiornaleSeasoft, parseGiornaleSeasoft, estraiMovimentiSeasoft } from './seasoft'
+import { eListaPrimaNotaAs400, parseListaPrimaNotaAs400, estraiMovimentiAs400 } from './as400'
 
 export const LETTORI = [
   {
@@ -20,6 +21,13 @@ export const LETTORI = [
     riconosci: eGiornaleSeasoft,
     leggiSaldi: parseGiornaleSeasoft,
     leggiMovimenti: estraiMovimentiSeasoft,
+  },
+  {
+    id: 'as400',
+    nome: 'AS/400 (Stampa Lista Prima Nota)',
+    riconosci: eListaPrimaNotaAs400,
+    leggiSaldi: parseListaPrimaNotaAs400,
+    leggiMovimenti: estraiMovimentiAs400,
   },
 ]
 

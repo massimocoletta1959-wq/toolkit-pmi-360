@@ -1,0 +1,220 @@
+// Lista Prima Nota stampata da gestionali su IBM AS/400 ("Stampa Lista Prima Nota", es. Asap Logistics):
+//
+//   Data Reg. Protoc. Num. Mov.    Cau   N. Documento   Data Doc. Val.    Fil. Pr. Utente    Bl. P/E
+//   Conto Cont. Codice Descrizione           Imp.Div.Richiesta Imp.Div.Originale      Imponibile     D Al Desc. Aggiuntiva    Dt. Scad.
+//   10/01/25           24     616  025               9    3/01/25   EUR    01    ASAPCOLETT    B   E
+//   440101000000 000097 Studio Coletta Comme       2.664,48          2.664,48 D                 STUDIO COLETTA        3/01/25
+//   130303000001        UNICREDIT 6608312          2.245,48          2.245,48 A                 STUDIO COLETTA       16/12/24
+//   Totali al 10/01/25 Num.      4 Totale Dare    3.901,21 Totale Avere    3.901,21  Squadr.
+//
+// Codice conto di 12 cifre: gruppo (2) + sottogruppo (4) + conto (6); clienti e fornitori hanno il conto a zero
+// e il codice del soggetto accanto ("440101000000 000097"). Il conto diventa "44/0101/000097" e il gruppo
+// "44/0101", come per gli altri codici numerici (vedi gruppoDiConto). Le righe IVA riportano anche l'imponibile.
+// Apertura e chiusura si riconoscono dalla descrizione delle righe ("APERTURA CONTI"; "CHIUSURA ... ECON.",
+// "CHIUS. STATO Patr."; "g/c utile" e "comp.chiusura" sono invece movimenti normali). In fondo alla stampa c'e' un riepilogo per conto con le descrizioni complete.
+//
+// Attenzione: la stampa puo' essere filtrata per utente ("Utente" nei parametri di lancio) e contenere solo una
+// parte dei movimenti. Per questo, se la stampa contiene le chiusure di fine anno, il saldo dell'anno e' quello di
+// chiusura (sempre completo; zero per i conti che non vengono chiusi); i conti i cui movimenti non tornano con la
+// chiusura sono segnalati in diagnostica.
+// Produce gli stessi dati degli altri lettori (parseLibroGiornale / estraiMovimenti in libroGiornale.js).
+
+const AMT = String.raw`\d{1,3}(?:\.\d{3})*,\d{2}`
+const RE_AMOUNT = new RegExp(AMT, 'g')
+const RE_TESTATA = /^\s*(\d{1,2})\/(\d{2})\/(\d{2})\s+(\d+)\s+(\d+)\s+(\d{3})\b(.*)$/
+const RE_RIGA = new RegExp(String.raw`^\s*(\d{12})(?:\s+(\d{6}))?\s+(.*?)\s+(${AMT})\s+(${AMT})\s+([DA])(?:\s+(.*))?$`)
+const RE_TOTALI = new RegExp(String.raw`Totali al\s+(\d{1,2}/\d{2}/\d{2}).*Totale Dare\s+(${AMT}).*Totale Avere\s+(${AMT})`)
+const RE_RIEPILOGO = /^\s*Conto\s+Descr\.\s+Importo Dare\s+Importo Avere/
+const RE_RIGA_RIEPILOGO = new RegExp(String.raw`^\s*(\d{12})\s+(.+?)\s+(${AMT})\s+(${AMT})\s*$`)
+const RE_DATA_FINALE = /\s(\d{1,2}\/\d{2}\/\d{2})\s*$/
+
+const round2 = (n) => Math.round(n * 100) / 100
+const parseNum = (s) => parseFloat(s.replace(/\./g, '').replace(',', '.'))
+const dataEstesa = (g, m, a) => `${String(g).padStart(2, '0')}/${m}/20${a}`
+
+export const eListaPrimaNotaAs400 = (righe) =>
+  righe.some((ln) => /Stampa Lista Prima Nota/.test(ln)) && righe.some((ln) => /Conto Cont\./.test(ln) && /Imp\.Div\./.test(ln))
+
+const contoDa = (cod12, soggetto) => {
+  const conto = cod12.slice(6)
+  const finale = /^0+$/.test(conto) && soggetto ? soggetto : conto
+  return `${cod12.slice(0, 2)}/${cod12.slice(2, 6)}/${finale}`
+}
+
+const eDescrApertura = (d) => /APERTURA CONTI/i.test(d || '')
+const eDescrChiusura = (d) => /CHIUSURA.*ECON|CHIUS\.?\s*STATO/i.test(d || '')
+
+// Registrazioni con le loro righe, controlli di quadratura giornalieri e descrizioni complete dal riepilogo
+export function leggiRegistrazioniAs400(righe) {
+  const registrazioni = []
+  const descrizioniComplete = {}
+  let reg = null
+  let nelRiepilogo = false
+  const perGiorno = {} // data -> { dare, avere }
+  let giorniOk = 0
+  const giorniKo = []
+
+  for (const ln of righe) {
+    if (RE_RIEPILOGO.test(ln)) { nelRiepilogo = true; continue }
+    if (nelRiepilogo) {
+      const mr = ln.match(RE_RIGA_RIEPILOGO)
+      if (mr) descrizioniComplete[mr[1]] = mr[2].trim()
+      continue
+    }
+    const mtot = ln.match(RE_TOTALI)
+    if (mtot) {
+      const [g, m, a] = mtot[1].split('/')
+      const chiave = dataEstesa(g, m, a)
+      const calc = perGiorno[chiave] || { dare: 0, avere: 0 }
+      const td = parseNum(mtot[2])
+      const ta = parseNum(mtot[3])
+      if (Math.abs(td - calc.dare) < 0.02 && Math.abs(ta - calc.avere) < 0.02) giorniOk++
+      else giorniKo.push({ data: chiave, atteso: [td, ta], calcolato: [round2(calc.dare), round2(calc.avere)] })
+      continue
+    }
+    const mt = ln.match(RE_TESTATA)
+    if (mt) {
+      const [, g, m, a, protocollo, numero, causale, resto] = mt
+      const doc = resto.match(/^\s*(?:(\S+)\s+)?(\d{1,2}\/\d{2}\/\d{2})\s+EUR\b/)
+      reg = {
+        data: dataEstesa(g, m, a),
+        mese: parseInt(m, 10),
+        protocollo,
+        numero,
+        causale,
+        nDoc: doc && doc[1] && !/^\d{1,2}\/\d{2}\/\d{2}$/.test(doc[1]) ? doc[1] : null,
+        dtDoc: doc ? (() => { const [dg, dm, da] = doc[2].split('/'); return dataEstesa(dg, dm, da) })() : null,
+        righe: [],
+      }
+      registrazioni.push(reg)
+      continue
+    }
+    const mr = ln.match(RE_RIGA)
+    if (mr && reg) {
+      const [, cod12, soggetto, descrizioneConto, , importoOrig, da, coda = ''] = mr
+      const importo = parseNum(importoOrig)
+      const segno = da === 'D' ? 1 : -1
+      // coda: [imponibile] [aliquota] [descrizione aggiuntiva] [data scadenza]
+      let altro = coda.replace(RE_DATA_FINALE, '').trim()
+      const imp = altro.match(new RegExp(String.raw`^(${AMT})\s+(\d{1,2})?\s*(.*)$`))
+      if (imp) altro = imp[3].trim()
+      const scad = coda.match(RE_DATA_FINALE)
+      reg.righe.push({
+        conto: contoDa(cod12, soggetto),
+        // clienti e fornitori: la descrizione e' il nome del soggetto, non quella del conto riepilogativo
+        codice12: soggetto ? null : cod12,
+        descrizioneConto: descrizioneConto.trim(),
+        descrizioneOperazione: altro,
+        scadenza: scad ? (() => { const [sg, sm, sa] = scad[1].split('/'); return dataEstesa(sg, sm, sa) })() : null,
+        segno,
+        importo,
+      })
+      const pg = perGiorno[reg.data] || (perGiorno[reg.data] = { dare: 0, avere: 0 })
+      if (segno > 0) pg.dare += importo
+      else pg.avere += importo
+    }
+  }
+  // registrazioni di apertura / chiusura: decise dalle descrizioni delle righe
+  for (const r of registrazioni) {
+    r.eApertura = r.righe.length > 0 && r.righe.every((x) => eDescrApertura(x.descrizioneOperazione))
+    r.eChiusura = r.righe.some((x) => eDescrChiusura(x.descrizioneOperazione))
+  }
+  return { registrazioni, descrizioniComplete, controlli: { giorniOk, giorniKo } }
+}
+
+export function parseListaPrimaNotaAs400(righe) {
+  const { registrazioni, descrizioniComplete, controlli } = leggiRegistrazioniAs400(righe)
+  if (!registrazioni.length) throw new Error('Nessuna registrazione trovata nella Lista Prima Nota.')
+  const saldoApertura = {}
+  const saldoMovimenti = {}
+  const saldoChiusura = {}
+  const movimentiPerMese = {}
+  const descrizioni = {}
+  let nMovimenti = 0
+  let nNonBilanciate = 0
+
+  for (const reg of registrazioni) {
+    if (Math.abs(reg.righe.reduce((s, r) => s + r.segno * r.importo, 0)) > 0.02) nNonBilanciate++
+    for (const r of reg.righe) {
+      nMovimenti++
+      if (!(r.conto in descrizioni)) descrizioni[r.conto] = descrizioniComplete[r.codice12] || r.descrizioneConto
+      const v = r.segno * r.importo
+      if (reg.eApertura) saldoApertura[r.conto] = (saldoApertura[r.conto] || 0) + v
+      else if (reg.eChiusura) saldoChiusura[r.conto] = (saldoChiusura[r.conto] || 0) + v
+      else {
+        saldoMovimenti[r.conto] = (saldoMovimenti[r.conto] || 0) + v
+        if (!movimentiPerMese[reg.mese]) movimentiPerMese[reg.mese] = {}
+        movimentiPerMese[reg.mese][r.conto] = (movimentiPerMese[reg.mese][r.conto] || 0) + v
+      }
+    }
+  }
+
+  const tutti = new Set([...Object.keys(saldoApertura), ...Object.keys(saldoMovimenti), ...Object.keys(saldoChiusura)])
+  let verificaOk = 0
+  const verificaKo = []
+  const saldi = {}
+  const conChiusura = Object.keys(saldoChiusura).length > 0
+  for (const c of tutti) {
+    const calcolato = (saldoApertura[c] || 0) + (saldoMovimenti[c] || 0)
+    if (!conChiusura) { saldi[c] = round2(calcolato); continue }
+    // la chiusura e' sempre completa: e' il saldo dell'anno anche se la stampa non ha tutti i movimenti
+    // (un conto senza riga di chiusura ha saldo zero a fine anno)
+    const finale = -(saldoChiusura[c] || 0)
+    const scarto = calcolato - finale
+    if (Math.abs(scarto) < 0.02) verificaOk++
+    else verificaKo.push({ conto: c, descrizione: descrizioni[c] || '', scarto: round2(scarto) })
+    if (Math.abs(finale) >= 0.005) saldi[c] = round2(finale)
+  }
+  const movimentiMensili = {}
+  for (const [mese, perConto] of Object.entries(movimentiPerMese)) {
+    movimentiMensili[mese] = {}
+    for (const [c, v] of Object.entries(perConto)) movimentiMensili[mese][c] = round2(v)
+  }
+  const stampaParziale = verificaKo.length > 0
+
+  return {
+    saldi,
+    movimentiMensili,
+    descrizioni,
+    diagnostica: {
+      formato: 'as400',
+      testate: registrazioni.length,
+      movimenti: nMovimenti,
+      registrazioniNonBilanciate: nNonBilanciate,
+      checkpointOk: controlli.giorniOk,
+      checkpointKo: controlli.giorniKo.length,
+      verificaOk,
+      verificaKo: verificaKo.length,
+      dettaglioVerificaKo: verificaKo.slice(0, 20),
+      saldiDaChiusura: conChiusura,
+      ...(stampaParziale
+        ? { avviso: `Per ${verificaKo.length} conti i movimenti stampati non tornano con la chiusura: la Lista Prima Nota sembra filtrata (es. per utente). I saldi dell'anno sono presi dalla chiusura e sono corretti, ma i movimenti mensili sono incompleti: ristampa la lista senza filtri per avere anche i mesi.` }
+        : {}),
+    },
+  }
+}
+
+// Stessa uscita di estraiMovimenti: un movimento per riga; ogni registrazione e' un segmento bilanciato
+export function estraiMovimentiAs400(righe) {
+  const { registrazioni, descrizioniComplete } = leggiRegistrazioniAs400(righe)
+  const movimenti = []
+  for (const reg of registrazioni) {
+    reg.righe.forEach((r, i) => {
+      movimenti.push({
+        data: reg.data,
+        mese: reg.mese,
+        conto: r.conto,
+        descrizione: descrizioniComplete[r.codice12] || r.descrizioneConto,
+        segno: r.segno,
+        importo: r.importo,
+        chiave: `${reg.causale} ${r.descrizioneOperazione}`.trim(),
+        eApertura: reg.eApertura,
+        eChiusura: reg.eChiusura,
+        chiudeSegmento: i === reg.righe.length - 1,
+        nDoc: reg.nDoc,
+        dtDoc: reg.dtDoc,
+      })
+    })
+  }
+  return movimenti
+}
