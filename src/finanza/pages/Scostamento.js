@@ -111,6 +111,40 @@ async function caricaReale(aziendaId, anno, mese, docId) {
     : `Nessun dato reale per il ${anno}: carica in Documenti contabili il libro giornale (o una prima nota) dell'anno, oppure crea un provvisorio da Bilancio riclassificato.`)
 }
 
+// Abbinamento conto per conto tra il reale (voci riclassificate con il dettaglio dei conti) e un budget analitico
+// (righe con la descrizione del conto). Le descrizioni dei conti possono essere troncate (es. 20 caratteri nella
+// prima nota): vale prima l'uguaglianza, poi il prefisso tra le righe di budget della stessa categoria non gia'
+// prese da un'uguaglianza; a parita' la riga con budget. Un conto senza riga di budget compare con il suo nome,
+// le stime senza conto (ammortamenti, imposte) con il nome della voce.
+const normDesc = (s) => (s || '').toLowerCase().replace(/&/g, 'e').normalize('NFD').replace(/[^a-z0-9]/g, '')
+export function abbinaPerConto(datiReali, budgetPerVoce) {
+  const reali = {}
+  const aggiungi = (desc, categoria, importo) => {
+    if (!reali[desc]) reali[desc] = { categoria, valore: 0 }
+    reali[desc].valore = round2(reali[desc].valore + importo)
+  }
+  for (const categoria of ['ricavi', 'costi']) {
+    const candidati = Object.entries(budgetPerVoce).filter(([, b]) => b.categoria === categoria).map(([desc, b]) => ({ desc, n: normDesc(desc), valore: b.valore }))
+    const conti = (datiReali[categoria]?.voci || []).flatMap((v) => (v.dettaglio?.length ? v.dettaglio : [{ conto: '', descrizione: v.descrizione, importo: v.importo }]).map((c) => ({ ...c, voce: v.descrizione })))
+    const esatti = new Set(conti.map((c) => candidati.find((b) => b.n === normDesc(c.descrizione))?.desc).filter(Boolean))
+    for (const c of conti) {
+      const importo = Math.abs(c.importo || 0)
+      if (!importo) continue
+      if (!c.conto) { aggiungi(c.voce.trim(), categoria, importo); continue }
+      const n = normDesc(c.descrizione)
+      let scelto = candidati.find((b) => b.n === n)
+      if (!scelto && n.length >= 8) {
+        const simili = candidati.filter((b) => b.n.startsWith(n) || n.startsWith(b.n))
+        const liberi = simili.filter((b) => !esatti.has(b.desc))
+        const tra = liberi.length ? liberi : simili
+        scelto = tra.find((b) => b.valore) || tra[0]
+      }
+      aggiungi(scelto ? scelto.desc : c.descrizione, categoria, importo)
+    }
+  }
+  return reali
+}
+
 // Replica client-side di /scostamento/calcola: budget cumulativo vs reale
 // riclassificato tramite le mappature conti già presenti in Supabase.
 async function calcolaScostamento(aziendaId, anno, mese, docId) {
@@ -139,7 +173,7 @@ async function calcolaScostamento(aziendaId, anno, mese, docId) {
   const budgetPerVoce = {}
   for (const voce of vociBudget || []) {
     const cumulativo = round2(MESI_KEYS.slice(0, mese).reduce((s, m) => s + (voce[m] || 0), 0))
-    budgetPerVoce[voce.descrizione] = { categoria: voce.categoria, valore: cumulativo }
+    budgetPerVoce[voce.descrizione] = { categoria: voce.categoria, valore: Math.abs(cumulativo) }  // costi salvati col segno meno
   }
 
   const realiPerVoce = {}
@@ -161,8 +195,17 @@ async function calcolaScostamento(aziendaId, anno, mese, docId) {
       realiPerVoce[voceBudget].valore += importo
     }
   }
-  aggrega(datiReali.ricavi?.voci, 'Ricavi non classificati', 'ricavi')
-  aggrega(datiReali.costi?.voci, 'Costi non classificati', 'costi')
+  // Budget analitico (una riga per conto, es. generato da un provvisorio con il dettaglio dei conti) e reale
+  // riclassificato con il dettaglio dei conti: il confronto si fa conto per conto (abbinaPerConto), non per voce CEE.
+  const vociBudgetDesc = Object.keys(budgetPerVoce)
+  const budgetAnalitico = vociBudgetDesc.length > 0 && vociBudgetDesc.filter((d) => vociCeeDescrizioni.has(d)).length < vociBudgetDesc.length / 2
+  const conDettaglio = [...(datiReali.ricavi?.voci || []), ...(datiReali.costi?.voci || [])].some((v) => v.dettaglio?.length)
+  if (budgetAnalitico && conDettaglio) {
+    Object.assign(realiPerVoce, abbinaPerConto(datiReali, budgetPerVoce))
+  } else {
+    aggrega(datiReali.ricavi?.voci, 'Ricavi non classificati', 'ricavi')
+    aggrega(datiReali.costi?.voci, 'Costi non classificati', 'costi')
+  }
 
   await supabase.from('scostamenti').delete().eq('budget_id', budget.id).eq('mese', mese)
 
