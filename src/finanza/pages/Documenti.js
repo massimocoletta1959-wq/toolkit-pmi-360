@@ -347,9 +347,12 @@ export default function Documenti() {
 
     const righe = await estraiRigheLibroGiornale(file, (pagina, totale) => setProgresso(`Elaboro pagina ${pagina} di ${totale}...`))
     const { saldi, movimentiMensili, descrizioni, diagnostica } = leggiGiornale(righe)   // lettore scelto in base al programma di contabilità
-    const gruppi = raggruppaPerGruppo(saldi, descrizioni)
-    const mensilePerGruppo = raggruppaMensilePerGruppo(movimentiMensili)
     const mensilePerConto = mensilePerContoDa(movimentiMensili)
+    // anche i conti con movimenti nell'anno ma saldo zero (es. costo stornato pochi mesi dopo): servono i loro
+    // movimenti mensili (Bilancio riclassificato a fine mese, budget dai valori effettivi)
+    const saldiConMovimenti = { ...Object.fromEntries(Object.keys(mensilePerConto).map((c) => [c, 0])), ...saldi }
+    const gruppi = raggruppaPerGruppo(saldiConMovimenti, descrizioni)
+    const mensilePerGruppo = raggruppaMensilePerGruppo(movimentiMensili)
 
     const datiEstratti = {
       tipo_documento: doc.tipo_documento,

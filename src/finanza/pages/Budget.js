@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useApp } from '../../App'
 import { supabase } from '../lib/supabase'
 import { trovaMappaturaConto, contiDelGruppo } from '../lib/mappatureConti'
+import BudgetConsuntivo from '../components/BudgetConsuntivo'
 
 const MESI = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
 const MESI_ESTESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre']
@@ -223,6 +224,7 @@ export default function Budget() {
       setDocumentiOrigine([])
       return
     }
+    if (modalitaGenerazione === 'effettivi') { setDocumentiOrigine([]); return }   // sceglie da solo i libri giornale (BudgetConsuntivo)
     const tipi = modalitaGenerazione === 'stagionale' ? TIPI_LIBRO_GIORNALE : ['previsioni', 'bilancio', 'provvisorio']
     supabase
       .from('documenti')
@@ -639,7 +641,15 @@ export default function Budget() {
               >
                 Stagionale (anno precedente)
               </button>
+              <button
+                className={`btn btn-sm ${modalitaGenerazione === 'effettivi' ? 'btn-primary' : 'btn-outline'}`}
+                onClick={() => { setModalitaGenerazione('effettivi'); setBudgetSel(null); setVoci([]) }}
+                title="Consuntivo dell'anno in corso fino all'ultimo mese chiuso e previsione fino al 31 dicembre dell'anno successivo, dai libri giornale / prime note e dalla Riclassificazione"
+              >
+                Dai valori effettivi (fino al 31/12 dell'anno dopo)
+              </button>
             </div>
+            {modalitaGenerazione !== 'effettivi' && (<>
             <select
               className="form-control"
               style={{ maxWidth: 340 }}
@@ -660,6 +670,7 @@ export default function Budget() {
             <button className="btn btn-outline" onClick={generaBudget} disabled={!aziendaId || !documentoOrigineId || generando}>
               {generando ? 'Generando...' : '🤖 Genera budget'}
             </button>
+            </>)}
           </div>
         </div>
       </div>
@@ -682,6 +693,10 @@ export default function Budget() {
             ))}
           </div>
         </div>
+      )}
+
+      {modalitaGenerazione === 'effettivi' && !budgetSel && aziendaId && (
+        <BudgetConsuntivo aziendaId={aziendaId} budgets={budgets} onSalvato={() => caricaBudgets(aziendaId)} />
       )}
 
       {budgetSel && (
