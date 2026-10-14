@@ -176,3 +176,16 @@ test('mesi oltre dicembre: budget dell\'anno dopo se c\'e\', altrimenti replica 
   expect(con.find((m) => m.anno === 2026 && m.mese === 12)).toMatchObject({ replica: false, costi_operativi: 100 })
   expect(con.find((m) => m.anno === 2027 && m.mese === 8)).toMatchObject({ replica: false, costi_operativi: 200 })
 })
+
+test('imposte: a maggio saldo dell\'anno prima meno acconti + 1° acconto 50%, a novembre 2° acconto 50%', () => {
+  const { versamentiImposte } = require('./tesoreria')
+  // Asap: imposte 2025 = 54.943,15; 2026 = 54.028,42
+  const v = versamentiImposte({ 2025: 54943.15, 2026: 54028.42 }, [2026, 2027])
+  const trova = (a, m) => v.find((x) => x.anno === a && x.mese === m)?.importo
+  expect(trova(2026, 11)).toBeCloseTo(27471.58, 2)                       // 2° acconto 2026 = 50% delle imposte 2025
+  expect(trova(2027, 5)).toBeCloseTo(54028.42 - 54943.15 + 27014.21, 2)   // saldo 2026 (a credito) + 1° acconto 2027
+  expect(trova(2027, 11)).toBeCloseTo(27014.21, 2)
+  // acconti 2025 effettivamente versati (giornale): 13.503 -> saldo 2025 = 41.440,15, + 1° acconto 2026 27.471,58
+  const reali = versamentiImposte({ 2025: 54943.15, 2026: 54028.42 }, [2026], { 2025: 13503 })
+  expect(reali.find((x) => x.mese === 5).importo).toBeCloseTo(41440.15 + 27471.58, 2)
+})

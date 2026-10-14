@@ -81,6 +81,10 @@ export default function BudgetConsuntivo({ aziendaId, budgets, onSalvato, ivaPre
         soggetto_iva: ivaVoci[r.descrizione] ?? ivaPredefinita(r.categoria, r.descrizione) }))
       const { error: e2 } = await supabase.from('budget_voci').insert(righe)
       if (e2) throw new Error(e2.message)
+      // imposte sul reddito annue (anni chiusi e previsione): base di saldo e acconti nel cash flow della Tesoreria
+      const nuove = { ...impostazioni, imposteAnnue: { ...(impostazioni.imposteAnnue || {}), ...risultato.imposteAnnue } }
+      await supabase.from('budget_impostazioni').upsert({ azienda_id: aziendaId, impostazioni: nuove, aggiornato_il: new Date().toISOString() })
+      setImpostazioni(nuove)
       setMessaggio({ tipo: 'success', testo: `Budget ${anno} salvato (${righe.length} voci). Lo trovi nell'elenco dei budget qui sopra.` })
       onSalvato?.(String(anno))
     } catch (e) {
@@ -162,6 +166,7 @@ export default function BudgetConsuntivo({ aziendaId, budgets, onSalvato, ivaPre
             Ricavi: media degli ultimi 12 mesi. Costi variabili ({r.costiVariabiliMacrocategorie.join(', ') || 'nessuno'}): percentuale dei ricavi delle vendite {r.annoCorrente}.
             {' '}Personale: media di 6 mesi esclusi giugno e dicembre, doppia a giugno e dicembre. Costi fissi: ultimo valore. Periodici e annuali: ultimo importo nei mesi del ciclo.
             {' '}Altri: media annua. Ammortamenti e imposte: quota mensile. Valori in grigio = consuntivo.
+            {' '}Imposte sul reddito annue (per saldo e acconti nel cash flow): {Object.entries(r.imposteAnnue).map(([a, v]) => `${a} € ${fmt(v)}`).join(' · ')}.
           </div>
           {r.avvisi.map((a) => <div key={a} className="alert alert-warning" style={{ margin: '8px 0 0' }}>{a}</div>)}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>

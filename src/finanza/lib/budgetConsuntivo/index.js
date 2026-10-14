@@ -246,12 +246,21 @@ export function calcolaBudgetConsuntivo({ documenti, mappatureAzienda = [], mapp
     totali.ebit = { ...totali.ebit, [k]: r2(totali.ebitda[k] - totali.ammortamenti[k]) }
     totali.netto = { ...totali.netto, [k]: r2(totali.ebit[k] - totali.imposte[k]) }
   }
+  // imposte sul reddito annue (base di saldo e acconti nel cash flow): anni chiusi dal giornale, anno in corso e
+  // successivo dal budget (consuntivo + previsione)
+  const imposteAnnue = {}
+  const contiImposte = Object.values(conti).filter((c) => c.tipo === 'costo' && c.natura === 'imposte')
+  for (const { anno } of docs) {
+    if (anno >= annoCorrente) continue
+    imposteAnnue[anno] = r2(somma(contiImposte.flatMap((c) => Array.from({ length: 12 }, (_, m) => val(c.conto, anno * 12 + m)))))
+  }
+  for (const a of [annoCorrente, annoCorrente + 1]) imposteAnnue[a] = r2(somma(mesi.filter((k) => k.startsWith(String(a))).map((k) => totali.imposte[k] || 0)))
   if (nonClassificati) avvisi.push(`${nonClassificati} conti non classificati in Riclassificazione: completa la Riclassificazione, altrimenti restano fuori dal budget.`)
   return {
     annoCorrente, ultimoMeseChiuso: etichetta(ultimo), mesiConsuntivo: consuntivo.map(etichetta), mesiPrevisione: futuri.map(etichetta),
     base: `${etichettaMese(etichetta(finestra[0]))} - ${etichettaMese(etichetta(finestra[11]))}`,
     costiVariabiliMacrocategorie: variabili, macrocategorieCosti: macroCosti.sort(), venditeAnnoInCorso: r2(venditeAnno),
-    ricavi, costiVariabili, costiFissi, ammortamentiImposte: altri, totali, avvisi,
+    ricavi, costiVariabili, costiFissi, ammortamentiImposte: altri, totali, imposteAnnue, avvisi,
   }
 }
 

@@ -398,7 +398,30 @@ const PROB_PROIEZIONE = 60
 // versamento IVA a ogni liquidazione e' il saldo (vendite - acquisti) per
 // competenza, con l'eventuale credito riportato al periodo successivo. Cosi'
 // l'IVA incide sul timing della cassa ma non sul risultato complessivo.
-export function caricaRigheDaBudget(azienda, vociBudget, dsoGiorni, dpoGiorni, anno, meseInizio, investimenti = [], manovreScorte = [], vociBudgetSuccessivo = null) {
+// Versamenti delle imposte sul reddito nell'anno X (regola indicata dall'utente, metodo storico):
+//  - maggio: saldo dell'anno X-1 (imposte X-1 meno gli acconti versati nell'anno X-1, cioe' il 100% delle imposte
+//    X-2) + primo acconto, 50% delle imposte X-1; se il saldo e' a credito riduce l'acconto (compensazione in F24);
+//  - novembre: secondo acconto, 50% delle imposte X-1.
+// imposteAnnue: { anno: imposte dovute per quell'anno } (budget dai valori effettivi); accontiVersati: { anno: acconti
+// effettivamente versati in quell'anno } dal libro giornale (conti Erario c/IRES e c/IRAP - acconti), altrimenti si
+// assume il 100% delle imposte dell'anno prima. Ritorna [{ anno, mese, importo, nota }].
+export function versamentiImposte(imposteAnnue, anniVersamento, accontiVersatiReali = {}) {
+  const T = (a) => (imposteAnnue && imposteAnnue[a] != null ? Number(imposteAnnue[a]) : null)
+  const out = []
+  for (const x of anniVersamento) {
+    const prec = T(x - 1)
+    if (prec == null) continue
+    const accontiVersati = accontiVersatiReali?.[x - 1] != null ? Number(accontiVersatiReali[x - 1]) : T(x - 2) ?? 0
+    const saldo = round2(prec - accontiVersati)
+    const acconto = round2(prec * 0.5)
+    const maggio = round2(Math.max(0, saldo + acconto))
+    out.push({ anno: x, mese: 5, importo: maggio, nota: `Saldo imposte ${x - 1} (${prec.toFixed(0)}€ − acconti versati ${accontiVersati.toFixed(0)}€ = ${saldo.toFixed(0)}€) + 1° acconto ${x} (50% di ${prec.toFixed(0)}€ = ${acconto.toFixed(0)}€)` })
+    out.push({ anno: x, mese: 11, importo: acconto, nota: `2° acconto imposte ${x} (50% delle imposte ${x - 1}: ${prec.toFixed(0)}€)` })
+  }
+  return out.filter((v) => v.importo > 0)
+}
+
+export function caricaRigheDaBudget(azienda, vociBudget, dsoGiorni, dpoGiorni, anno, meseInizio, investimenti = [], manovreScorte = [], vociBudgetSuccessivo = null, imposteAnnueMappa = null) {
   if (!vociBudget || !vociBudget.length) return []
 
   const liquidazione = azienda.liquidazione_iva || 'trimestrale'
@@ -484,7 +507,14 @@ export function caricaRigheDaBudget(azienda, vociBudget, dsoGiorni, dpoGiorni, a
   // Imposte sul reddito: acconti al 30 giugno (50%) e al 30 novembre (50%), calcolati sull'imposta annua a
   // budget (ipotesi: acconti pari all'imposta a budget; il saldo dell'anno precedente non e' noto). Dati certi.
   const imposte = imposteAnnue(vociBudget)
-  if (imposte > 0) {
+  if (imposteAnnueMappa && Object.keys(imposteAnnueMappa).length) {
+    const inFinestra = new Set(mesi.map((mm) => mm.mese_budget))
+    for (const v of versamentiImposte(imposteAnnueMappa, [anno, anno + 1])) {
+      if (!inFinestra.has(v.anno * 100 + v.mese)) continue
+      const giorno = v.mese === 5 ? 31 : 30
+      righe.push({ direzione: 'uscita', categoria: 'imposte', controparte: v.mese === 5 ? 'Erario — saldo e 1° acconto imposte sul reddito' : 'Erario — 2° acconto imposte sul reddito', importo: v.importo, dataFattura: dateUTC(v.anno, v.mese, 1), dataScadenza: dateUTC(v.anno, v.mese, giorno), dataIncassoEffettivo: null, giorniDilazione: 0, giorniRitardo: 0, tipoDato: 'certo', probabilita: PROB_CERTO, note: v.nota, meseBudget: v.anno * 100 + v.mese })
+    }
+  } else if (imposte > 0) {
     const inFinestra = new Set(mesi.map((mm) => mm.mese_budget))
     for (const y of [anno, anno + 1]) {
       for (const [meseAcc, quota] of [[6, 0.5], [11, 0.5]]) {
