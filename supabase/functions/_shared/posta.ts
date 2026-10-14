@@ -1,44 +1,19 @@
-// Invio delle email del portale (con copia nella cartella della posta inviata della casella). Prima dal server di posta del dominio (Aruba, casella assistenza@pmi360.it, firmata
+// Invio delle email del portale. Prima dal server di posta del dominio (Aruba, casella assistenza@pmi360.it, firmata
 // DKIM da Aruba): e' il mittente piu' affidabile per i filtri antispam dei provider italiani. Se Aruba non risponde o
-// manca la password (secret ARUBA_SMTP_PASSWORD), si usa Brevo come riserva.
-import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts'
+// manca la password (secret ARUBA_SMTP_PASSWORD), si usa Brevo come riserva. Dopo l'invio da Aruba una copia va nella
+// cartella della posta inviata, con la funzione separata copia-posta-inviata (IMAP).
+//
+// SMTP e IMAP sono scritti qui in poche righe sopra Deno.connectTls, senza librerie: una libreria SMTP (denomailer)
+// all'avvio a freddo superava il limite di calcolo delle Edge Functions (WORKER_RESOURCE_LIMIT) e gli inviti non
+// partivano (14/10/2026).
 
 const MITTENTE = { name: 'Pmi 360°', email: 'assistenza@pmi360.it' }
 type Destinatario = { email: string; name?: string }
 export type EsitoInvio = { ok: boolean; via: 'aruba' | 'brevo' | null; dettaglio?: string }
 
-const indirizzo = (d: Destinatario) => (d.name ? `"${d.name.replace(/"/g, '')}" <${d.email}>` : d.email)
-
-async function viaAruba(to: Destinatario[], subject: string, html: string): Promise<EsitoInvio> {
-  const password = Deno.env.get('ARUBA_SMTP_PASSWORD')
-  if (!password) return { ok: false, via: 'aruba', dettaglio: 'password SMTP Aruba non configurata' }
-  const client = new SMTPClient({
-    connection: { hostname: 'smtps.aruba.it', port: 465, tls: true, auth: { username: MITTENTE.email, password } },
-  })
-  try {
-    await client.send({ from: indirizzo(MITTENTE), to: to.map(indirizzo), subject, html, content: 'auto' })
-    return { ok: true, via: 'aruba' }
-  } catch (e) {
-    return { ok: false, via: 'aruba', dettaglio: String((e as Error)?.message || e) }
-  } finally {
-    try { await client.close() } catch { /* connessione gia' chiusa */ }
-  }
-}
-
-async function viaBrevo(to: Destinatario[], subject: string, html: string): Promise<EsitoInvio> {
-  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
-    method: 'POST',
-    headers: { 'api-key': Deno.env.get('BREVO_API_KEY') || '', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sender: MITTENTE, to, subject, htmlContent: html }),
-  })
-  const testo = await res.text()
-  return { ok: res.status === 201, via: 'brevo', dettaglio: res.status === 201 ? undefined : `Brevo ${res.status}: ${testo.slice(0, 200)}` }
-}
-
-// ---- copia in "Posta inviata" della casella (IMAP APPEND su imaps.aruba.it) ----
-// L'invio SMTP non salva nulla nella cartella della posta inviata: lo fa questo passaggio, dopo l'invio. Se non
-// riesce l'email e' comunque partita (si registra solo nel log).
-const b64 = (t: string) => { const b = new TextEncoder().encode(t); let s = ''; for (const x of b) s += String.fromCharCode(x); return btoa(s) }
+const enc = new TextEncoder()
+const dec = new TextDecoder()
+const b64 = (t: string) => { let s = ''; for (const x of enc.encode(t)) s += String.fromCharCode(x); return btoa(s) }
 const intestazione = (t: string) => (/^[\x20-\x7e]*$/.test(t) ? t : `=?UTF-8?B?${b64(t)}?=`)
 const conNome = (d: Destinatario) => (d.name ? `${intestazione(d.name.replace(/"/g, ''))} <${d.email}>` : d.email)
 const aCapo = (t: string) => t.replace(/.{1,76}/g, '$&\r\n')
@@ -58,65 +33,139 @@ export function messaggioRfc822(to: Destinatario[], subject: string, html: strin
   ].join('\r\n')
 }
 
-const quota = (t: string) => `"${t.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
-
-export async function copiaInPostaInviata(to: Destinatario[], subject: string, html: string): Promise<{ ok: boolean; cartella?: string; dettaglio?: string }> {
-  const password = Deno.env.get('ARUBA_SMTP_PASSWORD')
-  if (!password) return { ok: false, dettaglio: 'password non configurata' }
-  const conn = await Deno.connectTls({ hostname: 'imaps.aruba.it', port: 993 })
-  const enc = new TextEncoder()
-  const dec = new TextDecoder()
+// connessione TLS con lettura "fino a" una condizione, con limite di tempo
+async function connessione(hostname: string, port: number) {
+  const conn = await Deno.connectTls({ hostname, port })
   let buffer = ''
   const leggiFino = async (fine: (b: string) => boolean) => {
     const pezzo = new Uint8Array(16384)
     const limite = Date.now() + 20000
     while (!fine(buffer)) {
-      if (Date.now() > limite) throw new Error('timeout IMAP')
+      if (Date.now() > limite) throw new Error(`timeout ${hostname}`)
       const n = await conn.read(pezzo)
-      if (n === null) throw new Error('connessione IMAP chiusa')
+      if (n === null) throw new Error(`connessione chiusa da ${hostname}`)
       buffer += dec.decode(pezzo.subarray(0, n))
     }
     const r = buffer; buffer = ''; return r
   }
-  const comando = async (tag: string, testo: string) => {
-    await conn.write(enc.encode(`${tag} ${testo}\r\n`))
-    const r = await leggiFino((b) => new RegExp(`(^|\\r\\n)${tag} (OK|NO|BAD)`).test(b))
-    if (!new RegExp(`(^|\\r\\n)${tag} OK`).test(r)) throw new Error(`${testo.split(' ')[0]}: ${r.split('\r\n').filter(Boolean).pop()}`)
-    return r
-  }
+  const scrivi = (t: string | Uint8Array) => conn.write(typeof t === 'string' ? enc.encode(t) : t)
+  return { conn, leggiFino, scrivi }
+}
+
+// ---- SMTP (smtps.aruba.it:465) ----
+// risposta completa SMTP: ultima riga "NNN " (le righe intermedie sono "NNN-")
+const rispostaSmtp = (b: string) => /(^|\r\n)\d{3} [^\r\n]*\r\n$/.test(b)
+async function viaAruba(to: Destinatario[], raw: string): Promise<EsitoInvio> {
+  const password = Deno.env.get('ARUBA_SMTP_PASSWORD')
+  if (!password) return { ok: false, via: 'aruba', dettaglio: 'password SMTP Aruba non configurata' }
+  let c: Awaited<ReturnType<typeof connessione>> | null = null
   try {
-    await leggiFino((b) => b.includes('\r\n'))
+    c = await connessione('smtps.aruba.it', 465)
+    const passo = async (comando: string | null, attesi: string[]) => {
+      if (comando !== null) await c!.scrivi(comando + '\r\n')
+      const r = await c!.leggiFino(rispostaSmtp)
+      const codice = r.trim().split('\r\n').pop()!.slice(0, 3)
+      if (!attesi.includes(codice)) throw new Error(`${(comando || 'connessione').split(' ')[0]}: ${r.trim().split('\r\n').pop()}`)
+    }
+    await passo(null, ['220'])
+    await passo('EHLO pmi360.it', ['250'])
+    await passo('AUTH PLAIN ' + b64(`\u0000${MITTENTE.email}\u0000${password}`), ['235'])
+    await passo(`MAIL FROM:<${MITTENTE.email}>`, ['250'])
+    for (const d of to) await passo(`RCPT TO:<${d.email}>`, ['250', '251'])
+    await passo('DATA', ['354'])
+    // dot-stuffing: una riga che inizia con "." si raddoppia
+    await c.scrivi(raw.replace(/\r\n\./g, '\r\n..') + '\r\n.\r\n')
+    await passo(null, ['250'])
+    try { await passo('QUIT', ['221']) } catch { /* il server chiude */ }
+    return { ok: true, via: 'aruba' }
+  } catch (e) {
+    return { ok: false, via: 'aruba', dettaglio: String((e as Error)?.message || e) }
+  } finally {
+    try { c?.conn.close() } catch { /* gia' chiusa */ }
+  }
+}
+
+// ---- copia in "Posta inviata" (IMAP APPEND su imaps.aruba.it:993) ----
+const quota = (t: string) => `"${t.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+export async function copiaInPostaInviata(raw: string): Promise<{ ok: boolean; cartella?: string; dettaglio?: string }> {
+  const password = Deno.env.get('ARUBA_SMTP_PASSWORD')
+  if (!password) return { ok: false, dettaglio: 'password non configurata' }
+  let c: Awaited<ReturnType<typeof connessione>> | null = null
+  try {
+    c = await connessione('imaps.aruba.it', 993)
+    const comando = async (tag: string, testo: string) => {
+      await c!.scrivi(`${tag} ${testo}\r\n`)
+      const r = await c!.leggiFino((b) => new RegExp(`(^|\\r\\n)${tag} (OK|NO|BAD)`).test(b))
+      if (!new RegExp(`(^|\\r\\n)${tag} OK`).test(r)) throw new Error(`${testo.split(' ')[0]}: ${r.split('\r\n').filter(Boolean).pop()}`)
+      return r
+    }
+    await c.leggiFino((b) => b.includes('\r\n'))
     await comando('a1', `LOGIN ${quota(MITTENTE.email)} ${quota(password)}`)
     const elenco = await comando('a2', 'LIST "" "*"')
     const cartelle = [...elenco.matchAll(/\* LIST \(([^)]*)\) (?:"[^"]*"|NIL) (?:"((?:[^"\\]|\\.)*)"|(\S+))/g)].map((m) => ({ attributi: m[1], nome: m[2] ?? m[3] }))
-    const inviata = cartelle.find((c) => /\\Sent/i.test(c.attributi)) || cartelle.find((c) => /(^|[./])(Sent|Inviat|Posta inviata)/i.test(c.nome))
-    if (!inviata) throw new Error('cartella della posta inviata non trovata: ' + cartelle.map((c) => c.nome).join(', '))
-    const dati = enc.encode(messaggioRfc822(to, subject, html))
-    await conn.write(enc.encode(`a3 APPEND ${quota(inviata.nome)} (\\Seen) {${dati.length}}\r\n`))
-    const cont = await leggiFino((b) => /(^|\r\n)\+/.test(b) || /(^|\r\n)a3 (NO|BAD)/.test(b))
+    const inviata = cartelle.find((x) => /\\Sent/i.test(x.attributi)) || cartelle.find((x) => /(^|[./])(Sent|Inviat|Posta inviata)/i.test(x.nome))
+    if (!inviata) throw new Error('cartella della posta inviata non trovata: ' + cartelle.map((x) => x.nome).join(', '))
+    const dati = enc.encode(raw)
+    await c.scrivi(`a3 APPEND ${quota(inviata.nome)} (\\Seen) {${dati.length}}\r\n`)
+    const cont = await c.leggiFino((b) => /(^|\r\n)\+/.test(b) || /(^|\r\n)a3 (NO|BAD)/.test(b))
     if (!/(^|\r\n)\+/.test(cont)) throw new Error('APPEND rifiutato: ' + cont.trim())
-    await conn.write(dati)
-    await conn.write(enc.encode('\r\n'))
-    const fine = await leggiFino((b) => /(^|\r\n)a3 (OK|NO|BAD)/.test(b))
+    await c.scrivi(dati)
+    await c.scrivi('\r\n')
+    const fine = await c.leggiFino((b) => /(^|\r\n)a3 (OK|NO|BAD)/.test(b))
     if (!/(^|\r\n)a3 OK/.test(fine)) throw new Error('APPEND: ' + fine.trim())
     try { await comando('a4', 'LOGOUT') } catch { /* il server chiude */ }
     return { ok: true, cartella: inviata.nome }
   } catch (e) {
     return { ok: false, dettaglio: String((e as Error)?.message || e) }
   } finally {
-    try { conn.close() } catch { /* gia' chiusa */ }
+    try { c?.conn.close() } catch { /* gia' chiusa */ }
   }
 }
 
+async function viaBrevo(to: Destinatario[], subject: string, html: string): Promise<EsitoInvio> {
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: { 'api-key': Deno.env.get('BREVO_API_KEY') || '', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sender: MITTENTE, to, subject, htmlContent: html }),
+  })
+  const testo = await res.text()
+  return { ok: res.status === 201, via: 'brevo', dettaglio: res.status === 201 ? undefined : `Brevo ${res.status}: ${testo.slice(0, 200)}` }
+}
+
+// la copia la fa un'altra funzione (con un suo limite di calcolo); se non riesce l'email e' comunque partita
+async function chiediCopia(raw: string) {
+  try {
+    const r = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/copia-posta-inviata`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-chiave-servizio': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '' },
+      body: JSON.stringify({ raw }),
+      signal: AbortSignal.timeout(25000),
+    })
+    console.log('Copia in posta inviata', r.status, (await r.text()).slice(0, 200))
+  } catch (e) {
+    console.log('Copia in posta inviata non riuscita', String(e))
+  }
+}
+
+// Aruba sospende l'invio dalla casella quando vede accessi SMTP/IMAP dai server cloud di Supabase (IP sempre diversi:
+// "accessi sospetti", poi "525 Invio temporaneamente disabilitato", 14/10/2026). Finche' non c'e' un servizio di invio
+// adatto ai server (es. Amazon SES) l'invio da Aruba resta spento: si attiva solo con il secret ARUBA_INVIO_ATTIVO=si.
+const arubaAttivo = () => Deno.env.get('ARUBA_INVIO_ATTIVO') === 'si'
+
 export async function inviaEmail({ to, subject, html }: { to: Destinatario[]; subject: string; html: string }): Promise<EsitoInvio> {
-  const aruba = await viaAruba(to, subject, html)
+  if (!arubaAttivo()) {
+    const brevo = await viaBrevo(to, subject, html)
+    console.log('Invio email', JSON.stringify({ via: 'brevo', ok: brevo.ok, dettaglio: brevo.dettaglio, a: to.map((d) => d.email) }))
+    return brevo
+  }
+  const raw = messaggioRfc822(to, subject, html)
+  const aruba = await viaAruba(to, raw)
   console.log('Invio email', JSON.stringify({ via: 'aruba', ok: aruba.ok, dettaglio: aruba.dettaglio, a: to.map((d) => d.email) }))
   if (aruba.ok) {
-    const copia = await copiaInPostaInviata(to, subject, html).catch((e) => ({ ok: false, dettaglio: String(e) }))
-    console.log('Copia in posta inviata', JSON.stringify(copia))
+    await chiediCopia(raw)
     return aruba
   }
   const brevo = await viaBrevo(to, subject, html)
   console.log('Invio email', JSON.stringify({ via: 'brevo', ok: brevo.ok, dettaglio: brevo.dettaglio, a: to.map((d) => d.email) }))
-  return brevo.ok ? brevo : { ok: false, via: null, dettaglio: `Aruba: ${aruba.dettaglio}; ${brevo.dettaglio}` }
+  return brevo.ok ? { ...brevo, dettaglio: `riserva Brevo, Aruba non riuscito: ${aruba.dettaglio}` } : { ok: false, via: null, dettaglio: `Aruba: ${aruba.dettaglio}; ${brevo.dettaglio}` }
 }
