@@ -390,7 +390,7 @@ export default function Tesoreria() {
       const { data: manovreRighe } = await supabase.from('manovre_scorte').select('*').eq('azienda_id', aziendaId)
       // imposte sul reddito annue salvate dal budget dai valori effettivi: saldo a maggio e acconti (maggio, novembre)
       const { data: impBudget } = await supabase.from('budget_impostazioni').select('impostazioni').eq('azienda_id', aziendaId).maybeSingle()
-      const righeBudget = caricaRigheDaBudget(azienda, vociBudget || [], dso, dpo, annoRiferimento, meseInizioProiezione, invRighe || [], manovreRighe || [], vociBudgetSuccessivo, impBudget?.impostazioni?.imposteAnnue || null)
+      const righeBudget = caricaRigheDaBudget(azienda, vociBudget || [], dso, dpo, annoRiferimento, meseInizioProiezione, invRighe || [], manovreRighe || [], vociBudgetSuccessivo, impBudget?.impostazioni?.imposteAnnue || null, impBudget?.impostazioni?.imposteResidue || null)
 
       const datiAnnoPrec = await caricaAnalisiFlussiAnno(aziendaId, annoRiferimento - 1)
       const storicoMutuo = storicoRateMutuoPerMese(datiCorrenti, datiAnnoPrec)

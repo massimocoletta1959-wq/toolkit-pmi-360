@@ -421,7 +421,7 @@ export function versamentiImposte(imposteAnnue, anniVersamento, accontiVersatiRe
   return out.filter((v) => v.importo > 0)
 }
 
-export function caricaRigheDaBudget(azienda, vociBudget, dsoGiorni, dpoGiorni, anno, meseInizio, investimenti = [], manovreScorte = [], vociBudgetSuccessivo = null, imposteAnnueMappa = null) {
+export function caricaRigheDaBudget(azienda, vociBudget, dsoGiorni, dpoGiorni, anno, meseInizio, investimenti = [], manovreScorte = [], vociBudgetSuccessivo = null, imposteAnnueMappa = null, imposteResidue = null) {
   if (!vociBudget || !vociBudget.length) return []
 
   const liquidazione = azienda.liquidazione_iva || 'trimestrale'
@@ -513,6 +513,13 @@ export function caricaRigheDaBudget(azienda, vociBudget, dsoGiorni, dpoGiorni, a
       if (!inFinestra.has(v.anno * 100 + v.mese)) continue
       const giorno = v.mese === 5 ? 31 : 30
       righe.push({ direzione: 'uscita', categoria: 'imposte', controparte: v.mese === 5 ? 'Erario — saldo e 1° acconto imposte sul reddito' : 'Erario — 2° acconto imposte sul reddito', importo: v.importo, dataFattura: dateUTC(v.anno, v.mese, 1), dataScadenza: dateUTC(v.anno, v.mese, giorno), dataIncassoEffettivo: null, giorniDilazione: 0, giorniRitardo: 0, tipoDato: 'certo', probabilita: PROB_CERTO, note: v.nota, meseBudget: v.anno * 100 + v.mese })
+    }
+    // imposte non ancora versate all'ultimo mese chiuso (es. pagamento a rate): con il primo maggio della finestra,
+    // in una riga a parte da spostare a mano se le rate cadono prima
+    const residuo = imposteResidue ? round2((imposteResidue.saldoResiduo || 0) + (imposteResidue.accontoResiduo || 0)) : 0
+    const maggio = mesi.find((mm) => mm.mese === 5)
+    if (residuo > 0 && maggio) {
+      righe.push({ direzione: 'uscita', categoria: 'imposte', controparte: 'Erario — imposte arretrate da versare', importo: residuo, dataFattura: dateUTC(maggio.anno, 5, 1), dataScadenza: dateUTC(maggio.anno, 5, 31), dataIncassoEffettivo: null, giorniDilazione: 0, giorniRitardo: 0, tipoDato: 'certo', probabilita: PROB_CERTO, note: `Ancora da versare al ${imposteResidue.alMese}: saldo ${imposteResidue.anno - 1} ${(imposteResidue.saldoResiduo || 0).toFixed(0)}€ + 1° acconto ${imposteResidue.anno} non versato ${(imposteResidue.accontoResiduo || 0).toFixed(0)}€ (messi a maggio: spostare se le rate cadono prima)`, meseBudget: maggio.anno * 100 + 5 })
     }
   } else if (imposte > 0) {
     const inFinestra = new Set(mesi.map((mm) => mm.mese_budget))

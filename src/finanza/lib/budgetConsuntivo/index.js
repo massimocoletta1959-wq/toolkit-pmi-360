@@ -255,12 +255,27 @@ export function calcolaBudgetConsuntivo({ documenti, mappatureAzienda = [], mapp
     imposteAnnue[anno] = r2(somma(contiImposte.flatMap((c) => Array.from({ length: 12 }, (_, m) => val(c.conto, anno * 12 + m)))))
   }
   for (const a of [annoCorrente, annoCorrente + 1]) imposteAnnue[a] = r2(somma(mesi.filter((k) => k.startsWith(String(a))).map((k) => totali.imposte[k] || 0)))
+
+  // imposte dell'anno in corso ancora da versare all'ultimo mese chiuso (es. pagamento a rate): debito residuo dei
+  // conti Erario c/IRES e c/IRAP (saldo dell'anno prima) e parte non versata del 1° acconto (50% delle imposte
+  // dell'anno prima meno quanto gia' versato sui conti degli acconti). Nel cash flow vanno con il versamento di maggio.
+  const docCorrente = docs[docs.length - 1].dati
+  const meseChiuso = completi[annoCorrente]
+  const contiErario = (docCorrente?.gruppi || []).flatMap((g) => contiDelGruppo(g)).filter((c) => /ERARIO/i.test(c.descrizione || '') && /IRES|IRAP/i.test(c.descrizione || ''))
+  const dopo = (c) => somma(Object.entries(c.mensile || {}).filter(([m]) => Number(m) > meseChiuso).map(([, v]) => v || 0))
+  const debitoSaldo = r2(Math.max(0, -somma(contiErario.filter((c) => !/ACC/i.test(c.descrizione)).map((c) => (c.valore || 0) - dopo(c)))))
+  const accontiVersatiAnno = r2(somma(contiErario.filter((c) => /ACC/i.test(c.descrizione)).flatMap((c) => Object.entries(c.mensile || {}).filter(([m, v]) => Number(m) <= meseChiuso && v > 0).map(([, v]) => v))))
+  const accontoDovuto = imposteAnnue[annoCorrente - 1] != null ? r2(imposteAnnue[annoCorrente - 1] * 0.5) : null
+  const imposteResidue = contiErario.length ? {
+    anno: annoCorrente, alMese: etichetta(ultimo), saldoResiduo: debitoSaldo,
+    accontoVersato: accontiVersatiAnno, accontoResiduo: accontoDovuto != null ? r2(Math.max(0, accontoDovuto - accontiVersatiAnno)) : 0,
+  } : null
   if (nonClassificati) avvisi.push(`${nonClassificati} conti non classificati in Riclassificazione: completa la Riclassificazione, altrimenti restano fuori dal budget.`)
   return {
     annoCorrente, ultimoMeseChiuso: etichetta(ultimo), mesiConsuntivo: consuntivo.map(etichetta), mesiPrevisione: futuri.map(etichetta),
     base: `${etichettaMese(etichetta(finestra[0]))} - ${etichettaMese(etichetta(finestra[11]))}`,
     costiVariabiliMacrocategorie: variabili, macrocategorieCosti: macroCosti.sort(), venditeAnnoInCorso: r2(venditeAnno),
-    ricavi, costiVariabili, costiFissi, ammortamentiImposte: altri, totali, imposteAnnue, avvisi,
+    ricavi, costiVariabili, costiFissi, ammortamentiImposte: altri, totali, imposteAnnue, imposteResidue, avvisi,
   }
 }
 
