@@ -48,7 +48,8 @@ async function hmac(chiave: ArrayBuffer | Uint8Array, s: string): Promise<ArrayB
 
 // Firma AWS Signature V4 per una POST JSON a Bedrock. Per i servizi diversi da S3 il percorso canonico ha ogni
 // segmento codificato due volte (l'id del modello contiene ':' -> '%3A' nell'URL -> '%253A' nella firma).
-export async function firmaSigV4(p: { url: string; body: string; regione: string; accessKeyId: string; secretAccessKey: string; adesso?: Date }) {
+export async function firmaSigV4(p: { url: string; body: string; regione: string; accessKeyId: string; secretAccessKey: string; adesso?: Date; servizio?: string }) {
+  const servizio = p.servizio || 'bedrock'
   const u = new URL(p.url)
   const amzDate = (p.adesso || new Date()).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
   const giorno = amzDate.slice(0, 8)
@@ -56,11 +57,11 @@ export async function firmaSigV4(p: { url: string; body: string; regione: string
   const intestazioni = `content-type:application/json\nhost:${u.host}\nx-amz-date:${amzDate}\n`
   const firmate = 'content-type;host;x-amz-date'
   const richiesta = ['POST', percorso, '', intestazioni, firmate, await sha256(p.body)].join('\n')
-  const ambito = `${giorno}/${p.regione}/bedrock/aws4_request`
+  const ambito = `${giorno}/${p.regione}/${servizio}/aws4_request`
   const daFirmare = ['AWS4-HMAC-SHA256', amzDate, ambito, await sha256(richiesta)].join('\n')
   let k = await hmac(enc.encode(`AWS4${p.secretAccessKey}`), giorno)
   k = await hmac(k, p.regione)
-  k = await hmac(k, 'bedrock')
+  k = await hmac(k, servizio)
   k = await hmac(k, 'aws4_request')
   const firma = hex(await hmac(k, daFirmare))
   return {

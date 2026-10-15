@@ -1,15 +1,15 @@
-// Invio delle email del portale. Prima dal server di posta del dominio (Aruba, casella assistenza@pmi360.it, firmata
-// DKIM da Aruba): e' il mittente piu' affidabile per i filtri antispam dei provider italiani. Se Aruba non risponde o
-// manca la password (secret ARUBA_SMTP_PASSWORD), si usa Brevo come riserva. Dopo l'invio da Aruba una copia va nella
-// cartella della posta inviata, con la funzione separata copia-posta-inviata (IMAP).
+// Invio delle email del portale (`inviaEmail`): Amazon SES a Francoforte (dominio pmi360.it verificato, DKIM e MAIL FROM
+// mail.pmi360.it), con Brevo di riserva. SES arriva anche ai provider (es. MC-link) che trattengono le email di Brevo.
 //
-// SMTP e IMAP sono scritti qui in poche righe sopra Deno.connectTls, senza librerie: una libreria SMTP (denomailer)
-// all'avvio a freddo superava il limite di calcolo delle Edge Functions (WORKER_RESOURCE_LIMIT) e gli inviti non
-// partivano (14/10/2026).
+// Rimane, spento, l'invio dalla casella Aruba assistenza@pmi360.it (SMTP/IMAP scritti sopra Deno.connectTls, con copia
+// in Posta inviata dalla funzione copia-posta-inviata): Aruba sospende la casella per gli accessi dai server cloud
+// (14/10/2026). Si riattiva solo con il secret ARUBA_INVIO_ATTIVO=si.
+
+import { firmaSigV4 } from './claude.ts'
 
 const MITTENTE = { name: 'Pmi 360°', email: 'assistenza@pmi360.it' }
 type Destinatario = { email: string; name?: string }
-export type EsitoInvio = { ok: boolean; via: 'aruba' | 'brevo' | null; dettaglio?: string }
+export type EsitoInvio = { ok: boolean; via: 'ses' | 'aruba' | 'brevo' | null; dettaglio?: string }
 
 const enc = new TextEncoder()
 const dec = new TextDecoder()
@@ -132,6 +132,29 @@ async function viaBrevo(to: Destinatario[], subject: string, html: string): Prom
   return { ok: res.status === 201, via: 'brevo', dettaglio: res.status === 201 ? undefined : `Brevo ${res.status}: ${testo.slice(0, 200)}` }
 }
 
+// ---- Amazon SES (eu-central-1), dominio pmi360.it verificato con DKIM e MAIL FROM mail.pmi360.it ----
+// Stesse chiavi dell'utente IAM del portale usate per Bedrock (secret BEDROCK_ACCESS_KEY_ID / _SECRET_ACCESS_KEY).
+async function viaSes(to: Destinatario[], subject: string, html: string): Promise<EsitoInvio> {
+  const accessKeyId = Deno.env.get('SES_ACCESS_KEY_ID') || Deno.env.get('BEDROCK_ACCESS_KEY_ID')
+  const secretAccessKey = Deno.env.get('SES_SECRET_ACCESS_KEY') || Deno.env.get('BEDROCK_SECRET_ACCESS_KEY')
+  if (!accessKeyId || !secretAccessKey) return { ok: false, via: 'ses', dettaglio: 'chiavi AWS non configurate' }
+  const regione = Deno.env.get('SES_REGIONE') || 'eu-central-1'
+  const url = `https://email.${regione}.amazonaws.com/v2/email/outbound-emails`
+  const body = JSON.stringify({
+    FromEmailAddress: conNome(MITTENTE),
+    Destination: { ToAddresses: to.map(conNome) },
+    Content: { Simple: { Subject: { Data: subject, Charset: 'UTF-8' }, Body: { Html: { Data: html, Charset: 'UTF-8' } } } },
+  })
+  try {
+    const headers = await firmaSigV4({ url, body, regione, accessKeyId, secretAccessKey, servizio: 'ses' })
+    const r = await fetch(url, { method: 'POST', headers, body, signal: AbortSignal.timeout(20000) })
+    const testo = await r.text()
+    return r.ok ? { ok: true, via: 'ses', dettaglio: testo.slice(0, 120) } : { ok: false, via: 'ses', dettaglio: `SES ${r.status}: ${testo.slice(0, 200)}` }
+  } catch (e) {
+    return { ok: false, via: 'ses', dettaglio: String((e as Error)?.message || e) }
+  }
+}
+
 // la copia la fa un'altra funzione (con un suo limite di calcolo); se non riesce l'email e' comunque partita
 async function chiediCopia(raw: string) {
   try {
@@ -154,9 +177,13 @@ const arubaAttivo = () => Deno.env.get('ARUBA_INVIO_ATTIVO') === 'si'
 
 export async function inviaEmail({ to, subject, html }: { to: Destinatario[]; subject: string; html: string }): Promise<EsitoInvio> {
   if (!arubaAttivo()) {
+    // Amazon SES, poi Brevo di riserva (es. SES ancora in modalita' di prova: rifiuta gli indirizzi non verificati)
+    const ses = await viaSes(to, subject, html)
+    console.log('Invio email', JSON.stringify({ via: 'ses', ok: ses.ok, dettaglio: ses.dettaglio, a: to.map((d) => d.email) }))
+    if (ses.ok) return ses
     const brevo = await viaBrevo(to, subject, html)
     console.log('Invio email', JSON.stringify({ via: 'brevo', ok: brevo.ok, dettaglio: brevo.dettaglio, a: to.map((d) => d.email) }))
-    return brevo
+    return brevo.ok ? { ...brevo, dettaglio: `riserva Brevo, SES non riuscito: ${ses.dettaglio}` } : { ok: false, via: null, dettaglio: `SES: ${ses.dettaglio}; ${brevo.dettaglio}` }
   }
   const raw = messaggioRfc822(to, subject, html)
   const aruba = await viaAruba(to, raw)
