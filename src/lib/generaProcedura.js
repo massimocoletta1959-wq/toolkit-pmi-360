@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { settoriCatalogo, scegliPerSettore } from './procedure'
 
 // Con `ticketId` (vista membro) i dati arrivano dalla funzione dati_procedura_task,
 // che li restituisce solo a chi ha quel task: i membri non leggono le tabelle.
@@ -11,14 +12,14 @@ export async function generaProcedura(proc, azienda, { ticketId } = {}) {
   } else {
     ;[tplRes, ruoliRes, adozRes] = await Promise.all([
       supabase.from('procedure_template').select('*').eq('codice', proc.codice)
-        .in('settore', [azienda.settore, 'generico'].filter(Boolean)),
+        .in('settore', settoriCatalogo(azienda)),
       supabase.from('ruoli').select('sigla, nome, membri(nome, cognome)').eq('azienda_id', azienda.id),
       supabase.from('procedure_azienda').select('id, data_emissione, stato, corpo_html, titolo').eq('azienda_id', azienda.id).eq('codice', proc.codice).maybeSingle(),
     ])
   }
   // Preferisci il template del settore dell'azienda, poi il generico
   const tplList = tplRes.data || []
-  const tpl = tplList.find(t => t.settore === azienda.settore) || tplList.find(t => t.settore === 'generico') || null
+  const tpl = scegliPerSettore(azienda, tplList)
   if (!tpl) { alert('Template non ancora disponibile per questa procedura: ' + proc.codice); return }
 
   // LIBRERIA + COPIA PERSONALE: se l'azienda ha una sua copia, usa quella; altrimenti lo standard

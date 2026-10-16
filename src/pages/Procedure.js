@@ -5,6 +5,7 @@ import { AREE_PROCEDURE, MAPPA_SIGLE } from '../lib/procedure'
 import { generaProcedura } from '../lib/generaProcedura'
 import { repartiConMembri } from '../lib/reparti'
 import EditorProcedura from './EditorProcedura'
+import { settoriCatalogo, prioritaSettore } from '../lib/procedure'
 
 const STATI = ['Bozza', 'Approvata', 'Adottata', 'Personalizzata', 'Non applicabile']
 const STATO_STYLE = {
@@ -152,7 +153,7 @@ function SceltaSettore({ azienda, onSalvato }) {
   const [salvando, setSalvando] = useState(false)
   const [errore, setErrore] = useState('')
   useEffect(() => {
-    supabase.from('procedure_catalogo').select('settore').neq('settore', 'generico').then(({ data }) => {
+    supabase.from('procedure_catalogo').select('settore').neq('settore', 'generico').not('settore', 'like', 'azienda:%').then(({ data }) => {
       setSettori([...new Set((data || []).map(r => r.settore).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'it')))
     })
   }, [])
@@ -201,7 +202,7 @@ export default function Procedure() {
       supabase.from('ruoli').select('id, sigla, nome, membro_id').eq('azienda_id', azienda.id).order('sigla'),
       supabase.from('membri').select('id, nome, cognome, email').eq('azienda_id', azienda.id).order('cognome'),
       supabase.from('procedure_catalogo').select('codice, area, titolo, funzioni, settore')
-        .in('settore', [azienda.settore, 'generico'].filter(Boolean)).eq('attivo', true).order('codice'),
+        .in('settore', settoriCatalogo(azienda)).eq('attivo', true).order('codice'),
     ])
     const map = {}
     ;(p.data || []).forEach(x => { map[x.codice] = x })
@@ -214,8 +215,8 @@ export default function Procedure() {
     ;(c.data || []).forEach(p => {
       const esist = perCodice[p.codice]
       if (!esist) { perCodice[p.codice] = p; return }
-      // preferisci il settore dell'azienda rispetto al generico
-      if (p.settore === azienda.settore) perCodice[p.codice] = p
+      // preferisci la procedura riservata all'azienda, poi il suo settore, poi il generico
+      if (prioritaSettore(azienda, p.settore) > prioritaSettore(azienda, esist.settore)) perCodice[p.codice] = p
     })
     const catalogoDedup = Object.values(perCodice).sort((a, b) => a.codice.localeCompare(b.codice))
     setCatalogo(catalogoDedup)

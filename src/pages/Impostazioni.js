@@ -69,7 +69,7 @@ export default function Impostazioni() {
         const { data: cat } = await supabase.from('procedure_catalogo').select('codice, settore').eq('attivo', true)
         const conteggi = {}
         for (const r of cat || []) conteggi[r.settore] = (conteggi[r.settore] || 0) + 1
-        const settori = Object.keys(conteggi).filter(x => x !== 'generico').sort((a, b) => a.localeCompare(b, 'it'))
+        const settori = Object.keys(conteggi).filter(x => x !== 'generico' && !x.startsWith('azienda:')).sort((a, b) => a.localeCompare(b, 'it'))
         setImpProc({ settori, conteggi, catalogo: cat || [], settore: settori.includes(azienda.settore) ? azienda.settore : '' })
       }
     }

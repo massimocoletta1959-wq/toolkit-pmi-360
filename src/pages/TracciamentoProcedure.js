@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../App'
 import { AREE_PROCEDURE } from '../lib/procedure'
+import { settoriCatalogo, prioritaSettore } from '../lib/procedure'
 
 const EDGE = 'https://vwbixmbbcutjcplskjvg.supabase.co/functions/v1/invia-email'
 
@@ -30,7 +31,7 @@ export default function TracciamentoProcedure() {
       supabase.from('ticket').select('id, procedura_id, istruzioni, titolo, membro_id, stato, data_presa_visione').eq('azienda_id', A).eq('tipo', 'presa_visione'),
       supabase.from('membri').select('id, nome, cognome, email').eq('azienda_id', A),
       supabase.from('procedure_catalogo').select('codice, area, titolo, settore')
-        .in('settore', [azienda.settore, 'generico'].filter(Boolean)).eq('attivo', true),
+        .in('settore', settoriCatalogo(azienda)).eq('attivo', true),
     ])
     const val = i => (res[i].status === 'fulfilled' ? (res[i].value.data || []) : [])
     const pa = val(0), tk = val(1), mb = val(2), cat = val(3)
@@ -38,7 +39,7 @@ export default function TracciamentoProcedure() {
     // Dedup per codice: priorità al settore specifico dell'azienda rispetto al generico
     const perCodiceCatalogo = {}
     cat.forEach(p => {
-      if (!perCodiceCatalogo[p.codice] || p.settore === azienda.settore) perCodiceCatalogo[p.codice] = p
+      if (!perCodiceCatalogo[p.codice] || prioritaSettore(azienda, p.settore) > prioritaSettore(azienda, perCodiceCatalogo[p.codice].settore)) perCodiceCatalogo[p.codice] = p
     })
     const catalogo = Object.values(perCodiceCatalogo)
 

@@ -9,6 +9,7 @@ export const AREE_PROCEDURE = {
   SIC: 'Sicurezza sul Lavoro — D.Lgs. 81/08',
   CS:  'Customer Service — Post-Consegna',
   GDPR: 'Privacy & Protezione Dati',
+  AML:  'Antiriciclaggio — D.Lgs. 231/2007',
   FO:   'Front Office',
   HK:   'Housekeeping',
   FB:   'Food & Beverage',
@@ -23,6 +24,13 @@ export const AREE_PROCEDURE = {
 
 // La sigla CL (Contabilità Lavori) confluisce in ACQ, come da organigramma ufficiale
 export const MAPPA_SIGLE = { CL: 'ACQ' }
+
+// Settori del catalogo validi per un'azienda: il suo settore, le procedure generiche e quelle riservate a lei sola
+// (settore 'azienda:<id>', es. le procedure antiriciclaggio di Intellcredit). A parita' di codice vince la piu' specifica.
+export const settoreAzienda = (azienda) => (azienda?.id ? `azienda:${azienda.id}` : null)
+export const settoriCatalogo = (azienda) => [settoreAzienda(azienda), azienda?.settore, 'generico'].filter(Boolean)
+export const prioritaSettore = (azienda, settore) => (settore === settoreAzienda(azienda) ? 2 : settore === azienda?.settore ? 1 : 0)
+export const scegliPerSettore = (azienda, righe) => [...(righe || [])].sort((a, b) => prioritaSettore(azienda, b.settore) - prioritaSettore(azienda, a.settore))[0] || null
 
 export const CATALOGO_PROCEDURE = [
   { codice: 'PRO-AMM-001', area: 'AMM', titolo: 'Gestione del Ciclo Passivo — Acquisti su Commessa e Subappalti', funzioni: ['ACQ','AMM'] },

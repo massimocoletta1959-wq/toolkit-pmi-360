@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { settoriCatalogo, scegliPerSettore } from '../lib/procedure'
 
 // ============================================================
 //  Editor procedura — Strada A (testo per sezioni)
@@ -171,8 +172,8 @@ export default function EditorProcedura({ proc, azienda, modo, onClose, onSaved 
           // modifica lo STANDARD del settore (o generico come ripiego)
           const { data: tpls } = await supabase.from('procedure_template')
             .select('corpo_html, settore').eq('codice', proc.codice)
-            .in('settore', [azienda.settore, 'generico'].filter(Boolean))
-          const tpl = (tpls || []).find(t => t.settore === azienda.settore) || (tpls || []).find(t => t.settore === 'generico')
+            .in('settore', settoriCatalogo(azienda))
+          const tpl = scegliPerSettore(azienda, tpls)
           base = tpl?.corpo_html || null
         } else {
           // personalizza per l'AZIENDA: usa la copia personale se c'e', altrimenti parti dallo standard
@@ -182,8 +183,8 @@ export default function EditorProcedura({ proc, azienda, modo, onClose, onSaved 
           if (!base) {
             const { data: tpls } = await supabase.from('procedure_template')
               .select('corpo_html, settore').eq('codice', proc.codice)
-              .in('settore', [azienda.settore, 'generico'].filter(Boolean))
-            const tpl = (tpls || []).find(t => t.settore === azienda.settore) || (tpls || []).find(t => t.settore === 'generico')
+              .in('settore', settoriCatalogo(azienda))
+            const tpl = scegliPerSettore(azienda, tpls)
             base = tpl?.corpo_html || null
           }
         }
@@ -205,9 +206,9 @@ export default function EditorProcedura({ proc, azienda, modo, onClose, onSaved 
     try {
       const nuovo = serializzaCorpo(baseHtml, d)
       if (isStandard) {
-        // scrive sullo STANDARD del settore dell'azienda attiva
+        // scrive sullo STANDARD da cui viene la procedura (settore dell'azienda, o procedura riservata all'azienda)
         const { error: err } = await supabase.from('procedure_template')
-          .update({ corpo_html: nuovo }).eq('codice', proc.codice).eq('settore', azienda.settore)
+          .update({ corpo_html: nuovo }).eq('codice', proc.codice).eq('settore', proc.settore || azienda.settore)
         if (err) throw err
       } else {
         const { error: err } = await supabase.from('procedure_azienda')

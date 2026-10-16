@@ -4,6 +4,7 @@ import { useApp } from '../App'
 import { CATALOGO_PROCEDURE } from '../lib/procedure'
 import { etichettaModulo } from '../lib/modalitaSolo'
 import { descriviVersione } from '../lib/versione'
+import { settoriCatalogo } from '../lib/procedure'
 
 const versione = descriviVersione()
 
@@ -82,7 +83,7 @@ export default function Home() {
       supabase.from('organi').select('id,nome,tipo').eq('azienda_id', A),
       supabase.from('azioni').select('id').eq('azienda_id', A),
       supabase.from('riunioni').select('data_riunione').eq('azienda_id', A),
-      supabase.from('procedure_template').select('codice').in('settore', [azienda?.settore, 'generico']),
+      supabase.from('procedure_template').select('codice').in('settore', settoriCatalogo(azienda)),
       supabase.from('fin_documenti').select('id', { count: 'exact', head: true }).eq('azienda_id', A),
       supabase.from('fin_budget').select('anno').eq('azienda_id', A),
       supabase.from('fin_kpi_tesoreria').select('saldo_corrente,semaforo,dso_giorni,dpo_giorni,data_snapshot')
