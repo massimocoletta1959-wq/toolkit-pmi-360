@@ -139,6 +139,18 @@ export const FASCICOLI = {
       "Lettera con i limiti operativi e le istruzioni di budget al procuratore.",
     ],
   },
+  antiriciclaggio: {
+    riguarda: "Presidio antiriciclaggio (D.Lgs. 231/2007): nomina del Responsabile Antiriciclaggio e del Delegato alle segnalazioni di operazioni sospette (SOS), approvazione della politica e del Manuale AML, dell'autovalutazione del rischio e della relazione annuale.",
+    funzionamento: "L'organo amministrativo individua formalmente le funzioni antiriciclaggio, ne definisce requisiti, poteri, autonomia, risorse e linee di riporto, approva il Manuale AML e ne verifica periodicamente l'adeguatezza sulla base dell'autovalutazione e della relazione annuale del Responsabile.",
+    elementi: "Requisiti di professionalità, onorabilità e indipendenza dei nominati; assenza di conflitti con le funzioni operative; poteri di accesso alle informazioni; sostituti in caso di assenza; riservatezza del Delegato SOS (art. 38 D.Lgs. 231/2007).",
+    giustificativi: [
+      "Curriculum del Responsabile AML / Delegato SOS e dichiarazione sui requisiti e sull'assenza di conflitti di interesse.",
+      "Lettera di incarico con poteri, risorse, linee di riporto e accettazione firmata del nominato.",
+      "Organigramma AML aggiornato (portale — Organigramma) e sostituti designati.",
+      "Manuale AML / procedure approvate con evidenza della diffusione e delle prese visione degli incaricati.",
+      "Autovalutazione del rischio di riciclaggio (Registro rischi — gruppo Antiriciclaggio) o relazione annuale del Responsabile AML, se l'atto le approva.",
+    ],
+  },
   urgenza: {
     riguarda: "Decisioni indifferibili e urgenti per evitare danni gravi e imminenti alla società, alla continuità aziendale, alla sicurezza delle persone o agli impianti.",
     funzionamento: "L'amministratore adotta un atto immediato motivato da forza maggiore o urgenza eccezionale, derogando temporaneamente alle normali procedure, con riserva di ratifica o informativa successiva agli organi di controllo.",

@@ -7,9 +7,18 @@ export const CATEGORIE = [
   'Finanziario',
   'Terze Parti / Fornitori',
   'Continuità Operativa',
+  'Antiriciclaggio',
 ]
 
 export const CATALOGO = {
+  'Antiriciclaggio': [
+    'Mandante con struttura proprietaria opaca o titolare effettivo non individuato',
+    'Pagamenti da terzi non legati al debitore',
+    'Incassi in contante oltre la soglia di legge o frazionati',
+    'Pagamenti eccedenti il dovuto con richiesta di rimborso su conti diversi',
+    'Mancata o tardiva segnalazione di operazioni sospette',
+    'Fascicoli AML non aggiornati alle scadenze del controllo costante',
+  ],
   'IT / Cyber': [
     'Attacco ransomware ai sistemi gestionali',
     'Violazione dei dati personali (GDPR)',
@@ -124,6 +133,7 @@ export const CAT_COLORS = {
   'Finanziario':             { bg: '#FCEBEB', color: '#791F1F' },
   'Terze Parti / Fornitori': { bg: '#E1F5EE', color: '#085041' },
   'Continuità Operativa':    { bg: '#EAF3DE', color: '#27500A' },
+  'Antiriciclaggio':         { bg: '#FDF2E9', color: '#7E3A0B' },
 }
 
 export const RISCHI_DEFAULT = [
@@ -292,6 +302,18 @@ export function getRischiDefault(settore) {
 // Suggerimenti di fallback per categoria: si attivano solo per rischi personalizzati
 // non coperti dai suggerimenti specifici. Chiave = parola contenuta nella descrizione.
 const SUGGERIMENTI_AZIONI = {
+  'Antiriciclaggio': {
+    'titolare effettivo': `Adeguata verifica dei mandanti (AML-04, AML-06): dichiarazione del titolare effettivo, verifica su visura e registro dei titolari effettivi, rafforzata se la struttura resta opaca; astensione se non individuabile. Fascicolo AML del mandante completo prima dell'avvio del mandato.`,
+    'terzi': `Verifica del pagatore a ogni incasso (AML-05): se il pagatore non e' il debitore o un soggetto legato, raccolta dati e motivazione; senza giustificazione, segnalazione interna al Delegato SOS. Controllo a campione mensile degli incassi da terzi.`,
+    'contante': `Incassi tracciabili come regola (AML-10): contante solo entro la soglia di legge con ricevuta e identificazione del pagatore, divieto di frazionamento; comunicazione al MEF entro 30 giorni delle infrazioni rilevate e valutazione della SOS.`,
+    'rimborso': `Eccedenze restituite solo sul conto di provenienza previa verifica del RAML (AML-05); rifiuto di rimborsi su conti diversi e segnalazione interna al Delegato SOS.`,
+    'segnalazione': `Procedura SOS (AML-09): segnalazione interna senza ritardo nel portale, istruttoria e decisione motivata del Delegato entro 15 giorni, invio alla UIF tramite Infostat; formazione mirata sugli indicatori di anomalia UIF; riservatezza del segnalante.`,
+    'fascicoli': `Controllo costante (AML-07): scadenze di revisione per classe di rischio (alto 12 mesi, medio 24, basso 36) generate dal portale; supervisione trimestrale del RAML sulle revisioni scadute.`,
+    'formato': `Piano formativo AML annuale (AML-11) con corso nel portale, test di verifica e registro della formazione; formazione iniziale entro 30 giorni dall'ingresso.`,
+    'conservat': `Conservazione decennale nei fascicoli AML del portale con impronta hash e registro degli accessi (AML-08); verifica a campione dell'esibibilita' dei documenti.`,
+    'nominate': `Delibera dell'organo amministrativo di nomina del Responsabile AML e del Delegato SOS (tipo di atto «Antiriciclaggio» nel percorso guidato) con requisiti, poteri, risorse, sostituti e accettazione; relazione annuale al CdA (AML-01).`,
+    'default': `Ricondurre il rischio alla procedura AML di riferimento, verificarne l'applicazione con un controllo a campione (AML-12) e registrare le azioni correttive con responsabile e scadenza; aggiornare l'autovalutazione (AML-02).`,
+  },
   'IT / Cyber': {
     'phishing': `Programma anti-phishing strutturato: simulazioni trimestrali con scenari differenziati per reparto, formazione mirata (non punitiva) per chi cade nella simulazione, regola di verifica fuori banda per richieste di pagamento o cambio IBAN (conferma telefonica a numero gia noto). Attivare SPF, DKIM e DMARC sul dominio email. KPI: tasso di click sotto il 5% entro 12 mesi.`,
     'credenzial': `Governance delle identita: password manager aziendale, MFA su tutti i servizi esposti, revisione trimestrale dei privilegi (principio del minimo privilegio), disattivazione account entro 24 ore dalla cessazione del rapporto, utenze amministrative separate da quelle operative. Log degli accessi conservati 12 mesi con revisione mensile delle anomalie.`,
@@ -532,3 +554,21 @@ export function getSuggerimentoAzione(categoria, descrizione) {
   }
   return catSugg['default'] || ''
 }
+
+// Rischi antiriciclaggio tipici del recupero crediti per conto terzi (autovalutazione AML, D.Lgs. 231/2007):
+// probabilita' e impatto si valutano nell'autovalutazione, non sono preimpostati
+export const RISCHI_AML = [
+  { categoria: 'Antiriciclaggio', descrizione: 'Mandante con struttura proprietaria opaca o titolare effettivo non individuato', fonte: 'Esterna', probabilita: null, impatto: null, note: '' },
+  { categoria: 'Antiriciclaggio', descrizione: 'Mandante, debitore o pagatore persona politicamente esposta (PEP) o presente in liste di sanzioni non rilevato', fonte: 'Esterna', probabilita: null, impatto: null, note: '' },
+  { categoria: 'Antiriciclaggio', descrizione: 'Pagamenti da terzi non legati al debitore (possibile utilizzo del saldo delle posizioni per riciclare fondi)', fonte: 'Esterna', probabilita: null, impatto: null, note: '' },
+  { categoria: 'Antiriciclaggio', descrizione: 'Saldo improvviso di posizioni di importo rilevante con fondi di provenienza non giustificata', fonte: 'Esterna', probabilita: null, impatto: null, note: '' },
+  { categoria: 'Antiriciclaggio', descrizione: 'Incassi in contante oltre la soglia di legge o frazionati artificiosamente', fonte: 'Esterna', probabilita: null, impatto: null, note: '' },
+  { categoria: 'Antiriciclaggio', descrizione: 'Pagamenti eccedenti il dovuto con richiesta di rimborso su conti diversi (triangolazioni)', fonte: 'Esterna', probabilita: null, impatto: null, note: '' },
+  { categoria: 'Antiriciclaggio', descrizione: 'Pagamenti provenienti da conti esteri o da paesi terzi ad alto rischio', fonte: 'Esterna', probabilita: null, impatto: null, note: '' },
+  { categoria: 'Antiriciclaggio', descrizione: 'Adeguata verifica incompleta o fascicoli AML non aggiornati alle scadenze del controllo costante', fonte: 'Interna', probabilita: null, impatto: null, note: '' },
+  { categoria: 'Antiriciclaggio', descrizione: 'Mancata o tardiva segnalazione di operazioni sospette, o violazione della riservatezza del segnalante', fonte: 'Interna', probabilita: null, impatto: null, note: '' },
+  { categoria: 'Antiriciclaggio', descrizione: 'Personale non formato sugli obblighi antiriciclaggio e sugli indicatori di anomalia', fonte: 'Interna', probabilita: null, impatto: null, note: '' },
+  { categoria: 'Antiriciclaggio', descrizione: 'Documenti e dati non conservati per 10 anni o non esibibili in sede di ispezione', fonte: 'Interna', probabilita: null, impatto: null, note: '' },
+  { categoria: 'Antiriciclaggio', descrizione: 'Funzioni antiriciclaggio non nominate formalmente o con risorse e poteri inadeguati', fonte: 'Interna', probabilita: null, impatto: null, note: '' },
+  { categoria: 'Antiriciclaggio', descrizione: 'Mancata comunicazione al MEF delle infrazioni alle limitazioni sull\'uso del contante', fonte: 'Interna', probabilita: null, impatto: null, note: '' },
+]

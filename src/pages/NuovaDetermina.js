@@ -22,6 +22,7 @@ const TIPI = [
   { id: 'immobiliare',           label: 'Gestione immobiliare e manutenzioni', icon: '🏠', desc: 'Locazioni, dismissioni, manutenzione straordinaria' },
   { id: 'compliance',            label: 'Sicurezza e conformità',           icon: '🛡️', desc: 'Sicurezza lavoro, GDPR, 231, nomine (RSPP, DPO)' },
   { id: 'procura',               label: 'Concessione procura/delega',       icon: '✋', desc: 'Procuratori, agenti, rappresentanti' },
+  { id: 'antiriciclaggio',       label: 'Antiriciclaggio (AML)',            icon: '🔎', desc: 'Nomina Responsabile AML e Delegato SOS, Manuale AML, autovalutazione' },
   { id: 'urgenza',               label: 'Emergenza / Urgenza',              icon: '⚡', desc: 'Decisioni urgenti non differibili' },
 ]
 const TIPO_LABEL = Object.fromEntries(TIPI.map(t => [t.id, t.label]))
@@ -112,6 +113,11 @@ const PLACEHOLDER = {
     fin: 'Es. Costo dell\'adeguamento, sanzioni evitate, copertura di budget.',
     eco: 'Es. Riduzione del rischio, benefici organizzativi, impatto su continuità.',
     alt: 'Es. Livelli di adeguamento valutati, soluzioni interne vs esterne, motivazione.',
+  },
+  antiriciclaggio: {
+    fin: 'Es. Risorse assegnate alla funzione AML (tempo dedicato, budget, strumenti, formazione), costo di eventuali supporti esterni.',
+    eco: 'Es. Riduzione del rischio sanzionatorio (D.Lgs. 231/2007), adeguatezza dei presidi richiesti in ispezione, tutela reputazionale verso i mandanti.',
+    alt: 'Es. Funzione interna vs esternalizzata, cumulo con altre funzioni, scelta del Delegato SOS e motivazione.',
   },
   adempimenti_contabili: {
     fin: 'Es. Importi in gioco, impatto su liquidità e patrimonio, coerenza con il budget.',
