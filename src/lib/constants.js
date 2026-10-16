@@ -562,7 +562,7 @@ export const RISCHI_AML = [
   { categoria: 'Antiriciclaggio', descrizione: 'Mandante, debitore o pagatore persona politicamente esposta (PEP) o presente in liste di sanzioni non rilevato', fonte: 'Esterna', probabilita: null, impatto: null, note: '' },
   { categoria: 'Antiriciclaggio', descrizione: 'Pagamenti da terzi non legati al debitore (possibile utilizzo del saldo delle posizioni per riciclare fondi)', fonte: 'Esterna', probabilita: null, impatto: null, note: '' },
   { categoria: 'Antiriciclaggio', descrizione: 'Saldo improvviso di posizioni di importo rilevante con fondi di provenienza non giustificata', fonte: 'Esterna', probabilita: null, impatto: null, note: '' },
-  { categoria: 'Antiriciclaggio', descrizione: 'Incassi in contante oltre la soglia di legge o frazionati artificiosamente', fonte: 'Esterna', probabilita: null, impatto: null, note: '' },
+  { categoria: 'Antiriciclaggio', descrizione: 'Debitore che propone o effettua pagamenti in contante, o frazionamenti volti a eludere le soglie', fonte: 'Esterna', probabilita: null, impatto: null, note: '' },
   { categoria: 'Antiriciclaggio', descrizione: 'Pagamenti eccedenti il dovuto con richiesta di rimborso su conti diversi (triangolazioni)', fonte: 'Esterna', probabilita: null, impatto: null, note: '' },
   { categoria: 'Antiriciclaggio', descrizione: 'Pagamenti provenienti da conti esteri o da paesi terzi ad alto rischio', fonte: 'Esterna', probabilita: null, impatto: null, note: '' },
   { categoria: 'Antiriciclaggio', descrizione: 'Adeguata verifica incompleta o fascicoli AML non aggiornati alle scadenze del controllo costante', fonte: 'Interna', probabilita: null, impatto: null, note: '' },
@@ -571,4 +571,9 @@ export const RISCHI_AML = [
   { categoria: 'Antiriciclaggio', descrizione: 'Documenti e dati non conservati per 10 anni o non esibibili in sede di ispezione', fonte: 'Interna', probabilita: null, impatto: null, note: '' },
   { categoria: 'Antiriciclaggio', descrizione: 'Funzioni antiriciclaggio non nominate formalmente o con risorse e poteri inadeguati', fonte: 'Interna', probabilita: null, impatto: null, note: '' },
   { categoria: 'Antiriciclaggio', descrizione: 'Mancata comunicazione al MEF delle infrazioni alle limitazioni sull\'uso del contante', fonte: 'Interna', probabilita: null, impatto: null, note: '' },
+  { categoria: 'Antiriciclaggio', descrizione: 'Identificazione a distanza del debitore inadeguata prima della negoziazione di piani di rientro o saldi', fonte: 'Interna', probabilita: null, impatto: null, note: '' },
+  { categoria: 'Antiriciclaggio', descrizione: 'Mancata intercettazione di debitori PEP o in liste di sanzioni sotto le soglie di controllo per assenza di screening automatico («false clean»)', fonte: 'Interna', probabilita: null, impatto: null, note: '' },
+  { categoria: 'Antiriciclaggio', descrizione: 'Invio delle posizioni alla funzione AML lasciato alla discrezione dell\'operatore telefonico, senza trigger oggettivi', fonte: 'Interna', probabilita: null, impatto: null, note: '' },
+  { categoria: 'Antiriciclaggio', descrizione: 'Verifiche manuali caso per caso senza traccia scritta di motivo, fonti consultate ed esito', fonte: 'Interna', probabilita: null, impatto: null, note: '' },
+  { categoria: 'Antiriciclaggio', descrizione: 'Committente commerciale fittizio o interposto (frodi carosello, crediti di origine non documentata)', fonte: 'Esterna', probabilita: null, impatto: null, note: '' },
 ]
