@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useApp } from '../../App'
 import { supabase } from '../lib/supabase'
-import { calcolaSpDocumento, TabellaSP } from '../lib/statoPatrimoniale'
+import { calcolaSpDocumento, TabellaSP, haApertura } from '../lib/statoPatrimoniale'
 import { trovaMappaturaConto, contiDelGruppo, datiFinoAlMese } from '../lib/mappatureConti'
 import { proponiAssestamenti, applicaAssestamentiCE } from '../lib/assestamenti'
 import { proposteDaBilancio } from '../lib/bilanciAnalitici/abbina'
@@ -290,8 +290,19 @@ async function calcolaCeDocumento(aziendaId, documentoId, modalita) {
   // Solo per Libro Giornale/Prima Nota: gli stessi gruppi riclassificati
   // producono anche lo Stato Patrimoniale (i gruppi provvisorio/bilancio non
   // hanno conti di attivo/passivo, solo ricavi/costi).
+  // Se il giornale dell'anno non contiene la riapertura dei conti, i saldi iniziali vengono dal libro giornale
+  // completo dell'esercizio precedente (se caricato)
+  let iniziali = null
+  if (TIPI_LIBRO_GIORNALE.includes(doc.tipo_documento) && !haApertura(dati)) {
+    const prec = Number(doc.anno) - 1
+    const { data: docsPrec } = await supabase.from('documenti').select('tipo_documento, anno, mese_fine, dati_estratti, caricato_il')
+      .eq('azienda_id', aziendaId).eq('anno', String(prec)).in('tipo_documento', TIPI_LIBRO_GIORNALE).eq('stato', 'elaborato')
+    const lgPrec = (docsPrec || []).filter((d) => !d.mese_fine || Number(d.mese_fine) === 12)
+      .sort((a, b) => String(b.caricato_il).localeCompare(String(a.caricato_il)))[0]
+    if (lgPrec) { try { iniziali = { dati: JSON.parse(lgPrec.dati_estratti), anno: prec } } catch { iniziali = null } }
+  }
   const stataPatrimoniale = TIPI_LIBRO_GIORNALE.includes(doc.tipo_documento)
-    ? await calcolaSpDocumento(aziendaId, dati, infrannuale ? { valori: assestamenti, imposte, periodo } : null)
+    ? await calcolaSpDocumento(aziendaId, dati, infrannuale ? { valori: assestamenti, imposte, periodo } : null, iniziali)
     : null
 
   return {
@@ -737,6 +748,11 @@ export default function CE() {
               : `⚠️ Non quadra: differenza di €${fmt(Math.abs(statoPatrimoniale.differenza))} — probabile gruppo non ancora classificato o classificato nella sezione sbagliata.`}
           </div>
 
+          {statoPatrimoniale.saldiIniziali && (
+            <div className="alert alert-info" style={{ marginBottom: 20 }}>
+              Il libro giornale di quest'anno non contiene la riapertura dei conti: i saldi iniziali sono quelli di fine {statoPatrimoniale.saldiIniziali.anno} dal libro giornale {statoPatrimoniale.saldiIniziali.anno}, e il risultato {statoPatrimoniale.saldiIniziali.anno} (€{fmt(statoPatrimoniale.saldiIniziali.risultato)}) è tra gli utili/perdite portati a nuovo.
+            </div>
+          )}
           {statoPatrimoniale.nonClassificati.length > 0 && (
             <div className="alert alert-error" style={{ marginBottom: 20 }}>
               <strong>{statoPatrimoniale.nonClassificati.length} gruppi non ancora riclassificati</strong> (esclusi dal calcolo — vai su Riclassificazione):

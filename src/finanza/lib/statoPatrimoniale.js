@@ -139,23 +139,66 @@ export function buildSp(aggregato, ctx, risultatoEsercizio) {
   return { voci, totAttivo, totPassivo }
 }
 
+// Il libro giornale contiene la riapertura dei conti? I saldi per conto sono apertura + movimenti, il dettaglio
+// mensile solo i movimenti: se coincidono per tutti i conti, l'apertura non c'e' (tipico dell'anno in corso quando
+// l'esercizio precedente non e' ancora stato chiuso e riaperto in contabilita').
+export function haApertura(dati) {
+  for (const g of dati?.gruppi || []) {
+    for (const c of contiDelGruppo(g)) {
+      if (!c.mensile) return true   // senza dettaglio mensile non si puo' stabilire: si assume presente
+      const mov = Object.values(c.mensile).reduce((s, v) => s + (Number(v) || 0), 0)
+      if (Math.abs((c.valore || 0) - mov) > 0.01) return true
+    }
+  }
+  return false
+}
+
+// Somma ai conti patrimoniali dell'anno i saldi di fine esercizio precedente (dal suo libro giornale) e porta il
+// risultato di quell'esercizio, non ancora destinato, tra gli utili/perdite portati a nuovo.
+export function aggiungiSaldiIniziali(aggregatoSP, precedente, annoPrec) {
+  const out = { ...aggregatoSP }
+  for (const [codice, v] of Object.entries(precedente.aggregatoSP)) {
+    const es = out[codice] || { importo: 0, conti: [] }
+    out[codice] = {
+      importo: round2(es.importo + v.importo),
+      conti: [...es.conti, ...v.conti.map((c) => ({ ...c, conto: `${c.conto} (saldo al 31/12/${annoPrec})` }))],
+    }
+  }
+  if (precedente.risultatoEsercizio) {
+    const es = out.PAS_A_VIII || { importo: 0, conti: [] }
+    out.PAS_A_VIII = {
+      importo: round2(es.importo + precedente.risultatoEsercizio),
+      conti: [...es.conti, { gruppo: '', conto: `Risultato ${annoPrec} non ancora destinato (dal libro giornale ${annoPrec})`, importo: precedente.risultatoEsercizio }],
+    }
+  }
+  return out
+}
+
 // Calcola lo Stato Patrimoniale completo per un documento gia' elaborato.
 // Restituisce null se il documento non ha gruppi di conto (non e' un Libro
 // Giornale/Prima Nota) — in quel caso il chiamante mostra solo il Conto Economico.
 // assestamenti (opzionale): { valori, imposte, periodo } — contropartite patrimoniali degli assestamenti di
 // periodo stimati (vedi lib/assestamenti.js), sommati anche al risultato d'esercizio.
-export async function calcolaSpDocumento(aziendaId, dati, assestamenti = null) {
+// iniziali (opzionale): { dati, anno } — libro giornale dell'esercizio precedente, quando quello dell'anno non
+// contiene l'apertura dei conti: i suoi saldi patrimoniali diventano i saldi iniziali.
+export async function calcolaSpDocumento(aziendaId, dati, assestamenti = null, iniziali = null) {
   if (!dati.gruppi) return null
   const ctx = await caricaContestoSP(aziendaId)
   const base = processaGruppiSP(dati, ctx)
   let { aggregatoSP, risultatoEsercizio } = base
+  let saldiIniziali = null
+  if (iniziali?.dati?.gruppi) {
+    const prec = processaGruppiSP(iniziali.dati, ctx)
+    aggregatoSP = aggiungiSaldiIniziali(aggregatoSP, prec, iniziali.anno)
+    saldiIniziali = { anno: iniziali.anno, risultato: prec.risultatoEsercizio }
+  }
   if (assestamenti?.valori?.attivi) {
     const r = applicaAssestamentiSP(aggregatoSP, assestamenti.valori, assestamenti.imposte, assestamenti.periodo)
     aggregatoSP = r.aggregato
     risultatoEsercizio = round2(risultatoEsercizio + r.deltaRisultato)
   }
   const { voci, totAttivo, totPassivo } = buildSp(aggregatoSP, ctx, risultatoEsercizio)
-  return { voci, totAttivo, totPassivo, risultatoEsercizio, risultatoDaGiornale: base.risultatoEsercizio, nonClassificati: base.nonClassificati, differenza: round2(totAttivo - totPassivo) }
+  return { voci, totAttivo, totPassivo, risultatoEsercizio, risultatoDaGiornale: base.risultatoEsercizio, nonClassificati: base.nonClassificati, differenza: round2(totAttivo - totPassivo), saldiIniziali }
 }
 
 export const rowClassSP = (voce) => {
