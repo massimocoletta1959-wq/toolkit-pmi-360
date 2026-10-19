@@ -47,7 +47,7 @@ export async function generaProcedura(proc, azienda, { ticketId } = {}) {
   const versioneDoc = statoDoc === 'Bozza' ? '0.1' : '1.0'
   corpo = corpo.split('{{STATO}}').join(statoDoc)
   corpo = corpo.split('{{VERSIONE}}').join(versioneDoc)
-  corpo = corpo.replace(/\{\{RUOLO:([A-Z0-9]+)\}\}/g, (m, sigla) => {
+  corpo = corpo.replace(/\{\{RUOLO:([A-Za-z0-9_]+)\}\}/g, (m, sigla) => {
     const r = mappa[sigla]
     if (r && r.membri) return `${r.membri.nome} ${r.membri.cognome} — ${r.nome}`
     if (r) return `<span style="background:#FFF3CD;padding:0 4px;border-radius:3px">${r.nome} — da assegnare</span>`
