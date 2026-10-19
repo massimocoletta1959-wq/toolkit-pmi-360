@@ -27,6 +27,7 @@ import Layout from './components/Layout'
 import LayoutMembro from './components/LayoutMembro'
 import IncarichiOrgani from './pages/IncarichiOrgani'
 import { PAGINE_FINANZA } from './finanza'
+import { PAGINE_AML, RegistroSosMembro } from './aml'
 import { AccettazioneDocumenti } from './components/DocumentiLegali'
 import VerificaDueFattori, { serveVerifica } from './components/VerificaDueFattori'
 
@@ -258,7 +259,7 @@ export default function App() {
 
   // Entra in un modulo: imposta il modulo attivo e la sua pagina di default
   function entraModulo(m) {
-    const defaultPage = { rischi: 'cruscotto', procedure: 'procedure', governance: 'governance', finanza: 'fin_documenti' }[m]
+    const defaultPage = { rischi: 'cruscotto', procedure: 'procedure', governance: 'governance', finanza: 'fin_documenti', aml: 'aml_cruscotto' }[m]
     setModulo(m)
     setPage(defaultPage || 'home')
   }
@@ -416,6 +417,7 @@ export default function App() {
                 au_registro:     <RegistroDetermine />,
                 au_nuova:        <NuovaDetermina key={determinaId || 'nuova'} />,
               }} />
+            : pagMembro === 'sos' ? <RegistroSosMembro />
             : <IMieiTask key={pagMembro} modo={pagMembro} />}
         </LayoutMembro>
       </AppContext.Provider>
@@ -445,6 +447,8 @@ export default function App() {
     report: <Report />,
     // modulo Finanza e Controllo
     ...Object.fromEntries(Object.entries(PAGINE_FINANZA).map(([k, P]) => [k, <P key={(azienda?.id || '') + k} />])),
+    // modulo Antiriciclaggio (solo aziende con mod_aml)
+    ...(azienda?.mod_aml ? Object.fromEntries(Object.entries(PAGINE_AML).map(([k, P]) => [k, <P key={(azienda?.id || '') + k} />])) : {}),
   }
 
   return (

@@ -1,13 +1,18 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useApp } from '../App'
+import { supabase } from '../lib/supabase'
 import { LinkDocumentiLegali } from './DocumentiLegali'
 export default function LayoutMembro({ children, page = 'task', setPage }) {
   const { azienda, profilo, logout, puoTornareGestore, tornaGestore, mieiOrgani } = useApp()
+  // segnalazioni AML: voce visibile a chi lavora in un'azienda con il modulo antiriciclaggio
+  const [aml, setAml] = useState(false)
+  useEffect(() => { supabase.rpc('aml_aziende_utente').then(({ data }) => setAml((data || []).length > 0), () => {}) }, [])
   const voci = [
     { id: 'task',       icona: '🎫', label: 'I miei task' },
     { id: 'procedure',  icona: '📋', label: 'Le mie procedure' },
     { id: 'governance', icona: '⚖️', label: 'Governance' },
     ...((mieiOrgani || []).length > 0 ? [{ id: 'organi', icona: '🏛️', label: 'I miei organi' }] : []),
+    ...(aml ? [{ id: 'sos', icona: '🔐', label: 'Segnalazioni AML' }] : []),
   ]
   const titoloCorrente = (voci.find(v => v.id === page) || voci[0]).label
   return (

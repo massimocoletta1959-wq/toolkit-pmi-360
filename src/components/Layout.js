@@ -58,6 +58,18 @@ const MODULI = {
       { id: 'fin_analisi_bilancio', label: 'Analisi di bilancio', icon: '🧭' },
     ],
   },
+  aml: {
+    label: 'Antiriciclaggio', colore: '#B03A5B',
+    voci: [
+      { id: 'aml_cruscotto', label: 'Cruscotto AML', icon: '📊' },
+      { id: 'aml_clienti', label: 'Clienti e fascicoli', icon: '🗂️' },
+      { id: 'aml_trigger', label: 'Trigger e blocchi', icon: '⛔' },
+      { id: 'aml_sos', label: 'Segnalazioni / SOS', icon: '🔐' },
+      { id: 'aml_documenti', label: 'Documenti aziendali', icon: '📁' },
+      { id: 'procedure', label: 'Procedure AML', icon: '📘' },
+      { id: 'registro', label: 'Autovalutazione rischi', icon: '📋' },
+    ],
+  },
 }
 
 export default function Layout({ children }) {

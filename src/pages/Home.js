@@ -283,6 +283,15 @@ export default function Home() {
               </button>
             ))}
           </div>
+          {/* modulo Antiriciclaggio: fuori dalla ruota, solo per le aziende che lo hanno */}
+          {azienda?.mod_aml && (
+            <div style={{ textAlign: 'center', marginTop: 14 }}>
+              <button className="btn" onClick={() => entraModulo('aml')}
+                style={{ borderRadius: 999, borderColor: '#B03A5B', color: '#B03A5B', fontWeight: 700, padding: '8px 18px' }}>
+                🔎 Antiriciclaggio (AML) →
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ── Pannello di dettaglio del modulo evidenziato ── */}
