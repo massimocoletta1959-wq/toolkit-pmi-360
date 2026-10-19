@@ -3,7 +3,7 @@ import { useApp } from '../../App'
 import { supabase } from '../lib/supabase'
 import { estraiRigheLibroGiornale } from '../lib/libroGiornale'
 import { leggiMovimentiGiornale } from '../lib/giornali'
-import { calcolaFlussiCassa } from '../lib/flussiCassa'
+import { calcolaFlussiCassa, contiBancariDaConfermare } from '../lib/flussiCassa'
 import { calcolaDsoDpo } from '../lib/dsoDpo'
 import { tipoControparte } from '../lib/mappatureConti'
 
@@ -196,6 +196,10 @@ export default function AnalisiFlussi() {
   const [calcolando, setCalcolando] = useState(false)
   const [progresso, setProgresso] = useState('')
   const [errore, setErrore] = useState('')
+  // conti da confermare come banca/cassa prima dell'analisi: { conti: [{ conto, descrizione, voce, movimenti, proposta }], pochiMovimenti, ... }
+  const [conferma, setConferma] = useState(null)
+  const [scelteBanca, setScelteBanca] = useState({})
+  const [avvisoPochi, setAvvisoPochi] = useState(null)
   const [risultato, setRisultato] = useState(null)
   const [salvatoIl, setSalvatoIl] = useState(null)
   const [caricandoSalvato, setCaricandoSalvato] = useState(false)
@@ -264,8 +268,12 @@ export default function AnalisiFlussi() {
   // Saldo banche/cassa a fine anno di un giornale: dall'analisi gia' salvata se
   // recente (ha la data dell'ultimo movimento), altrimenti rileggendo il giornale.
   const saldoChiusuraAnno = async (doc, mappature) => {
-    const { data: salvata } = await supabase.from('analisi_flussi').select('dati').eq('documento_id', doc.id).maybeSingle()
-    if (salvata?.dati?.diagnostica?.ultimaData) {
+    const { data: salvata } = await supabase.from('analisi_flussi').select('dati, creata_il').eq('documento_id', doc.id).maybeSingle()
+    // l'analisi salvata vale solo se e' successiva all'ultima scelta dei conti banca/cassa
+    const ultimaScelta = (mappature.mappatureFlussi || []).filter((m) => m.includi_in_banca_cassa || m.escludi_da_banca_cassa)
+      .map((m) => m.creata_il || '').sort().pop()
+    const aggiornata = !ultimaScelta || (salvata?.creata_il && String(salvata.creata_il) >= String(ultimaScelta))
+    if (salvata?.dati?.diagnostica?.ultimaData && aggiornata) {
       return { importo: salvata.dati.saldoFinePeriodo[12], ultimaData: salvata.dati.diagnostica.ultimaData }
     }
     const { data: blob, error } = await supabase.storage.from('documenti').download(doc.percorso)
@@ -301,6 +309,17 @@ export default function AnalisiFlussi() {
 
       const mappature = { mappatureContiAzienda, mappatureContiGlobali, mappatureFlussi: mappatureFlussi || [] }
 
+      // conti bancari non riconosciuti come banca/cassa (es. conti sempre sotto fido riclassificati tra i debiti
+      // verso banche) o troppo pochi movimenti di cassa: si chiede all'utente prima di analizzare
+      const daConfermare = contiBancariDaConfermare(movimenti, mappature)
+      setAvvisoPochi(null)
+      if (daConfermare.conti.length) {
+        setScelteBanca(Object.fromEntries(daConfermare.conti.map((c) => [c.conto, c.proposta])))
+        setConferma({ ...daConfermare, mappatureFlussi: mappature.mappatureFlussi })
+        return
+      }
+      if (daConfermare.pochiMovimenti) setAvvisoPochi(daConfermare)
+
       // Saldo iniziale banche/cassa: prima il saldo al 31/12 del giornale
       // dell'anno precedente (dato affidabile, e copre il caso in cui l'apertura
       // dei conti viene registrata in corso d'anno), poi l'eventuale saldo inserito
@@ -331,6 +350,30 @@ export default function AnalisiFlussi() {
       setCalcolando(false)
       setProgresso('')
     }
+  }
+
+  // salva la scelta dei conti banca/cassa (tabella mappature_flussi_conti) e rielabora
+  const confermaConti = async () => {
+    if (!conferma) return
+    setCalcolando(true)
+    try {
+      for (const c of conferma.conti) {
+        const includi = !!scelteBanca[c.conto]
+        const esistente = conferma.mappatureFlussi.find((m) => m.conto_origine === c.conto)
+        const flag = { includi_in_banca_cassa: includi, escludi_da_banca_cassa: !includi, creata_il: new Date().toISOString() }
+        const { error } = esistente
+          ? await supabase.from('mappature_flussi_conti').update(flag).eq('id', esistente.id)
+          : await supabase.from('mappature_flussi_conti').insert({ azienda_id: aziendaId, conto_origine: c.conto, voce_flusso: '', ...flag })
+        if (error) throw new Error(error.message)
+      }
+      setConferma(null)
+    } catch (e) {
+      setErrore('Scelta dei conti non salvata: ' + (e.message || e))
+      setCalcolando(false)
+      return
+    }
+    setCalcolando(false)
+    await calcola()
   }
 
   const salva = async (pacchetto, doc) => {
@@ -462,6 +505,41 @@ export default function AnalisiFlussi() {
           )}
 
           {errore && <p style={{ color: '#c0392b', marginTop: 12 }}>{errore}</p>}
+          {avvisoPochi && (
+            <div style={{ marginTop: 12, padding: 12, background: '#fdecea', border: '1px solid #f5c6cb', borderRadius: 6, fontSize: 13 }}>
+              ⚠️ Solo {avvisoPochi.movimentiBanca} movimenti su banca/cassa per {avvisoPochi.registrazioni} registrazioni: l'analisi non è attendibile.
+              Controlla in Riclassificazione che i conti correnti e la cassa siano tra le disponibilità liquide, oppure dimmi quali sono.
+            </div>
+          )}
+          {conferma && (
+            <div style={{ marginTop: 14, padding: 14, background: '#fff8e6', border: '1px solid #f5d0a9', borderRadius: 8 }}>
+              <div style={{ fontWeight: 700, color: '#1a3a5c', marginBottom: 6 }}>Quali di questi conti sono banca o cassa?</div>
+              <div style={{ fontSize: 12.5, color: '#5f6b7a', marginBottom: 10 }}>
+                {conferma.pochiMovimenti
+                  ? `Con la riclassificazione attuale risultano solo ${conferma.movimentiBanca} movimenti su banca/cassa per ${conferma.registrazioni} registrazioni: indica quali conti sono conti correnti o cassa. `
+                  : 'Questi conti sembrano conti bancari ma non sono tra le disponibilità liquide della riclassificazione (es. conti correnti sempre sotto fido, esposti tra i debiti verso banche). '}
+                La scelta vale solo per l'analisi dei flussi e la tesoreria: lo Stato patrimoniale non cambia. Anticipi, mutui e finanziamenti non vanno spuntati: i loro movimenti restano entrate e uscite per finanziamenti.
+              </div>
+              <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+                <thead><tr style={{ textAlign: 'left', color: '#5f6b7a' }}><th style={{ width: 70 }}>Banca/cassa</th><th>Conto</th><th>Descrizione</th><th>Riclassificato in</th><th style={{ textAlign: 'right' }}>Movimenti</th></tr></thead>
+                <tbody>
+                  {conferma.conti.map((c) => (
+                    <tr key={c.conto} style={{ borderTop: '1px solid #f0e2cc' }}>
+                      <td><input type="checkbox" checked={!!scelteBanca[c.conto]} onChange={(e) => setScelteBanca((s) => ({ ...s, [c.conto]: e.target.checked }))} /></td>
+                      <td style={{ fontFamily: 'monospace' }}>{c.conto}</td>
+                      <td>{c.descrizione}</td>
+                      <td style={{ color: '#5f6b7a' }}>{c.voce || '—'}</td>
+                      <td style={{ textAlign: 'right' }}>{c.movimenti}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <button className="btn btn-primary" disabled={calcolando} onClick={confermaConti}>Conferma ed elabora</button>
+                <button className="btn btn-outline" disabled={calcolando} onClick={() => setConferma(null)}>Annulla</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
