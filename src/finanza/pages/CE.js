@@ -270,13 +270,18 @@ async function calcolaCeDocumento(aziendaId, documentoId, modalita) {
   // Libro giornale infrannuale: assestamenti di periodo stimati (rimanenze finali, ammortamenti, TFR, fatture da
   // ricevere/emettere, imposte), proposti e salvati sul documento, applicati a CE e SP
   const infrannuale = TIPI_LIBRO_GIORNALE.includes(doc.tipo_documento) && meseFine < 12 && modalita === 'cumulativo'
+  // Libro giornale dell'intero anno senza scritture di chiusura: rettifiche di fine esercizio inserite a mano
+  const diag = dati.diagnostica || {}
+  const fineAnno = TIPI_LIBRO_GIORNALE.includes(doc.tipo_documento) && meseFine === 12 && modalita === 'cumulativo'
+    && !((diag.verificaOk || 0) + (diag.verificaKo || 0) > 0)
+  const conAssestamenti = infrannuale || fineAnno
   let assestamenti = null
   let proposte = null
   let imposte = 0
   let aggregato = aggregatoGiornale
   const periodo = `al ${['31/01', '28/02', '31/03', '30/04', '31/05', '30/06', '31/07', '31/08', '30/09', '31/10', '30/11', '31/12'][meseFine - 1]}`
-  if (infrannuale) {
-    proposte = proponiAssestamenti({ aggregato: aggregatoGiornale, meseFine, annuali: await annualiEsercizioPrecedente(aziendaId, doc.anno, ctx) })
+  if (conAssestamenti) {
+    proposte = proponiAssestamenti({ aggregato: aggregatoGiornale, meseFine, annuali: await annualiEsercizioPrecedente(aziendaId, doc.anno, ctx), fineAnno })
     assestamenti = doc.assestamenti ? { ...proposte, ...doc.assestamenti, fonti: proposte.fonti } : { ...proposte, attivi: false }
     const anteImposte = (agg) => { const t = calcolaTotali(agg, ctx.vociCeeList); return t.A - t.B + t.C + t.D }
     const r = applicaAssestamentiCE(aggregatoGiornale, assestamenti, periodo, anteImposte)
@@ -302,7 +307,7 @@ async function calcolaCeDocumento(aziendaId, documentoId, modalita) {
     if (lgPrec) { try { iniziali = { dati: JSON.parse(lgPrec.dati_estratti), anno: prec } } catch { iniziali = null } }
   }
   const stataPatrimoniale = TIPI_LIBRO_GIORNALE.includes(doc.tipo_documento)
-    ? await calcolaSpDocumento(aziendaId, dati, infrannuale ? { valori: assestamenti, imposte, periodo } : null, iniziali)
+    ? await calcolaSpDocumento(aziendaId, dati, conAssestamenti ? { valori: assestamenti, imposte, periodo } : null, iniziali)
     : null
 
   return {
@@ -326,6 +331,7 @@ async function calcolaCeDocumento(aziendaId, documentoId, modalita) {
     assestamenti,
     proposteAssestamenti: proposte,
     periodo,
+    fineAnno,
     statoPatrimoniale: stataPatrimoniale,
   }
 }
@@ -463,6 +469,7 @@ export default function CE() {
   const [assestamenti, setAssestamenti] = useState(null)
   const [proposteAss, setProposteAss] = useState(null)
   const [periodo, setPeriodo] = useState('')
+  const [fineAnno, setFineAnno] = useState(false)
   const [salvandoAss, setSalvandoAss] = useState(false)
 
   useEffect(() => {
@@ -515,6 +522,7 @@ export default function CE() {
         setAssestamenti(res.assestamenti)
         setProposteAss(res.proposteAssestamenti)
         setPeriodo(res.periodo)
+        setFineAnno(!!res.fineAnno)
         setVociMensili([])
       }
     } catch (e) {
@@ -719,7 +727,7 @@ export default function CE() {
       </div>
 
       {assestamenti && sommario && (
-        <AssestamentiPeriodo valori={assestamenti} proposte={proposteAss} periodo={periodo} sommario={sommario} salvando={salvandoAss} onSalva={salvaAssestamenti} />
+        <AssestamentiPeriodo valori={assestamenti} proposte={proposteAss} periodo={periodo} fineAnno={fineAnno} sommario={sommario} salvando={salvandoAss} onSalva={salvaAssestamenti} />
       )}
 
       {statoPatrimoniale && (

@@ -10,16 +10,33 @@
 //    registrati);
 //  - imposte = aliquota (default 27,9% = IRES 24% + IRAP 3,9%, stima semplificata) x risultato ante imposte
 //    assestato, se positivo e se nel periodo non ci sono gia' imposte.
+// Libro giornale dell'intero anno non ancora chiuso (fineAnno): le stesse voci sono rettifiche di fine esercizio
+// inserite a mano (es. gli "AMMORTAMENTI (Simulazione)" del bilancio del gestionale); le proposte partono da zero,
+// salvo il TFR, perche' il bilancio di verifica dell'anno non contiene ne' inventario ne' imposte.
 
 const round2 = (n) => Math.round(n * 100) / 100
 
 export const ALIQUOTA_IMPOSTE_DEFAULT = 27.9
 
+const fmtEuro = (n) => `${Number(n).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
 const somma = (agg, prefisso) => Object.entries(agg).filter(([k]) => k.startsWith(prefisso)).reduce((s, [, v]) => s + (v.importo || 0), 0)
 
 // aggregato: { codiceCEE: { importo, conti: [{ codice, conto, importo }] } } (da processaDocumento)
 // annuali: { ammortamenti, tfr, fonte } dell'esercizio precedente (opzionale)
-export function proponiAssestamenti({ aggregato, meseFine, annuali = null }) {
+export function proponiAssestamenti({ aggregato, meseFine, annuali = null, fineAnno = false }) {
+  if (fineAnno) {
+    const tfrGiaRegistrato = (aggregato.B9c?.importo || 0) > 0
+    return {
+      attivi: false, rimanenze_finali: 0, ammortamenti: 0, tfr: tfrGiaRegistrato ? 0 : round2(annuali?.tfr || 0),
+      fatture_da_ricevere: 0, fatture_da_emettere: 0, aliquota_imposte: 0,
+      fonti: {
+        rimanenze_finali: 'inserisci l\'inventario al 31/12 se non è ancora registrato',
+        ammortamenti: somma(aggregato, 'B10') > 0 ? `già registrati ${fmtEuro(somma(aggregato, 'B10'))}: inserisci solo la parte mancante (es. la simulazione del gestionale)` : 'inserisci gli ammortamenti dell\'anno',
+        tfr: tfrGiaRegistrato ? 'già registrato nell\'anno' : annuali?.tfr ? `TFR ${annuali.fonte}` : 'nessun dato dell\'esercizio precedente',
+        aliquota_imposte: 'imposte dell\'esercizio: indica l\'aliquota solo se vuoi stimarle',
+      },
+    }
+  }
   const esistenzeIniziali = round2((aggregato.B11?.conti || []).filter((c) => c.importo > 0).reduce((s, c) => s + c.importo, 0))
   const ammGiaRegistrati = somma(aggregato, 'B10') > 0
   const tfrGiaRegistrato = (aggregato.B9c?.importo || 0) > 0

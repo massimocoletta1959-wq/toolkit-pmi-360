@@ -38,3 +38,11 @@ describe('assestamenti di periodo', () => {
     expect(ce.imposte).toBe(0)
   })
 })
+
+describe('rettifiche di fine esercizio (giornale annuale non chiuso)', () => {
+  test('proposte a zero, ammortamenti gia registrati segnalati', () => {
+    const p = proponiAssestamenti({ aggregato: { B10b: { importo: 12387.97, conti: [] } }, meseFine: 12, fineAnno: true })
+    expect(p).toMatchObject({ attivi: false, rimanenze_finali: 0, ammortamenti: 0, aliquota_imposte: 0 })
+    expect(p.fonti.ammortamenti).toMatch(/già registrati/)
+  })
+})

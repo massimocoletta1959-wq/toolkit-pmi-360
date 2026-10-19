@@ -11,7 +11,7 @@ const CAMPI = [
 
 // Assestamenti di periodo di un libro giornale infrannuale: stime separate dai dati registrati, salvate sul
 // documento. Il risultato "da giornale" resta sempre visibile accanto a quello assestato.
-export default function AssestamentiPeriodo({ valori, proposte, periodo, sommario, salvando, onSalva }) {
+export default function AssestamentiPeriodo({ valori, proposte, periodo, fineAnno = false, sommario, salvando, onSalva }) {
   const [form, setForm] = useState(valori)
   useEffect(() => setForm(valori), [valori])
   if (!form) return null
@@ -23,14 +23,15 @@ export default function AssestamentiPeriodo({ valori, proposte, periodo, sommari
     <div className="card" style={{ marginBottom: 20, border: '1px solid #f5d0a9', background: '#fffaf3' }}>
       <div className="card-body">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 6 }}>
-          <h3 style={{ margin: 0, color: '#1a3a5c', fontSize: 16 }}>Assestamenti di periodo {periodo} (stime)</h3>
+          <h3 style={{ margin: 0, color: '#1a3a5c', fontSize: 16 }}>{fineAnno ? `Rettifiche di fine esercizio ${periodo}` : `Assestamenti di periodo ${periodo} (stime)`}</h3>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, marginLeft: 'auto' }}>
             <input type="checkbox" checked={!!form.attivi} onChange={(e) => cambia('attivi', e.target.checked)} /> applica al Conto economico e allo Stato patrimoniale
           </label>
         </div>
         <p style={{ fontSize: 12.5, color: '#5f6b7a', margin: '0 0 12px' }}>
-          Il libro giornale infrannuale non contiene le scritture di fine esercizio. Queste stime le aggiungono, separate dai dati registrati:
-          nelle tabelle compaiono come «assestamento stimato».
+          {fineAnno
+            ? 'Il libro giornale dell\'anno non contiene ancora le scritture di chiusura. Qui si aggiungono le rettifiche non registrate (es. gli ammortamenti in simulazione del bilancio del gestionale), separate dai dati registrati: nelle tabelle compaiono come «assestamento stimato».'
+            : 'Il libro giornale infrannuale non contiene le scritture di fine esercizio. Queste stime le aggiungono, separate dai dati registrati: nelle tabelle compaiono come «assestamento stimato».'}
         </p>
         <div className="grid-2">
           {CAMPI.map(([k, label, effetto]) => (
