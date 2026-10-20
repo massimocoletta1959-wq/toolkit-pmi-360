@@ -85,7 +85,10 @@ function periodicita(attivi, coperti) {
   return 'irregolare'
 }
 
-// documenti: [{ anno, dati }] (dati_estratti dei libri giornale / prime note, uno per anno, il piu' recente per ultimo)
+// documenti: [{ anno, dati, meseFine? }] (dati_estratti dei libri giornale / prime note, uno per anno, il piu' recente
+// per ultimo; meseFine = ultimo mese coperto dal documento, se indicato al caricamento)
+const MESI_NOMI_BC = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre']
+
 export function calcolaBudgetConsuntivo({ documenti, mappatureAzienda = [], mappatureGlobali = [], impostazioni = {} }) {
   const imp = { costiVariabili: null, valoriMensili: {}, importiPeriodici: {}, macrocategorieConti: {}, rettifiche: [], ...impostazioni }
   const docs = [...documenti].sort((a, b) => a.anno - b.anno)
@@ -120,15 +123,21 @@ export function calcolaBudgetConsuntivo({ documenti, mappatureAzienda = [], mapp
   }
   for (const c of Object.values(conti)) if (c.tipo === 'costo') c.macrocategoria = macrocategoria(c.conto, c.descrizione, c.natura, imp.macrocategorieConti)
 
-  // ultimo mese chiuso di ogni anno: ultima registrazione degli stipendi
+  // ultimo mese chiuso di ogni anno: ultima registrazione degli stipendi; senza dipendenti (nessun conto di
+  // retribuzioni) il mese di fine indicato sul documento o, in mancanza, l'ultimo mese con movimenti. Mai oltre il
+  // mese di fine del documento: i mesi dopo non sono registrati, non valgono zero.
   const stipendi = Object.values(conti).filter((c) => c.tipo === 'costo' && c.natura === 'gestione' && RE_STIPENDI.test(c.descrizione))
   const completi = {}
-  for (const { anno } of docs) {
+  for (const { anno, meseFine } of docs) {
+    const fineDoc = Number(meseFine) >= 1 && Number(meseFine) <= 12 ? Number(meseFine) : null
     const mesi = stipendi.flatMap((c) => Object.entries(serie[c.conto]).filter(([i, v]) => Math.floor(i / 12) === anno && v > 0).map(([i]) => (i % 12) + 1))
-    completi[anno] = mesi.length ? Math.max(...mesi) : 12
+    const conMovimenti = Object.values(serie).flatMap((s) => Object.entries(s).filter(([i, v]) => Math.floor(i / 12) === anno && Math.abs(v) > 0.005).map(([i]) => (i % 12) + 1))
+    const daStipendi = mesi.length ? Math.max(...mesi) : null
+    const ultimoMov = conMovimenti.length ? Math.max(...conMovimenti) : 12
+    completi[anno] = Math.min(daStipendi ?? fineDoc ?? ultimoMov, fineDoc ?? 12)
   }
   const annoCorrente = docs[docs.length - 1].anno
-  if (!stipendi.length) avvisi.push('Nessun conto di retribuzioni trovato: l\'ultimo mese chiuso e\' dicembre.')
+  if (!stipendi.length) avvisi.push(`Nessun conto di retribuzioni trovato: l'ultimo mese chiuso è ${MESI_NOMI_BC[completi[annoCorrente] - 1]} ${annoCorrente} (${docs[docs.length - 1].meseFine ? 'mese di fine del libro giornale' : 'ultimo mese con movimenti'}).`)
   const coperti = docs.flatMap(({ anno }) => Array.from({ length: completi[anno] }, (_, m) => anno * 12 + m))
   const ultimo = annoCorrente * 12 + completi[annoCorrente] - 1
   const finestra = Array.from({ length: 12 }, (_, j) => ultimo - 11 + j)

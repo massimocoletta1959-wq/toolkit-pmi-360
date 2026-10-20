@@ -66,3 +66,18 @@ test('budget dai valori effettivi: taglio sugli stipendi, regole di previsione, 
   const voci = vociBudgetAnno(r, 2027)
   expect(voci.find((v) => v.descrizione === 'Affitti')).toMatchObject({ categoria: 'costi', gen: 520, totale_annuo: 6240 })
 })
+
+test('senza dipendenti: ultimo mese chiuso = mese di fine del giornale, i mesi dopo sono previsti', () => {
+  const senza = (d) => ({ gruppi: d.gruppi.filter((g) => !g.conti[0].conto.startsWith('66/0707')) })
+  const d2026giu = gruppi([
+    conto('50/0101/000001', 'Ricavi', mesi((m) => (m <= 6 ? -12000 : 0))),
+    conto('66/0808/000008', 'Affitti', mesi((m) => (m <= 6 ? 500 : 0))),
+  ])
+  const r = calcolaBudgetConsuntivo({ documenti: [{ anno: 2025, dati: senza(d2025) }, { anno: 2026, meseFine: 6, dati: d2026giu }], mappatureAzienda: MAP })
+  expect(r.ultimoMeseChiuso).toBe('2026-06')
+  expect(r.mesiPrevisione[0]).toBe('2026-07')
+  expect(r.costiFissi.find((x) => x.conto === '66/0808/000008').valori['2026-09']).toBe(500)
+  expect(r.ricavi[0].valori['2026-10']).toBeGreaterThan(0)
+  // senza mese di fine: l'ultimo mese con movimenti
+  expect(calcolaBudgetConsuntivo({ documenti: [{ anno: 2025, dati: senza(d2025) }, { anno: 2026, dati: d2026giu }], mappatureAzienda: MAP }).ultimoMeseChiuso).toBe('2026-06')
+})

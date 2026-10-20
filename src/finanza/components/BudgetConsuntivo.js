@@ -26,7 +26,7 @@ export default function BudgetConsuntivo({ aziendaId, budgets, onSalvato, ivaPre
   const carica = useCallback(async () => {
     setStato({ caricando: true })
     const [{ data: docs, error: e1 }, { data: mapAz }, { data: mapGl }, { data: imp }] = await Promise.all([
-      supabase.from('documenti').select('id, nome_file, anno, tipo_documento, caricato_il, dati_estratti').eq('azienda_id', aziendaId).eq('stato', 'elaborato').in('tipo_documento', TIPI_LIBRO_GIORNALE),
+      supabase.from('documenti').select('id, nome_file, anno, tipo_documento, caricato_il, mese_fine, dati_estratti').eq('azienda_id', aziendaId).eq('stato', 'elaborato').in('tipo_documento', TIPI_LIBRO_GIORNALE),
       supabase.from('mappature_conti').select('*').eq('azienda_id', aziendaId).eq('globale', false),
       supabase.from('mappature_conti').select('*').eq('globale', true),
       supabase.from('budget_impostazioni').select('impostazioni').eq('azienda_id', aziendaId).maybeSingle(),
@@ -38,7 +38,7 @@ export default function BudgetConsuntivo({ aziendaId, budgets, onSalvato, ivaPre
     const anni = Object.keys(perAnno).map(Number).sort((a, b) => b - a)
     if (!anni.length) { setStato({ errore: 'Per questo calcolo servono il libro giornale o la prima nota dell\'anno in corso (e, meglio, dell\'anno precedente), caricati ed elaborati in Documenti.' }); return }
     const usati = anni.filter((a) => a >= anni[0] - 1).map((a) => perAnno[a])
-    const documenti = usati.map((d) => { try { return { anno: Number(d.anno), dati: JSON.parse(d.dati_estratti) } } catch { return null } }).filter(Boolean)
+    const documenti = usati.map((d) => { try { return { anno: Number(d.anno), meseFine: d.mese_fine || null, dati: JSON.parse(d.dati_estratti) } } catch { return null } }).filter(Boolean)
     setImpostazioni(imp?.impostazioni || {})
     setStato({ documenti, usati, mapAz: mapAz || [], mapGl: mapGl || [] })
   }, [aziendaId])
