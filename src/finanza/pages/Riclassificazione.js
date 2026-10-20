@@ -157,6 +157,8 @@ export default function Riclassificazione() {
   const [editConto, setEditConto] = useState({})
   const [abbinaAperto, setAbbinaAperto] = useState(false)
   const flagScritto = useRef(false)
+  // documento a cui appartiene datiDoc: il menu puo' essere gia' passato a un altro documento non ancora analizzato
+  const datiDocId = useRef(null)
 
   useEffect(() => {
     supabase
@@ -187,6 +189,7 @@ export default function Riclassificazione() {
     setMappatureAz([])
     setMappatureGlob([])
     setDatiDoc(null)
+    datiDocId.current = null
     setAperti(new Set())
     setRicerca('')
     setEditConto({})
@@ -264,6 +267,7 @@ export default function Riclassificazione() {
       setMappatureAz(mappatureAzienda || [])
       setMappatureGlob(mappatureGlobali || [])
       setDatiDoc(eLibroGiornale ? dati : null)
+      datiDocId.current = eLibroGiornale ? doc.id : null
       flagScritto.current = false
       setAperti(new Set())
       setRicerca('')
@@ -282,11 +286,12 @@ export default function Riclassificazione() {
   // Ricorda sul documento (dentro dati_estratti, senza modifiche allo schema) che
   // l'utente lo ha gia' riclassificato: alle aperture successive mostra tutti i conti.
   const segnaRiclassificato = async () => {
-    if (!datiDoc || datiDoc.riclassificato_il || flagScritto.current) return
+    // si scrive sul documento da cui vengono i dati, mai su quello scelto dopo nel menu (ne copierebbe i dati)
+    if (!datiDoc || !datiDocId.current || datiDoc.riclassificato_il || flagScritto.current) return
     flagScritto.current = true
     const nuoviDati = { ...datiDoc, riclassificato_il: new Date().toISOString() }
     setDatiDoc(nuoviDati)
-    await supabase.from('documenti').update({ dati_estratti: JSON.stringify(nuoviDati) }).eq('id', documentoId)
+    await supabase.from('documenti').update({ dati_estratti: JSON.stringify(nuoviDati) }).eq('id', datiDocId.current)
   }
 
   const salvaMappatura = async (conto, voce, categoria, codiceCee) => {
