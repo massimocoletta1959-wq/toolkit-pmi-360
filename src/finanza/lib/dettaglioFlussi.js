@@ -64,7 +64,8 @@ const GRUPPO_PROIEZIONE = {
   rate_mutuo: 'finanziamenti', rate_finanziamenti: 'finanziamenti',
   investimenti: 'investimenti', scorte: 'scorte', riduzione_scorte: 'scorte',
 }
-export const gruppoFlussoProiezione = (categoria) => GRUPPO_PROIEZIONE[categoria] || 'altro'
+// movimenti previsti inseriti a mano (movimentiPrevisti.js): categoria 'previsto_<gruppo>'
+export const gruppoFlussoProiezione = (categoria) => GRUPPO_PROIEZIONE[categoria] || (/^previsto_/.test(categoria || '') && GRUPPI[categoria.slice(9)] ? categoria.slice(9) : 'altro')
 
 export const etichettaGruppo = (gruppo, direzione) => (GRUPPI[gruppo] || GRUPPI.altro)[direzione]
 

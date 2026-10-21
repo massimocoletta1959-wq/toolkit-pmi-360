@@ -5,6 +5,7 @@ import { estraiRigheLibroGiornale } from '../lib/libroGiornale'
 import { leggiMovimentiGiornale } from '../lib/giornali'
 import { calcolaFlussiCassa, contiBancariDaConfermare } from '../lib/flussiCassa'
 import { calcolaDsoDpo } from '../lib/dsoDpo'
+import MovimentiPrevisti from '../components/MovimentiPrevisti'
 import { tipoControparte } from '../lib/mappatureConti'
 
 const MESI = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
@@ -542,6 +543,8 @@ export default function AnalisiFlussi() {
           )}
         </div>
       </div>
+
+      {aziendaId && <MovimentiPrevisti aziendaId={aziendaId} ultimaDataReale={risultato?.diagnostica?.ultimaData || null} />}
 
       {risultato && (
         <div className="card">

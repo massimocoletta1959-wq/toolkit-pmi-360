@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { righeMovimentiPrevisti, sostituisciImposteCalcolate } from '../lib/movimentiPrevisti'
 import { useApp } from '../../App'
 import { supabase } from '../lib/supabase'
 import { MESI_NOMI, caricaRigheDaBudget, caricaRigheFinanziamenti, caricaRigheRateMutuo, calcolaPianoCashflow, eseguiValidationRules, calcolaConcentrazioneClienti, calcolaSettimane, calcolaLcrPmi, SOGLIA_CONCENTRAZIONE_PCT } from '../lib/tesoreria'
@@ -433,8 +434,14 @@ export default function Tesoreria() {
       const saldoRealeIniziale = datiCorrenti.saldoFinePeriodo?.[meseCorrente] || 0
       const fatturatoMedioReale = Math.round(mesiReali.reduce((s, m) => s + m.entrate, 0) / mesiReali.length)
 
+      // Movimenti previsti inseriti a mano nell'Analisi dei flussi: i versamenti di imposte sul reddito sostituiscono
+      // quelli calcolati nello stesso mese (opzione A), le altre voci si sommano
+      const { data: previstiRighe } = await supabase.from('movimenti_previsti').select('*').eq('azienda_id', aziendaId)
+      const righePreviste = righeMovimentiPrevisti(previstiRighe || [], [annoRiferimento, meseInizioProiezione], ORIZZONTE_CNDCEC)
+      const { righe: righeBudgetNette, sostituite: imposteSostituite } = sostituisciImposteCalcolate(righeBudget, righePreviste)
+
       const pianoProiettato = calcolaPianoCashflow({
-        righe: [...righeBudget, ...righeMutuo, ...righeAperture],
+        righe: [...righeBudgetNette, ...righeMutuo, ...righeAperture, ...righePreviste],
         saldoIniziale: saldoRealeIniziale,
         fatturatoMedio: fatturatoMedioReale || 100000,
         bufferPct,
@@ -451,6 +458,11 @@ export default function Tesoreria() {
       pianoProiettato.dpo_misurato = dpoMisurato
       pianoProiettato.mesi_reali = mesiReali
       pianoProiettato.ancora = { anno: annoRiferimento, ultimo_mese_reale: meseCorrente, saldo_reale_iniziale: saldoRealeIniziale }
+      pianoProiettato.movimenti_previsti = {
+        n: (previstiRighe || []).length,
+        scadenze: righePreviste.length,
+        imposte_sostituite: imposteSostituite.map((r) => ({ mese: r.meseBudget, importo: round2Local(r.importo), descrizione: r.controparte })),
+      }
       pianoProiettato.partite_aperte = {
         n_crediti: righeAperture.filter((r) => r.direzione === 'entrata').length,
         crediti: round2Local(righeAperture.filter((r) => r.direzione === 'entrata').reduce((s, r) => s + r.importo, 0)),
@@ -470,7 +482,7 @@ export default function Tesoreria() {
       // coerenti e condividono il timestamp del salvataggio (motore di
       // valutazione d'impatto, contratto §4.G). Budget pieno, costi netti.
       const mesiBudget = aggregaBudgetMensile(vociBudget || [], azienda, annoRiferimento, meseInizioProiezione, ORIZZONTE_CNDCEC, invRighe || [], manovreRighe || [], vociBudgetSuccessivo)
-      pianoProiettato.modello_cassa = 10 // 10 = elenco completo, esclusione e differimento delle partite aperte (scadenze_escluse); 9 = + dettaglio linee di credito e costi energetici per mese (stress del motore d'impatto); 8 = + vista 13 settimane, scorte, termini contrattuali, Past Due dichiarato, LCR; 7 = acconti imposte 50/50; 6 = + rate da piano di ammortamento, investimenti pianificati; 5 = + contributi F24, acconti imposte, stagionalità, cruscotto, KPI; 4 = + DIO da anagrafica, stress energia, copertura linee; 2 = budget netto + IVA per liquidazione + costi non monetari fuori cassa; 3 = + scenari coerenti col base, DSO misurato, concentrazione; 4 = + DIO da anagrafica, stress energia sulle sole voci energetiche, copertura con le linee di credito (vedi CHANGELOG.md)
+      pianoProiettato.modello_cassa = 11 // 11 = + movimenti previsti a mano (Analisi dei flussi), imposte sul reddito sostituite nel mese; 10 = elenco completo, esclusione e differimento delle partite aperte (scadenze_escluse); 9 = + dettaglio linee di credito e costi energetici per mese (stress del motore d'impatto); 8 = + vista 13 settimane, scorte, termini contrattuali, Past Due dichiarato, LCR; 7 = acconti imposte 50/50; 6 = + rate da piano di ammortamento, investimenti pianificati; 5 = + contributi F24, acconti imposte, stagionalità, cruscotto, KPI; 4 = + DIO da anagrafica, stress energia, copertura linee; 2 = budget netto + IVA per liquidazione + costi non monetari fuori cassa; 3 = + scenari coerenti col base, DSO misurato, concentrazione; 4 = + DIO da anagrafica, stress energia sulle sole voci energetiche, copertura con le linee di credito (vedi CHANGELOG.md)
       pianoProiettato.ce_baseline = costruisciCeBaseline(mesiBudget, vociBudget || [], { budget_id: budgetScelto.id, anno_budget: annoRiferimento })
       pianoProiettato.iva_baseline = {
         liquidazione: azienda?.liquidazione_iva || 'trimestrale',
@@ -510,7 +522,7 @@ export default function Tesoreria() {
       pianoProiettato.kpi_finanziari = kpiFin
 
       // vista a 13 settimane (§1.1, §2.5h) sugli stessi flussi del piano
-      pianoProiettato.vista_settimanale = calcolaSettimane({ righe: [...righeBudget, ...righeMutuo, ...righeAperture], inizio: new Date(inizioFinestra), saldoIniziale: saldoRealeIniziale, buffer: pianoProiettato.mesi[0]?.buffer_minimo ?? 0 })
+      pianoProiettato.vista_settimanale = calcolaSettimane({ righe: [...righeBudgetNette, ...righeMutuo, ...righeAperture, ...righePreviste], inizio: new Date(inizioFinestra), saldoIniziale: saldoRealeIniziale, buffer: pianoProiettato.mesi[0]?.buffer_minimo ?? 0 })
       // termini contrattuali (DSO/DPO vs termini, §2.5e) e Past Due dichiarato (§1.4, CCII art. 3): dati dell'anagrafica
       pianoProiettato.termini = { incasso: azienda?.termini_incasso_giorni ?? null, pagamento: azienda?.termini_pagamento_giorni ?? null }
       pianoProiettato.past_due = {
@@ -1018,6 +1030,13 @@ export default function Tesoreria() {
                   <div className="kpi-value">{fmtSaldo(piano.mesi[piano.mesi.length - 1]?.saldo_base ?? 0)}</div>
                 </div>
               </div>
+
+              {piano.movimenti_previsti?.n > 0 && (
+                <div className="alert" style={{ background: '#eff6ff', color: '#1d4ed8', fontSize: 13 }}>
+                  📌 Inclusi {piano.movimenti_previsti.n} movimenti previsti a mano in Analisi dei flussi ({piano.movimenti_previsti.scadenze} scadenze nell'orizzonte).
+                  {piano.movimenti_previsti.imposte_sostituite?.length > 0 && ` Sostituiscono le imposte sul reddito calcolate di ${piano.movimenti_previsti.imposte_sostituite.map((x) => `${MESI_NOMI[(x.mese % 100) - 1]} ${Math.floor(x.mese / 100)} (${fmtSaldo(x.importo)})`).join(', ')}.`}
+                </div>
+              )}
 
               <GraficoTesoreria piano={piano} />
 

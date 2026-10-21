@@ -12,7 +12,7 @@ const TABELLE = new Set([
   'analisi_flussi', 'budget', 'budget_voci', 'cashflow', 'controlli_tesoreria', 'documenti',
   'finanziamenti', 'investimenti', 'kpi_tesoreria', 'linee_credito', 'manovre_scorte',
   'mappature_conti', 'mappature_flussi_conti', 'movimenti_tesoreria', 'narrativa_report',
-  'saldi_cassa_reali', 'scadenze_escluse', 'scenari_tesoreria', 'scostamenti', 'voci_cee', 'voci_sp', 'budget_impostazioni',
+  'saldi_cassa_reali', 'scadenze_escluse', 'scenari_tesoreria', 'scostamenti', 'voci_cee', 'voci_sp', 'budget_impostazioni', 'movimenti_previsti',
 ])
 // "aziende" di EasyPMI = vista fin_aziende (anagrafica Pmi 360° + parametri finanziari);
 // le modifiche ai parametri passano dalla vista (trigger) a fin_parametri_azienda.
