@@ -11,32 +11,34 @@ const norm = (s) => (s || '').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,
 const REGOLE = {
   attivita: [
     [/CREDITI V(ERSO)? ?SOCI|VERSAMENTI ANCORA DOVUTI/, 'sp:ATT_A'],
-    [/COSTI DI IMPIANTO|AMPLIAMENTO/, 'sp:ATT_B_I_1'],
+    [/COSTI DI IMPIANTO|AMPLIAMENTO|COSTITUZ|COSTI IMP/, 'sp:ATT_B_I_1'],
     [/RICERCA|SVILUPPO/, 'sp:ATT_B_I_2'],
     [/BREVETT|INGEGNO|SOFTWARE/, 'sp:ATT_B_I_3'],
     [/CONCESSION|LICENZ|MARCH/, 'sp:ATT_B_I_4'],
     [/AVVIAMENTO/, 'sp:ATT_B_I_5'],
     [/IMMATERIAL.*(IN CORSO|ACCONTI)/, 'sp:ATT_B_I_6'],
-    [/TERRENI|FABBRICATI/, 'sp:ATT_B_II_1'],
-    [/IMPIANTI|MACCHINAR/, 'sp:ATT_B_II_2'],
-    [/ATTREZZATUR/, 'sp:ATT_B_II_3'],
-    [/ALTRI BENI|AUTOVETTUR|AUTOCARR|AUTOMEZZ|ARREDAMENT|MOBILI E ARREDI|MACCHINE (D )?UFFICIO|ELETTRONICHE/, 'sp:ATT_B_II_4'],
+    [/TERRENI|FABBRICATI|COSTRUZ|COSTR LEGG/, 'sp:ATT_B_II_1'],
+    [/IMPIANTI|MACCHINAR|\bIMP\b/, 'sp:ATT_B_II_2'],
+    [/ATTREZZATUR|\bATTR\b/, 'sp:ATT_B_II_3'],
+    [/ALTRI BENI|AUTOVETTUR|AUTOCARR|AUTOMEZZ|AUTOV|AUTOVEIC|MOTOV|ARREDAMENT|MOBILI E ARREDI|\bMOB\b|MACCHINE (D )?UFFICIO|MACCH? UFF|ELETTRONICHE|TELEFONIN/, 'sp:ATT_B_II_4'],
+    [/ALTRE IMM(OBILIZZAZIONI)? IMMAT/, 'sp:ATT_B_I_7'],
     [/SPESE SU BENI DI TERZI|MIGLIORIE SU BENI/, 'sp:ATT_B_I_7'],
     [/MATERIAL.*(IN CORSO|ACCONTI)|IMMOBILIZZAZIONI IN CORSO/, 'sp:ATT_B_II_5'],
-    [/PARTECIPAZ.*CONTROLLAT/, 'sp:ATT_B_III_1A'],
-    [/PARTECIPAZ.*COLLEGAT/, 'sp:ATT_B_III_1B'],
-    [/PARTECIPAZ/, 'sp:ATT_B_III_1D'],
+    [/(PARTECIPAZ|PARTEC|\bPART\b).*CONTROL/, 'sp:ATT_B_III_1A'],
+    [/(PARTECIPAZ|PARTEC|\bPART\b).*COLLEG/, 'sp:ATT_B_III_1B'],
+    [/PARTECIPAZ|PARTEC|\bPART\b/, 'sp:ATT_B_III_1D'],
     [/CREDITI IMMOBILIZZAT|IMMOBILIZZAZIONI FINANZIARIE|CAUZIONAL/, 'sp:ATT_B_III_2D'],
+    [/^ACCONTI\b/, 'sp:ATT_C_I_5'],
     [/MATERIE PRIME|SUSSIDIARIE|DI CONSUMO/, 'sp:ATT_C_I_1'],
     [/SEMILAVORAT|IN CORSO DI LAVORAZIONE/, 'sp:ATT_C_I_2'],
-    [/LAVORI IN CORSO/, 'sp:ATT_C_I_3'],
+    [/LAVORI IN CORSO|SERVIZI IN CORSO|LAV(ORI)? .*CORSO/, 'sp:ATT_C_I_3'],
     [/PRODOTTI FINITI|\bMERCI\b|RIMANENZ/, 'sp:ATT_C_I_4'],
     [/CLIENTI/, 'sp:ATT_C_II_1'],
     [/CONTROLLAT/, 'sp:ATT_C_II_2'],
     [/COLLEGAT/, 'sp:ATT_C_II_3'],
     [/CONTROLLANT/, 'sp:ATT_C_II_4'],
     [/IMPOSTE ANTICIPATE/, 'sp:ATT_C_II_4T'],
-    [/TRIBUTAR|ERARIO|\bI V A\b|\bIVA\b/, 'sp:ATT_C_II_4B'],
+    [/TRIBUTAR|ERARIO|\bI V A\b|\bIVA\b|\bIRES\b|\bIRAP\b|RITENUT|CREDITI? (D )?IMPOSTA|SUPERBONUS/, 'sp:ATT_C_II_4B'],
     [/VERSO ALTRI|V ALTRI|CREDITI DIVERSI|ALTRI CREDITI/, 'sp:ATT_C_II_5'],
     [/TITOLI|ATTIVITA FINANZIARIE/, 'sp:ATT_C_III_6'],
     [/DEPOSITI BANCARI|BANCH|\bBANCA\b|POSTAL|UNICREDIT|INTESA|PREPAGAT|\bC\/C\b/, 'sp:ATT_C_IV_1'],
@@ -59,29 +61,37 @@ const REGOLE = {
     [/QUIESCENZA/, 'sp:PAS_B_1'],
     [/FONDO IMPOSTE|IMPOSTE DIFFERITE/, 'sp:PAS_B_2'],
     [/FONDI? (PER )?RISCHI|ALTRI FONDI|FONDO ONERI/, 'sp:PAS_B_3'],
-    [/TFR|FINE RAPPORTO/, 'sp:PAS_C'],
+    [/RITEN|RIT FIS|ADDIZIONAL|ADD COMUNAL|\bIRES\b|\bIRAP\b/, 'sp:PAS_D_12'],
+    [/TFR|T F R|FINE RAPPORTO/, 'sp:PAS_C'],
     [/OBBLIGAZION/, 'sp:PAS_D_1'],
     [/SOCI (PER |C )?FINANZ|FINANZIAMENTI SOCI|V\/? ?SOCI\b/, 'sp:PAS_D_3'],
-    [/ALTRI FINANZIATORI/, 'sp:PAS_D_5'],
-    [/BANCH|BANCARI/, 'sp:PAS_D_4'],
-    [/ACCONTI/, 'sp:PAS_D_6'],
-    [/FORNITORI/, 'sp:PAS_D_7'],
+    [/ALTRI FINANZIATORI|LEASE|LEASING/, 'sp:PAS_D_5'],
+    [/BANCH|BANCARI|MUTU/, 'sp:PAS_D_4'],
+    [/ACCONTI|ANTICIP/, 'sp:PAS_D_6'],
+    [/FORNITORI|\bFORN\b/, 'sp:PAS_D_7'],
     [/TITOLI DI CREDITO|CAMBIALI/, 'sp:PAS_D_8'],
     [/CONTROLLAT/, 'sp:PAS_D_9'],
     [/COLLEGAT/, 'sp:PAS_D_10'],
     [/CONTROLLANT/, 'sp:PAS_D_11'],
     [/TRIBUTAR|ERARIO|\bI V A\b|\bIVA\b/, 'sp:PAS_D_12'],
-    [/PREVID|SICUREZZA SOCIALE|ASSISTENZ|\bINPS\b|I N P S|\bINAIL\b|I N A I L/, 'sp:PAS_D_13'],
+    [/PREVID|SICUREZZA SOCIALE|ASSISTENZ|\bINPS\b|I N P S|\bINAIL\b|I N A I L|FONDO PENSION|CASSA EDILE/, 'sp:PAS_D_13'],
     [/ALTRI DEBITI|DEBITI DIVERSI|DIPENDENTI|\bDIP\b|STIPENDI/, 'sp:PAS_D_14'],
     [/RATEI PASSIVI/, 'sp:PAS_E_1'],
     [/RISCONTI|RATEI/, 'sp:PAS_E_2'],
   ],
   costi: [
+    [/LAVORI IN CORSO|LAV(ORI)? .*CORSO/, 'cee:A3'],
     [/RIMANENZ|\bRIM\b|ESISTENZE/, 'cee:B11'],
-    [/MAT PRIME|MATERIE PRIME|\bSUSS|\bCONSUMO\b|\bMERCI\b|\bACQUISTI\b/, 'cee:B6'],
+    [/\bIRES\b|\bIRAP\b|IMPOSTE (SUL REDDITO|DELL ESERCIZIO|CORRENTI)/, 'cee:E20'],
+    [/CONTRIBUTI ASSOCIATIV|QUOTE ASSOCIATIV|BOLL|IMPOSTA DI|IMPOSTA MUNICIPALE|\bIMU\b|TASS[AE]|DIRITTI|CCIAA|MULTE|SANZION|ARROTOND|INDEDUCIBIL|EROGAZION|LIBERALI/, 'cee:B14'],
+    [/ACQUISTI? (DI )?SERVIZI|ACQ (DI )?SERVIZI/, 'cee:B7'],
+    [/SALARI|STIPENDI|RETRIBUZ/, 'cee:B9a'],
+    [/ONERI SOCIALI|CONTRIB|\bINPS\b|\bINAIL\b|CASSA EDILE/, 'cee:B9b'],
+    [/FINE RAPPORTO|TFR|T F R/, 'cee:B9c'],
+    [/MAT PRIME|MATERIE PRIME|\bSUSS|\bCONSUMO\b|\bMERCI\b|\bACQUISTI\b|\bACQUISTO\b|MATERIAL|INDUMENT|DISPOSITIV/, 'cee:B6'],
     [/CARBUR|\bCARB\b|LUBRIF/, 'cee:B6'],
-    [/SERVIZI|SPEDIZ|TRASPORT|CONSULENZ|COMPENSO AMMINISTRATOR|MANUTENZ|ASSICURAZ|PEDAGG|TELEFON|ENERGIA|COMMISSIONI BANCARIE|SPESE BANCARIE/, 'cee:B7'],
-    [/GODIMENTO|LEASING|LOCAZION|NOLEGG|AFFITT/, 'cee:B8'],
+    [/GODIMENTO|LEASING|LOCAZION|LOC FIN|NOLEGG|AFFITT/, 'cee:B8'],
+    [/SERVIZI|SPEDIZ|TRASPORT|CONSULENZ|COMPENSO AMMINISTRATOR|MANUTENZ|MANUT|ASSICURAZ|PEDAGG|TELEFON|ENERGIA|COMMISSIONI BANCARIE|SPESE BANCARIE|APPALT|LAVOR|PREST|ASSISTENZA|PROF|VIAGG|PARCHEG|\bGAS\b|ACQUEDOTTO|FOGNAT|CANCELLER|STAMPAT|POSTAL|LEGAL|AMMINISTRATIV|PULIZ|\bPUL\b|SORV|VIGILANZ|SMALTIM|RIFIUT|CONDOMIN|SOFTWARE|FORMAZION|ADDESTR|PUBBLICIT|PROPAGANDA|RAPPRESENT|RISTORANT|ALBERGH|UTENZ|ELETTRIC/, 'cee:B7'],
     [/SALARI|STIPENDI|RETRIBUZ/, 'cee:B9a'],
     [/ONERI SOCIALI/, 'cee:B9b'],
     [/FINE RAPPORTO|TFR/, 'cee:B9c'],
@@ -100,17 +110,28 @@ const REGOLE = {
     [/ALTRI ONERI|ONERI STRAORDINARI|SOPRAVVENIENZE/, 'cee:B14'],
   ],
   ricavi: [
+    [/LAVORI IN CORSO|LAV(ORI)? .*CORSO/, 'cee:A3'],
     [/RIMANENZ|\bRIM\b|ESISTENZE/, 'cee:B11'],
     [/VARIAZION.*PRODOTTI/, 'cee:A2'],
     [/LAVORI IN CORSO/, 'cee:A3'],
     [/INCREMENTI/, 'cee:A4'],
-    [/RICAVI DELLE VENDITE|VENDITE|PRESTAZIONI/, 'cee:A1'],
+    [/RICAVI DELLE VENDITE|VENDITE|VENDITA|PRESTAZIONI/, 'cee:A1'],
     [/PROVENTI DA PARTECIPAZ|DIVIDEND/, 'cee:C15'],
     [/PROVENTI FINANZIARI|INTERESSI ATTIVI|UTILI SU CAMBI/, 'cee:C16'],
     [/RIVALUTAZ/, 'cee:D18'],
-    [/ALTRI RICAVI|ALTRI PROVENTI|PROVENTI|CONTRIBUTI|SOPRAVVENIENZE ATTIVE|ABBUONI|RIMBORSI/, 'cee:A5'],
+    [/ALTRI RICAVI|ALTRI PROVENTI|PROVENTI|CONTRIBUTI|SOPRAVVENIENZE ATTIVE|ABBUONI|RIMBORSI|ARROTOND|OMAGGI/, 'cee:A5'],
     [/RICAVI/, 'cee:A1'],
   ],
+}
+
+const RE_FONDO_AMM = /^(F DO|FDO|FONDO|FONDI|FON|F)\s*(AMM|AMMORT)\S*\s*/
+const RE_FONDO_SVAL = /^(F DO|FDO|FONDO|FONDI)\s*SVAL/
+function rettificaAttivo(descrizione) {
+  const t = norm(descrizione)
+  if (RE_FONDO_SVAL.test(t)) return { codice: 'sp:ATT_C_II_1', da: descrizione }
+  if (!RE_FONDO_AMM.test(t)) return null
+  const bene = t.replace(RE_FONDO_AMM, '').replace(/^(TO|AMMORT\S*)\s*/, '')
+  return proponi('attivita', bene) || null
 }
 
 function proponi(lato, ...descrizioni) {
@@ -154,8 +175,11 @@ export function proposteDaBilancio(bilancio) {
     // se il lato prevalente non ha una voce adatta si prova l'altro: es. "FORNITORI" con piu' anticipi in Dare
     // che debiti in Avere resta un debito verso fornitori (il saldo in Dare lo riduce)
     const altro = lato === sinistro ? destro : sinistro
-    const p = proponi(lato, g.descrizione, mastro) || proponi(altro, g.descrizione, mastro)
-    const latoVoce = p && !proponi(lato, g.descrizione, mastro) ? altro : lato
+    // fondi ammortamento e svalutazione crediti esposti come gruppo a se' (es. GB Software "21380 Fondi amm/to
+    // autov."): sono rettifiche dell'attivo, vanno sulla voce del bene o dei crediti (col saldo in Avere che la riduce)
+    const fondo = g.sezione === 'SP' && rettificaAttivo(g.descrizione)
+    const p = fondo || proponi(lato, g.descrizione, mastro) || proponi(altro, g.descrizione, mastro)
+    const latoVoce = fondo ? 'attivita' : p && !proponi(lato, g.descrizione, mastro) ? altro : lato
     return {
       gruppo: g.gruppo,
       descrizione: g.descrizione,

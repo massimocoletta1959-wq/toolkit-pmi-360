@@ -92,3 +92,33 @@ test('bilancio di esercizio AS/400: conti di 12 cifre, gruppi GG/SSSS, totali e 
   expect(p['09/0303'].proposta).toBe('sp:PAS_D_12')
   expect(p['50/0101'].proposta).toBe('cee:A1')
 })
+
+// GB Software: mastri di 2 cifre, conti numerici, clienti e fornitori solo come mastro, codice attaccato alla descrizione
+const GB = [
+  '                                                         * BILANCIO *                          dal 01/01/2026 al 31/08/2026',
+  '                       ATTIVITÀ                  STATO PATRIMONIALE                                PASSIVITÀ',
+  '21       Immobilizzazioni materiali             1.100,00      21       Immobilizzazioni materiali              400,00',
+  '21300    Autoveicoli da trasporto                1.100,00     21380    Fondi amm/to autov.da trasp.             300,00',
+  '40       Clienti                                   500,00     21382100Fondo amm/to di periodo                   100,00',
+  '22020    Partec.in società control.non quota       50,00      41       Fornitori                                600,00',
+  '         TOTALE                                  1.650,00               TOTALE                                1.000,00',
+  '                                                                        UTILE DI ESERCIZIO                      650,00',
+  '                        COSTI                      CONTO ECONOMICO                                     RICAVI',
+  '61100    Contributi Inps                           150,00     70140    Prestazioni di servizi                   800,00',
+  '         TOTALE                                    150,00               TOTALE                                  800,00',
+]
+
+test('bilancio analitico GB Software: lati, gruppi e proposte', () => {
+  const b = leggiBilancioAnalitico(GB)
+  expect(b).toMatchObject({ formato: 'gb', anno: 2026, totali: { totale_attivita: 1650, totale_passivita: 1000, utile_desercizio: 650, totale_costi: 150, totale_ricavi: 800 } })
+  const voce = (codice, liv) => b.voci.find((v) => v.codice === codice && v.livello === liv)
+  expect(voce('21/300/0', 3)).toMatchObject({ lato: 'attivita', importo: 1100 })
+  expect(voce('21/382/100', 3)).toMatchObject({ lato: 'passivita', descrizione: 'Fondo amm/to di periodo' })
+  expect(voce('40/C', 2)).toMatchObject({ lato: 'attivita', importo: 500 })
+  expect(voce('41/F', 2)).toMatchObject({ lato: 'passivita', importo: 600 })
+  const p = Object.fromEntries(proposteDaBilancio(b).map((x) => [x.gruppo, x]))
+  expect(p['21/380']).toMatchObject({ proposta: 'sp:ATT_B_II_4', lato: 'attivita', saldo: -300 })   // fondo: rettifica del bene
+  expect(p['22/020'].proposta).toBe('sp:ATT_B_III_1A')
+  expect(p['61/100'].proposta).toBe('cee:B9b')
+  expect(p['70/140'].proposta).toBe('cee:A1')
+})

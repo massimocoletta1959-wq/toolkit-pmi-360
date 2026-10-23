@@ -3,10 +3,12 @@
 // (attivita/passivita/costi/ricavi), livello (1 mastro, 2 gruppo, 3 conto), codice, descrizione e importo.
 import { eBilancioAnaliticoBuffetti, leggiBilancioAnaliticoBuffetti } from './buffetti'
 import { eBilancioAnaliticoAs400, leggiBilancioAnaliticoAs400 } from './as400'
+import { eBilancioAnaliticoGb, leggiBilancioAnaliticoGb } from './gb'
 
 export const LETTORI_BILANCIO = [
   { id: 'buffetti', nome: 'Buffetti (bilancio a sezioni contrapposte)', riconosci: eBilancioAnaliticoBuffetti, leggi: leggiBilancioAnaliticoBuffetti },
   { id: 'as400', nome: 'AS/400 (bilancio di esercizio a sezioni contrapposte, conti di 12 cifre)', riconosci: eBilancioAnaliticoAs400, leggi: leggiBilancioAnaliticoAs400 },
+  { id: 'gb', nome: 'GB Software (bilancio / situazione contabile a sezioni contrapposte)', riconosci: eBilancioAnaliticoGb, leggi: leggiBilancioAnaliticoGb },
 ]
 
 export function leggiBilancioAnalitico(righe) {
