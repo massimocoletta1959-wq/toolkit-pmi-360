@@ -349,16 +349,8 @@ export default function Riclassificazione() {
   // c.c.) o ricavi/costi (schema CEE, come per il provvisorio) — un'unica
   // tendina con tutte le voci evita di doverne mostrare due separate.
   const confermaUnificato = (conto) => {
-    const valore = mappatureLocaliUnificato[conto]
-    if (!valore) return
-    const [tipoScelta, codice] = valore.split(':')
-    if (tipoScelta === 'sp') {
-      const v = vociSP.find((x) => x.codice === codice)
-      if (v) salvaMappatura(conto, v.descrizione.trim(), v.tipo, v.codice)
-    } else {
-      const v = vociCEE.find((x) => x.codice === codice)
-      if (v) salvaMappatura(conto, v.descrizione, v.tipo === 'ricavo' ? 'ricavi' : 'costi', v.codice)
-    }
+    const scelta = parseUnificato(mappatureLocaliUnificato[conto])   // anche i conti d'ordine ('ord:ORD')
+    if (scelta) salvaMappatura(conto, scelta.voce, scelta.categoria, scelta.codice)
   }
 
   const eliminaMappatura = async (conto) => {
@@ -401,16 +393,9 @@ export default function Riclassificazione() {
           // eslint-disable-next-line no-await-in-loop
           await salvaMappatura(conto.conto, voce, cat)
         } else if (unificato) {
-          const [tipoScelta, codice] = unificato.split(':')
-          if (tipoScelta === 'sp') {
-            const v = vociSP.find((x) => x.codice === codice)
-            // eslint-disable-next-line no-await-in-loop
-            if (v) await salvaMappatura(conto.conto, v.descrizione.trim(), v.tipo, v.codice)
-          } else {
-            const v = vociCEE.find((x) => x.codice === codice)
-            // eslint-disable-next-line no-await-in-loop
-            if (v) await salvaMappatura(conto.conto, v.descrizione, v.tipo === 'ricavo' ? 'ricavi' : 'costi', v.codice)
-          }
+          const scelta = parseUnificato(unificato)
+          // eslint-disable-next-line no-await-in-loop
+          if (scelta) await salvaMappatura(conto.conto, scelta.voce, scelta.categoria, scelta.codice)
         }
       }
     } finally {
