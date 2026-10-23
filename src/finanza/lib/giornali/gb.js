@@ -18,7 +18,7 @@
 // Produce gli stessi dati degli altri lettori (vedi index.js).
 
 const AMT = String.raw`\d{1,3}(?:\.\d{3})*,\d{2}`
-const RE_RIGA = new RegExp(String.raw`^\s*(\d{2})\/(\d{2})\/(\d{2})\s+(.*)\s(${AMT})\s+(?:(\S.*?)\s*)?(\d{2})\/(\d{2})\/(\d{2})\s+(\d{3,12}) - (.*?)(?:\s+(\d+))?\s*$`)
+const RE_RIGA = new RegExp(String.raw`^\s*(\d{2})\/(\d{2})\/(\d{2})\s+(.*)\s(-?${AMT})\s+(?:(\S.*?)\s*)?(\d{2})\/(\d{2})\/(\d{2})\s+(\d{3,12}) - (.*?)(?:\s+(\d+))?\s*$`)
 const RE_AMOUNT = new RegExp(AMT, 'g')
 const RE_APERTURA = /\b(RI)?APERTURA\s+(DEI\s+)?CONTI\b|BILANCIO\s+DI\s+APERTURA|APERTURA\s+ESERCIZIO/i
 const RE_CHIUSURA = /\bCHIUSURA\s+(DEI\s+)?CONTI\b|BILANCIO\s+DI\s+CHIUSURA|CHIUSURA\s+ESERCIZIO|CHIUSURA\s+A\s+(P\/P|PROFITTI)/i
@@ -93,10 +93,13 @@ export function leggiRegistrazioniGb(righe) {
     const [, g, me, a, descr, imp, numDoc, gd, md, ad, codice, descrConto, nRiga] = m
     const inizio = ln.indexOf(imp, ln.indexOf(descr) + descr.length)
     const fine = inizio + imp.length
-    const segnoColonna = Math.abs(fine - col.dare) <= Math.abs(fine - col.avere) ? 1 : -1
+    // importo negativo (storno, es. "-60,84" in Avere): vale come importo positivo nella colonna opposta
+    const negativo = imp.startsWith('-')
+    const colonnaAvere = Math.abs(fine - col.dare) > Math.abs(fine - col.avere)
+    const segnoColonna = (colonnaAvere ? -1 : 1) * (negativo ? -1 : 1)
     // importo attaccato alla descrizione (un solo spazio): potrebbe essere stato spinto a destra
-    const incerto = segnoColonna < 0 && inizio >= 2 && ln[inizio - 2] !== ' '
-    const importo = parseNum(imp)
+    const incerto = colonnaAvere && inizio >= 2 && ln[inizio - 2] !== ' '
+    const importo = parseNum(imp.replace('-', ''))
     const data = `${g}/${me}/20${a}`
     nRighe++
     if (nRiga) ultimaRiga = Math.max(ultimaRiga, parseInt(nRiga, 10))
@@ -106,14 +109,21 @@ export function leggiRegistrazioniGb(righe) {
     }
     const riga = {
       riga: nRiga ? parseInt(nRiga, 10) : null, conto: contoGb(codice), codiceGb: codice, descrizioneConto: descrConto.trim(),
-      descrizioneOperazione: descr.trim(), segno: segnoColonna, segnoColonna, incerto, importo, numDoc: numDoc || null, dataDoc: `${gd}/${md}/20${ad}`,
+      descrizioneOperazione: descr.trim(), segno: segnoColonna, segnoColonna, incerto, negativo, colonnaAvere, importo, numDoc: numDoc || null, dataDoc: `${gd}/${md}/20${ad}`,
     }
     reg.righe.push(riga)
     tutte.push(riga)
   }
   if (reg) chiudiSePossibile(reg)
   let incerteRimaste = 0
-  for (const r of tutte) { if (r.incerto) incerteRimaste++; delete r.incerto; delete r.segnoColonna }
+  // totali di pagina come li stampa GB: importo con segno nella colonna in cui e' stampato (un negativo resta nella
+  // sua colonna e la riduce); per le righe dal lato incerto la colonna e' quella risolta
+  const colonna = new Map()
+  for (const r of tutte) {
+    if (r.incerto) incerteRimaste++
+    colonna.set(r, { avere: r.negativo ? r.colonnaAvere : r.segno < 0, valore: r.negativo ? -r.importo : r.importo })
+    delete r.incerto; delete r.segnoColonna; delete r.negativo; delete r.colonnaAvere
+  }
 
   // controlli di quadratura sui totali progressivi di fine pagina, con i lati gia' risolti
   let pagineOk = 0
@@ -122,11 +132,11 @@ export function leggiRegistrazioniGb(righe) {
   let totAvere = 0
   let k = 0
   for (const t of totaliPagina) {
-    for (; k < t.dopo; k++) { if (tutte[k].segno > 0) totDare += tutte[k].importo; else totAvere += tutte[k].importo }
+    for (; k < t.dopo; k++) { const c = colonna.get(tutte[k]); if (c.avere) totAvere += c.valore; else totDare += c.valore }
     if (Math.abs(t.td - totDare) < 0.02 && Math.abs(t.ta - totAvere) < 0.02) pagineOk++
     else pagineKo.push({ atteso: [t.td, t.ta], calcolato: [round2(totDare), round2(totAvere)] })
   }
-  for (; k < tutte.length; k++) { if (tutte[k].segno > 0) totDare += tutte[k].importo; else totAvere += tutte[k].importo }
+  for (; k < tutte.length; k++) { const c = colonna.get(tutte[k]); if (c.avere) totAvere += c.valore; else totDare += c.valore }
   const ultimo = totaliPagina[totaliPagina.length - 1]
   return {
     registrazioni,

@@ -211,3 +211,17 @@ test('GB Software prima nota: saldi di apertura, righe spezzate', () => {
   const m = leggiMovimentiGiornale(GB_PN)
   expect(m.every((x) => x.eApertura && x.data === '31/12/2024')).toBe(true)
 })
+
+test('GB Software: importo negativo (storno) nella colonna Avere vale come Dare, totali di pagina col segno', () => {
+  const righe = [
+    '                                                                                      LIBRO GIORNALE - Anno 2025',
+    '  DATA                                 DESCRIZIONE                                    D A R E         A V E R E                                     DESCRIZIONE CONTO                  N. RIGA',
+    '24/02/25 Riscossa fattura Fattura di vendita n. 14/FE 07/01/2025                                          -60,84          04/02/25 404253 - MANCINELLI Lorenzo                      1',
+    '24/02/25 Riscossa fattura Fattura di vendita n. 46/FE 04/02/2025                                          403,05          04/02/25 404253 - MANCINELLI Lorenzo                      2',
+    '24/02/25 Riscossa fattura Fattura di vendita n. 46/FE 04/02/2025                         342,21                           04/02/25 50102 - Banca Popolare Emilia-Romagna            3',
+    '                                                                      T O T A L I         342,21           342,21',
+  ]
+  const r = leggiGiornale(righe)
+  expect(r.diagnostica).toMatchObject({ movimenti: 3, registrazioniNonBilanciate: 0, checkpointOk: 1, checkpointKo: 0 })
+  expect(r.saldi['40/04253/C']).toBe(-342.21)
+})
