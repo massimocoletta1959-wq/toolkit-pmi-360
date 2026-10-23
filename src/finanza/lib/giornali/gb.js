@@ -9,16 +9,18 @@
 // "D A R E" o di "A V E R E" nell'intestazione della pagina). Il numero di riga e' progressivo su tutto il
 // giornale (controllo di completezza); a fine pagina "TOTALI" riporta i totali progressivi Dare/Avere (controllo di
 // quadratura). Il numero documento puo' contenere spazi ("12/24 L", "FPR 1/25") o essere attaccato alla data del
-// documento ("HI14/01/25", "12/2431/12/24"); se e' lungo va a capo sulla riga dopo: quelle righe di continuazione si ignorano.
+// documento ("HI14/01/25", "12/2431/12/24"); se e' lungo va a capo. Il numero di riga puo' essere attaccato alla
+// descrizione del conto troncata ("...A SOCIO UNIC11040") sulla riga dopo: quelle righe di continuazione si ignorano.
 // Le registrazioni non sono numerate: righe consecutive della stessa data fino alla quadratura Dare = Avere.
 //
 // Codici conto numerici GB: mastro (2 cifre) + conto (3 cifre) + sottoconto (resto). "60822" -> "60/822/0",
 // "60812401" -> "60/812/401" (gruppo "60/812"). Clienti (mastro 40) e fornitori (mastro 41) hanno il codice
 // dell'anagrafica dopo il mastro: "400005" -> "40/00005/C", "41001" -> "41/00001/F" (gruppi "40/C" e "41/F").
+// Alcuni codici sono alfanumerici (es. "40CORR - Corrispettivi" dell'Hotel Castello): stessa regola.
 // Produce gli stessi dati degli altri lettori (vedi index.js).
 
 const AMT = String.raw`\d{1,3}(?:\.\d{3})*,\d{2}`
-const RE_RIGA = new RegExp(String.raw`^\s*(\d{2})\/(\d{2})\/(\d{2})\s+(.*)\s(-?${AMT})\s+(?:(\S.*?)\s*)?(\d{2})\/(\d{2})\/(\d{2})\s+(\d{3,12}) - (.*?)(?:\s+(\d+))?\s*$`)
+const RE_RIGA = new RegExp(String.raw`^\s*(\d{2})\/(\d{2})\/(\d{2})\s+(.*)\s(-?${AMT})\s+(?:(\S.*?)\s*)?(\d{2})\/(\d{2})\/(\d{2})\s+(\d{2}[0-9A-Z]{1,10}) - (.*?)(?:(?:\s+|(?<=[A-Za-z.)]))(\d+))?\s*$`)
 const RE_AMOUNT = new RegExp(AMT, 'g')
 const RE_APERTURA = /\b(RI)?APERTURA\s+(DEI\s+)?CONTI\b|BILANCIO\s+DI\s+APERTURA|APERTURA\s+ESERCIZIO/i
 const RE_CHIUSURA = /\bCHIUSURA\s+(DEI\s+)?CONTI\b|BILANCIO\s+DI\s+CHIUSURA|CHIUSURA\s+ESERCIZIO|CHIUSURA\s+A\s+(P\/P|PROFITTI)/i
@@ -33,7 +35,7 @@ export const eGiornaleGb = (righe) =>
 // codice GB -> codice nel formato del portale (vedi intestazione)
 export function contoGb(codice) {
   const c = String(codice)
-  if (/^4[01]\d{3,}$/.test(c)) return `${c.slice(0, 2)}/${c.slice(2).padStart(5, '0')}/${c[1] === '0' ? 'C' : 'F'}`
+  if (/^4[01][0-9A-Z]{3,}$/.test(c)) return `${c.slice(0, 2)}/${c.slice(2).padStart(5, '0')}/${c[1] === '0' ? 'C' : 'F'}`
   if (c.length <= 5) return `${c.slice(0, 2)}/${c.slice(2).padEnd(3, '0')}/0`
   return `${c.slice(0, 2)}/${c.slice(2, 5)}/${c.slice(5)}`
 }

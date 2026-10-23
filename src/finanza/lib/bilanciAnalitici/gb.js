@@ -17,7 +17,7 @@ import { contoGb } from '../giornali/gb'
 const gruppoDiConto = (conto) => { const c = conto.split('/'); return /^[CF]$/.test(c[2]) ? `${c[0]}/${c[2]}` : `${c[0]}/${c[1]}` }
 
 const AMT = String.raw`\d{1,3}(?:\.\d{3})*,\d{2}`
-const RE_VOCE = new RegExp(String.raw`(?:^|\s)(\d{2,10})\s*([^\d\s].*?)\s+(${AMT})(?=\s|$)`, 'g')
+const RE_VOCE = new RegExp(String.raw`(?:^|\s)(\d{2}(?:\d{0,8}|[0-9A-Z]{1,8}(?=\s)))\s*([^\d\s].*?)\s+(${AMT})(?=\s|$)`, 'g')
 const RE_TOTALE = new RegExp(String.raw`(TOTALE|PERDITA DI ESERCIZIO|UTILE DI ESERCIZIO)\s+(${AMT})`, 'g')
 
 const parseNum = (s) => parseFloat(s.replace(/\./g, '').replace(',', '.'))

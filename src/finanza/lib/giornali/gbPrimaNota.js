@@ -16,7 +16,7 @@ const AMT = String.raw`\d{1,3}(?:\.\d{3})*,\d{2}`
 // date (registrazione, documento) + corpo (CO, conto, descrizione, D/A, importo ... progressivo); quando la
 // descrizione contiene virgolette la stampa mette le date su una riga e il corpo su una riga successiva
 const DATE = String.raw`^\s*(\d{2})\/(\d{2})\/(\d{4})\s+(?:(.*?)\s+)?(\d{2})\/(\d{2})\/(\d{4})`
-const CORPO = String.raw`(\d{2})\s+(\d{3,12})\s+(.*?)\s*([DA])\s+(${AMT})\b.*?\s(\d{4,})\s*$`
+const CORPO = String.raw`(\d{2})\s+(\d{2}[0-9A-Z]{1,10})\s+(.*?)\s*([DA])\s+(${AMT})\b.*?\s(\d{4,})\s*$`
 const RE_RIGA = new RegExp(`${DATE}\\s+${CORPO}`)
 const RE_SOLO_DATE = new RegExp(`${DATE}\\s*$`)
 const RE_SOLO_CORPO = new RegExp(`^\\s*${CORPO}`)

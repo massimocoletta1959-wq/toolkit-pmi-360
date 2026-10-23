@@ -225,3 +225,18 @@ test('GB Software: importo negativo (storno) nella colonna Avere vale come Dare,
   expect(r.diagnostica).toMatchObject({ movimenti: 3, registrazioniNonBilanciate: 0, checkpointOk: 1, checkpointKo: 0 })
   expect(r.saldi['40/04253/C']).toBe(-342.21)
 })
+
+test('GB Software: codici conto alfanumerici e numero di riga attaccato alla descrizione del conto', () => {
+  const righe = [
+    '                                                                                      LIBRO GIORNALE - Anno 2026',
+    '  DATA                                 DESCRIZIONE                                    D A R E         A V E R E                                     DESCRIZIONE CONTO                  N. RIGA',
+    '01/01/26 Annotaz. corrispettivi gennaio Ricavi corrispettivi                               5.078,79                     gennaio 01/01/26 40CORR - Corrispettivi                               1',
+    '01/01/26 Annotaz. corrispettivi Corrispettivi                                                                5.078,79   gennaio 01/01/26 70050 - Ricavi corrispettivi                         2',
+    '01/06/26 Pagata fattura Fattura acquisto n. 3631/ER 28/04/2026                             2.112,69                    3631/ER 28/04/26 411016 - ZUCCHETTI HOSPITALITY SRL A SOCIO UNIC3',
+    '01/06/26 Pagata fattura ZUCCHETTI HOSPITALITY SRL A SOCIO UNICO 3631/ER 28                                   2.112,69  3631/ER 28/04/26 50102 - Banca Popolare Bari c/c ordinario          4',
+  ]
+  const r = leggiGiornale(righe)
+  expect(r.diagnostica).toMatchObject({ movimenti: 4, righeMancanti: 0, ultimaRiga: 4, registrazioniNonBilanciate: 0 })
+  expect(r.saldi['40/0CORR/C']).toBe(5078.79)
+  expect(r.descrizioni['41/01016/F']).toBe('ZUCCHETTI HOSPITALITY SRL A SOCIO UNIC')
+})
