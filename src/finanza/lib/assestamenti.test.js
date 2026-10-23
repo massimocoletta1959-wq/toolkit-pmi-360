@@ -46,3 +46,16 @@ describe('rettifiche di fine esercizio (giornale annuale non chiuso)', () => {
     expect(p.fonti.ammortamenti).toMatch(/già registrati/)
   })
 })
+
+test('lavori in corso su ordinazione: A3 nel conto economico, C.I.3 nello stato patrimoniale', () => {
+  const agg = { A3: { importo: -868875.9, conti: [{ codice: '70/350/0', conto: 'Rim.iniziali lav.corso', importo: -868875.9 }] } }
+  const p = proponiAssestamenti({ aggregato: agg, meseFine: 8, competenza: { fattureDaRicevere: 1000, fattureDaEmettere: 0, dettaglio: [] } })
+  expect(p.lavori_in_corso).toBe(868875.9)
+  expect(p.fatture_da_ricevere).toBe(1000)
+  const a = { ...p, attivi: true, lavori_in_corso: 1944161.55, rimanenze_finali: 0, ammortamenti: 0, tfr: 0, fatture_da_ricevere: 0, aliquota_imposte: 0 }
+  const ce = applicaAssestamentiCE(agg, a, 'al 31/08', () => 0)
+  expect(ce.aggregato.A3.importo).toBeCloseTo(1075285.65, 2)
+  const sp = applicaAssestamentiSP({}, a, 0, 'al 31/08')
+  expect(sp.aggregato.ATT_C_I_3.importo).toBe(1944161.55)
+  expect(sp.deltaRisultato).toBe(1944161.55)
+})

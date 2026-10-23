@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase'
 import { calcolaSpDocumento, TabellaSP, haApertura } from '../lib/statoPatrimoniale'
 import { trovaMappaturaConto, contiDelGruppo, datiFinoAlMese } from '../lib/mappatureConti'
 import { proponiAssestamenti, applicaAssestamentiCE } from '../lib/assestamenti'
+import { fattureDiCompetenza } from '../lib/competenzaPeriodo'
+import { gruppoDiConto } from '../lib/libroGiornale'
 import { proposteDaBilancio } from '../lib/bilanciAnalitici/abbina'
 import AssestamentiPeriodo from '../components/AssestamentiPeriodo'
 
@@ -281,8 +283,13 @@ async function calcolaCeDocumento(aziendaId, documentoId, modalita) {
   let aggregato = aggregatoGiornale
   const periodo = `al ${['31/01', '28/02', '31/03', '30/04', '31/05', '30/06', '31/07', '31/08', '30/09', '31/10', '30/11', '31/12'][meseFine - 1]}`
   if (conAssestamenti) {
-    proposte = proponiAssestamenti({ aggregato: aggregatoGiornale, meseFine, annuali: await annualiEsercizioPrecedente(aziendaId, doc.anno, ctx), fineAnno })
-    assestamenti = doc.assestamenti ? { ...proposte, ...doc.assestamenti, fonti: proposte.fonti } : { ...proposte, attivi: false }
+    const classificaConto = (conto) => {
+      const m = trovaMappaturaConto(conto, ctx.mappatureAzienda, ctx.mappatureGlobali, gruppoDiConto(conto))
+      return m ? { categoria: m.categoria, codice: m.codice_cee || ctx.vociCeeByDescrizione[m.voce_budget_descrizione]?.codice || null } : null
+    }
+    const competenza = infrannuale ? fattureDiCompetenza(dati.competenzaPeriodo, meseFine, classificaConto) : null
+    proposte = proponiAssestamenti({ aggregato: aggregatoGiornale, meseFine, annuali: await annualiEsercizioPrecedente(aziendaId, doc.anno, ctx), fineAnno, competenza })
+    assestamenti = doc.assestamenti ? { ...proposte, ...doc.assestamenti, fonti: proposte.fonti, dettaglio_competenza: proposte.dettaglio_competenza } : { ...proposte, attivi: false }
     const anteImposte = (agg) => { const t = calcolaTotali(agg, ctx.vociCeeList); return t.A - t.B + t.C + t.D }
     const r = applicaAssestamentiCE(aggregatoGiornale, assestamenti, periodo, anteImposte)
     aggregato = r.aggregato
@@ -545,7 +552,7 @@ export default function CE() {
   const salvaAssestamenti = async (valori) => {
     setSalvandoAss(true)
     try {
-      const { fonti: _f, ...daSalvare } = valori
+      const { fonti: _f, dettaglio_competenza: _d, ...daSalvare } = valori
       const { error } = await supabase.from('documenti').update({ assestamenti: { ...daSalvare, aggiornato_il: new Date().toISOString() } }).eq('id', documentoId)
       if (error) throw new Error(error.message)
       await calcola()

@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase'
 import { elaboraXbrlDiretto, haDatiSignificativi } from '../lib/xbrl'
 import { estraiPdf, estraiExcel } from '../lib/estrazione'
 import { estraiRigheLibroGiornale, raggruppaPerGruppo, raggruppaMensilePerGruppo, mensilePerContoDa } from '../lib/libroGiornale'
-import { leggiGiornale } from '../lib/giornali'
+import { leggiGiornale, leggiMovimentiGiornale } from '../lib/giornali'
+import { registrazioniDiCompetenza } from '../lib/competenzaPeriodo'
 import { leggiBilancioAnalitico } from '../lib/bilanciAnalitici'
 
 const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
@@ -364,6 +365,13 @@ export default function Documenti() {
         .map((g) => ({ gruppo: g.gruppo, descrizione: g.descrizione, importo: g.somma, n_conti: g.conti.length, conti: g.conti.map((c) => ({ ...c, mensile: mensilePerConto[c.conto] || {} })), mensile: mensilePerGruppo[g.gruppo] || {} }))
         .sort((a, b) => a.gruppo.localeCompare(b.gruppo)),
       diagnostica,
+    }
+    // giornale infrannuale: fatture di competenza del periodo registrate dopo (proposta di fatture da ricevere/emettere)
+    if (doc.mese_fine >= 1 && doc.mese_fine < 12) {
+      try {
+        const competenza = registrazioniDiCompetenza(leggiMovimentiGiornale(righe), Number(doc.anno), Number(doc.mese_fine))
+        if (competenza?.righe.length) datiEstratti.competenzaPeriodo = competenza
+      } catch (e) { /* facoltativo: senza, le fatture da ricevere si inseriscono a mano */ }
     }
 
     const { error: updErr } = await supabase.from('documenti').update({ dati_estratti: JSON.stringify(datiEstratti), stato: 'elaborato' }).eq('id', doc.id)
