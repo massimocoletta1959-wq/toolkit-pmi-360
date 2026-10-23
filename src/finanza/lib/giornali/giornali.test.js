@@ -240,3 +240,22 @@ test('GB Software: codici conto alfanumerici e numero di riga attaccato alla des
   expect(r.saldi['40/0CORR/C']).toBe(5078.79)
   expect(r.descrizioni['41/01016/F']).toBe('ZUCCHETTI HOSPITALITY SRL A SOCIO UNIC')
 })
+
+test('GB Software, "Registrazione della prima nota": apertura con totali stampati', () => {
+  const righe = [
+    '                                                                  Registrazione della prima nota',
+    '   Data registraz. Causale:      Numero e data documento:                                                                              Stato delle stampe:',
+    '      01/01/2025       00                                                                                                              Liquidazione Iva NO',
+    '             Conto      P/E            Descrizione conto          D  A     Importo       N. Rif.   A.   CO                   Descrizione                R&R',
+    '     1   10020           P  Capitale sociale/Patr.netto              A      480.000,00                  00   OP. APERTURA - Stato patrimoniale           No',
+    '    28   404253          P  MANCINELLI Lorenzo                       A          248,84                  00   OP. APERTURA - Stato patrimoniale           No',
+    '    67   50102           P  Banca Popolare Emilia-Romagna         D         480.248,84                  00   OP. APERTURA - Stato patrimoniale           No',
+    '                                                            Totale Dare:    480.248,84',
+    '                                                           Totale Avere:    480.248,84',
+  ]
+  expect(riconosciLettore(righe).id).toBe('gb_prima_nota')
+  const r = leggiGiornale(righe)
+  expect(r.diagnostica).toMatchObject({ movimenti: 3, registrazioniApertura: 1, registrazioniNonBilanciate: 0, checkpointOk: 1, checkpointKo: 0 })
+  expect(r.saldi).toEqual({ '10/020/0': -480000, '40/04253/C': -248.84, '50/102/0': 480248.84 })
+  expect(leggiMovimentiGiornale(righe).every((m) => m.eApertura && m.data === '01/01/2025')).toBe(true)
+})

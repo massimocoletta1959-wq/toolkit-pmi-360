@@ -9,6 +9,15 @@
 // Lato esplicito (colonna D/A, a volte attaccato alla descrizione troncata), registrazione = "Progressivo".
 // Le descrizioni vanno a capo sulla riga dopo: quelle righe di continuazione si ignorano. Le registrazioni con
 // descrizione "Apertura conti" sono aperture (saldi iniziali). Codici conto come il libro giornale GB (gb.js).
+//
+// Stessa uscita per la stampa di una singola registrazione, "Registrazione della prima nota" (es. "OP. APERTURA -
+// Stato patrimoniale" al 01/01): testata con data e causale, poi una riga per conto e i totali Dare/Avere in fondo.
+//
+//     Data registraz. Causale:   ...
+//      01/01/2025       00
+//     Conto      P/E   Descrizione conto           D  A     Importo   N. Rif.  A.  CO   Descrizione                       R&R
+//   1   10020     P    Capitale sociale/Patr.netto     A   480.000,00              00   OP. APERTURA - Stato patrimoniale  No
+//
 // Produce gli stessi dati degli altri lettori (vedi index.js).
 import { contoGb } from './gb'
 
@@ -26,11 +35,62 @@ const RE_CHIUSURA = /CHIUSUR/i
 const round2 = (n) => Math.round(n * 100) / 100
 const parseNum = (s) => parseFloat(s.replace(/\./g, '').replace(',', '.'))
 
-export const eListaPrimaNotaGb = (righe) =>
+const eElencoGb = (righe) =>
   righe.some((ln) => /Elenco delle registrazioni in prima nota/i.test(ln)) &&
   righe.some((ln) => /\bD\/A\b/.test(ln) && /Importo/.test(ln) && /Progressivo/.test(ln))
+const eDettaglioGb = (righe) =>
+  righe.some((ln) => /Registrazione della prima nota/i.test(ln)) &&
+  righe.some((ln) => /\bConto\b/.test(ln) && /Descrizione conto/.test(ln) && /Importo/.test(ln))
+
+export const eListaPrimaNotaGb = (righe) => eElencoGb(righe) || eDettaglioGb(righe)
+
+// "Registrazione della prima nota": una o piu' registrazioni, ognuna con la sua testata (data registrazione)
+const RE_RIGA_DETTAGLIO = new RegExp(String.raw`^\s*(\d+)\s+(\d{2}[0-9A-Z]{1,10})\s+([PE])\s+(.*?)\s*([DA])\s+(${AMT})\b(.*)$`)
+function leggiDettaglio(righe) {
+  const registrazioni = []
+  let reg = null
+  let attesaData = false
+  const totali = {}
+  for (const ln of righe) {
+    if (/Data registraz/i.test(ln)) { attesaData = true; continue }
+    const d = attesaData && ln.match(/^\s*(\d{2})\/(\d{2})\/(\d{4})\b/)
+    if (d) {
+      attesaData = false
+      const [, g, me, a] = d
+      reg = { data: `${g}/${me}/${a}`, iso: `${a}-${me}-${g}`, mese: parseInt(me, 10), causale: '', attivita: null, righe: [] }
+      registrazioni.push(reg)
+      continue
+    }
+    const t = ln.match(/Totale (Dare|Avere):\s*(\d[\d.]*,\d{2})/i)
+    if (t) { totali[t[1].toLowerCase()] = (totali[t[1].toLowerCase()] || 0) + parseNum(t[2]); continue }
+    const m = reg && ln.match(RE_RIGA_DETTAGLIO)
+    if (!m) continue
+    const [, , codice, , descrConto, da, imp, resto] = m
+    // descrizione dell'operazione: dopo il codice CO (2 cifre), fino a "Si"/"No" (R&R)
+    const op = (resto.match(/\s(\d{2})\s+(.*?)\s+(Si|No)\s*$/) || [])[2] || ''
+    reg.righe.push({
+      conto: contoGb(codice), codiceGb: codice, descrizioneConto: descrConto.trim(), descrizioneOperazione: op.trim() || descrConto.trim(),
+      segno: da === 'D' ? 1 : -1, importo: parseNum(imp), numDoc: null, dataDoc: reg.data,
+    })
+  }
+  return { registrazioni: registrazioni.filter((r) => r.righe.length), totali }
+}
 
 export function leggiRegistrazioniPrimaNotaGb(righe) {
+  if (!eElencoGb(righe) && eDettaglioGb(righe)) {
+    const { registrazioni } = leggiDettaglio(righe)
+    for (const reg of registrazioni) {
+      const quota = (re) => reg.righe.filter((r) => re.test(r.descrizioneOperazione)).length / reg.righe.length
+      reg.eApertura = quota(RE_APERTURA) >= 0.5
+      reg.eChiusura = !reg.eApertura && quota(RE_CHIUSURA) >= 0.5
+      reg.causale = reg.eApertura ? 'Apertura conti' : reg.eChiusura ? 'Chiusura conti' : 'Prima nota'
+    }
+    return registrazioni
+  }
+  return leggiElenco(righe)
+}
+
+function leggiElenco(righe) {
   const perProgressivo = new Map()
   const registrazioni = []
   // date e corpo su righe separate possono arrivare in un ordine o nell'altro: si abbinano al primo disponibile
@@ -72,6 +132,15 @@ export function leggiRegistrazioniPrimaNotaGb(righe) {
     reg.causale = reg.eApertura ? 'Apertura conti' : reg.eChiusura ? 'Chiusura conti' : 'Prima nota'
   }
   return registrazioni
+}
+
+// "Registrazione della prima nota" stampa i totali Dare/Avere: confronto con i movimenti letti
+function controlloTotali(righe, totDare, totAvere) {
+  if (eElencoGb(righe)) return { checkpointOk: 0, checkpointKo: 0 }
+  const { totali } = leggiDettaglio(righe)
+  if (totali.dare == null || totali.avere == null) return { checkpointOk: 0, checkpointKo: 0 }
+  const ok = Math.abs(totali.dare - totDare) < 0.02 && Math.abs(totali.avere - totAvere) < 0.02
+  return { checkpointOk: ok ? 1 : 0, checkpointKo: ok ? 0 : 1 }
 }
 
 export function parseListaPrimaNotaGb(righe) {
@@ -121,8 +190,7 @@ export function parseListaPrimaNotaGb(righe) {
       movimenti: nMovimenti,
       registrazioniNonBilanciate: nNonBilanciate,
       registrazioniApertura: registrazioni.filter((r) => r.eApertura).length,
-      checkpointOk: 0,
-      checkpointKo: 0,
+      ...controlloTotali(righe, totDare, totAvere),
       totaleGenerale: { dare: round2(totDare), avere: round2(totAvere) },
       verificaOk: 0,
       verificaKo: 0,
