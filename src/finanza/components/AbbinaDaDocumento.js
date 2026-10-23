@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { proposteDaBilancio, statoProposta } from '../lib/bilanciAnalitici/abbina'
+import { CONTI_ORDINE, valoreMappatura } from '../lib/contiOrdine'
 
 const TIPI_LIBRO_GIORNALE = ['prima_nota_precedente', 'prima_nota_corrente', 'libro_giornale_precedente', 'libro_giornale_corrente']
 const fmt = (n) => (n == null ? '—' : n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
@@ -39,11 +40,11 @@ export default function AbbinaDaDocumento({ aziendaId, vociSP, vociCEE, codiceLe
   }, [aziendaId])
 
   const valoreAttuale = (gruppo) => {
-    const m = mappatureAz.find((x) => x.conto_origine === gruppo)
-    return m?.codice_cee ? `${m.categoria === 'attivita' || m.categoria === 'passivita' ? 'sp' : 'cee'}:${m.codice_cee}` : ''
+    return valoreMappatura(mappatureAz.find((x) => x.conto_origine === gruppo))
   }
   const etichetta = (valore) => {
     if (!valore) return '—'
+    if (valore === CONTI_ORDINE.valore) return CONTI_ORDINE.voce
     const [tipo, codice] = valore.split(':')
     const v = (tipo === 'sp' ? vociSP : vociCEE).find((x) => x.codice === codice)
     return v ? `${codiceLeggibile(codice)} — ${v.descrizione.trim()}` : valore
@@ -90,6 +91,7 @@ export default function AbbinaDaDocumento({ aziendaId, vociSP, vociCEE, codiceLe
   const differenze = giornale ? righe.filter((r) => Math.abs((giornale.gruppi[r.gruppo] ?? 0) - r.saldo) > 1).length : 0
 
   const parse = (valore) => {
+    if (valore === CONTI_ORDINE.valore) return { voce: CONTI_ORDINE.voce, categoria: CONTI_ORDINE.categoria, codice: CONTI_ORDINE.codice }
     const [tipo, codice] = valore.split(':')
     if (tipo === 'sp') {
       const v = vociSP.find((x) => x.codice === codice)

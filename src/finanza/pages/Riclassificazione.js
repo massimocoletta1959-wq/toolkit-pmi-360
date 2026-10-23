@@ -3,6 +3,7 @@ import { useApp } from '../../App'
 import { supabase } from '../lib/supabase'
 import AbbinaDaDocumento from '../components/AbbinaDaDocumento'
 import { risolviMappatura } from '../lib/mappatureConti'
+import { CONTI_ORDINE, valoreMappatura, eContoOrdine } from '../lib/contiOrdine'
 
 const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
 const fmt = (n) => (n ?? 0).toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
@@ -13,7 +14,7 @@ const fmt = (n) => (n ?? 0).toLocaleString('it-IT', { minimumFractionDigits: 0, 
 const TIPI_LIBRO_GIORNALE = ['prima_nota_precedente', 'prima_nota_corrente', 'libro_giornale_precedente', 'libro_giornale_corrente']
 
 const BADGE_CATEGORIA = { ricavi: 'badge-success', costi: 'badge-danger', attivita: 'badge-info', passivita: 'badge-warning' }
-const LABEL_CATEGORIA = { ricavi: 'ricavi', costi: 'costi', attivita: 'attività', passivita: 'passività' }
+const LABEL_CATEGORIA = { ricavi: 'ricavi', costi: 'costi', attivita: 'attività', passivita: 'passività', conti_ordine: "conti d'ordine" }
 
 // Suggerimento automatico della voce in base alla descrizione del gruppo
 // (Libro Giornale/Prima Nota): un aiuto per velocizzare la riclassificazione,
@@ -24,6 +25,8 @@ const LABEL_CATEGORIA = { ricavi: 'ricavi', costi: 'costi', attivita: 'attività
 // non legati a un bene specifico (controversie legali, quiescenza), tra le
 // PASSIVITA' — sono accantonamenti veri, non rettifiche.
 const REGOLE_SUGGERIMENTO = [
+  // conti d'ordine (fuori bilancio): prima di tutto, perche' "beni di terzi", "garanzie"... altrimenti finirebbero altrove
+  [{ test: eContoOrdine }, () => CONTI_ORDINE.valore],
   // --- eccezioni molto specifiche, controllate per prime perche' altrimenti
   // verrebbero intercettate da una regola piu' generica successiva (es. "INT.
   // ATTIVI V/CLIENTI" contiene "CLIENTI" ma e' un provento finanziario, non un
@@ -555,6 +558,9 @@ export default function Riclassificazione() {
           </option>
         ))}
       </optgroup>
+      <optgroup label="FUORI BILANCIO">
+        <option value={CONTI_ORDINE.valore}>{CONTI_ORDINE.voce}</option>
+      </optgroup>
     </select>
   )
 
@@ -562,6 +568,7 @@ export default function Riclassificazione() {
   // ---- Libro Giornale/Prima Nota, vista "tutti i conti" (documento gia' riclassificato) ----
   const parseUnificato = (valore) => {
     const [tipoScelta, codice] = (valore || '').split(':')
+    if (tipoScelta === 'ord') return { voce: CONTI_ORDINE.voce, categoria: CONTI_ORDINE.categoria, codice: CONTI_ORDINE.codice }
     if (tipoScelta === 'sp') {
       const v = vociSP.find((x) => x.codice === codice)
       return v ? { voce: v.descrizione.trim(), categoria: v.tipo, codice: v.codice } : null
@@ -569,7 +576,7 @@ export default function Riclassificazione() {
     const v = vociCEE.find((x) => x.codice === codice)
     return v ? { voce: v.descrizione, categoria: v.tipo === 'ricavo' ? 'ricavi' : 'costi', codice: v.codice } : null
   }
-  const valoreUnificato = (m) => (m?.codice_cee ? `${m.categoria === 'attivita' || m.categoria === 'passivita' ? 'sp' : 'cee'}:${m.codice_cee}` : '')
+  const valoreUnificato = valoreMappatura
   const etichettaMappatura = (m) => (m ? `${m.codice_cee ? `${codiceLeggibile(m.codice_cee)} — ` : ''}${m.voce_budget_descrizione}` : null)
   const chiudiEdit = (key) =>
     setEditConto((prev) => {
