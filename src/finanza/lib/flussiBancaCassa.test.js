@@ -37,3 +37,24 @@ test('dopo la conferma: stipendi in uscita, anticipo come entrata da finanziamen
   expect(r.totaleUscite['2']).toBe(25000)
   expect(r.totaleEntrate['3']).toBe(5000)
 })
+
+test('incasso con accollo del mutuo: clienti per intero in entrata, quota del mutuo in uscita tra le rate', () => {
+  const mp = { mappatureContiAzienda: [
+    { conto_origine: '50/102', categoria: 'attivita', codice_cee: 'ATT_C_IV_1', voce_budget_descrizione: '1) Depositi bancari e postali' },
+    { conto_origine: '14/001', categoria: 'passivita', codice_cee: 'PAS_D_4', voce_budget_descrizione: '4) Debiti verso banche' },
+    { conto_origine: '40/C', categoria: 'attivita', codice_cee: 'ATT_C_II_1', voce_budget_descrizione: '1) Verso clienti' },
+    { conto_origine: '64/309', categoria: 'costi', codice_cee: 'C17', voce_budget_descrizione: '17) Interessi e altri oneri finanziari' },
+  ], mappatureContiGlobali: [], mappatureFlussi: [] }
+  const r = (conto, descrizione, segno, importo, ultimo = false) => ({ data: '25/08/2026', mese: 8, conto, descrizione, segno, importo, chiave: 'Riscossa fattura', chiudeSegmento: ultimo })
+  const movimenti = [
+    r('50/102/0', 'Banca Popolare Emilia-Romagna', 1, 164873.21),
+    r('40/04398/C', 'SECONDINI Lucio', -1, 95002), r('40/04399/C', "D'ASCANIO Giovanna", -1, 95002),
+    r('14/001/01', 'Debiti mutui ipotecari BPER O/12m', 1, 24046.19),
+    r('64/309/0', 'Inter.passivi su finanziamenti', 1, 1080.6),
+    r('63/240/0', 'Arrotondamenti', 1, 4, true),                  // resta a riduzione dell'incasso
+  ]
+  const res = calcolaFlussiCassa(movimenti, mp)
+  expect(res.totaleEntrate[8]).toBe(190000)
+  expect(res.totaleUscite[8]).toBe(25126.79)
+  expect(res.saldoMese[8]).toBe(164873.21)        // = movimento netto della banca
+})

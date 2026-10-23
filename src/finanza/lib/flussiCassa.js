@@ -45,6 +45,8 @@ export function individuaGruppiBancaCassa(mappatureConti) {
 // 55/05/005 "BILANCIO DI APERTURA") o dalla causale. Non e' un flusso di cassa.
 // NON basta il gruppo 55: contiene anche conti tecnici diversi (es. 55/05/200
 // "CONTO TRANSITORIO", usato per normali fatture e pagamenti).
+// mutui e finanziamenti (capitale o interessi) nella descrizione del conto o nella sua voce di riclassificazione
+const RE_FINANZIAMENTO = /MUTU|FINANZIAMENT|DEBITI VERSO BANCHE|ALTRI FINANZIATORI|LEASING|PRESTIT/i
 const RE_CAUSALE_APERTURA = /BILANCIO DI APERTURA|RIAPERTURA|\bAPE?RT?URA\s+CONTI/i   // anche "aperura conti" (refuso)
 const eRegistrazioneApertura = (segmento) =>
   segmento.some((r) => RE_CAUSALE_APERTURA.test(r.chiave || '') || RE_CAUSALE_APERTURA.test(r.descrizione || ''))
@@ -245,7 +247,16 @@ export function calcolaFlussiCassa(movimenti, { mappatureContiAzienda, mappature
     for (const leg of nonBancaResto) {
       const contributo = round2(-leg.segno * segnoNetto * leg.importo)
       if (Math.abs(contributo) < 0.005) continue
-      flussi.push({ mese, categoria: classifica(leg.conto), importo: contributo, direzione, data: leg.data, conto: leg.conto, descrizione: leg.descrizione })
+      const categoria = classifica(leg.conto)
+      // Mutuo o finanziamento estinto/accollato dentro un incasso (es. vendita di un immobile con accollo del mutuo da
+      // parte dell'acquirente): l'incasso dal cliente resta per intero e la quota del mutuo (capitale e interessi) e'
+      // un'uscita per rate di finanziamento, non una riduzione dell'incasso. Le altre righe di polarita' opposta
+      // (es. credito d'imposta compensato in un F24) restano a riduzione del netto.
+      if (contributo < 0 && RE_FINANZIAMENTO.test(`${categoria} ${leg.descrizione || ''}`)) {
+        flussi.push({ mese, categoria, importo: -contributo, direzione: direzione === 'entrata' ? 'uscita' : 'entrata', data: leg.data, conto: leg.conto, descrizione: leg.descrizione })
+        continue
+      }
+      flussi.push({ mese, categoria, importo: contributo, direzione, data: leg.data, conto: leg.conto, descrizione: leg.descrizione })
     }
   }
 
