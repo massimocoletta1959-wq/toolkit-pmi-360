@@ -297,14 +297,23 @@ async function calcolaCeDocumento(aziendaId, documentoId, modalita) {
   // hanno conti di attivo/passivo, solo ricavi/costi).
   // Se il giornale dell'anno non contiene la riapertura dei conti, i saldi iniziali vengono dal libro giornale
   // completo dell'esercizio precedente (se caricato)
+  // A catena: se anche il giornale dell'anno prima non ha l'apertura, si risale ancora (es. passaggio di programma con
+  // i saldi iniziali caricati in prima nota al 31/12 di due anni prima). Al massimo 3 esercizi.
   let iniziali = null
   if (TIPI_LIBRO_GIORNALE.includes(doc.tipo_documento) && !haApertura(dati)) {
-    const prec = Number(doc.anno) - 1
     const { data: docsPrec } = await supabase.from('documenti').select('tipo_documento, anno, mese_fine, dati_estratti, caricato_il')
-      .eq('azienda_id', aziendaId).eq('anno', String(prec)).in('tipo_documento', TIPI_LIBRO_GIORNALE).eq('stato', 'elaborato')
-    const lgPrec = (docsPrec || []).filter((d) => !d.mese_fine || Number(d.mese_fine) === 12)
-      .sort((a, b) => String(b.caricato_il).localeCompare(String(a.caricato_il)))[0]
-    if (lgPrec) { try { iniziali = { dati: JSON.parse(lgPrec.dati_estratti), anno: prec } } catch { iniziali = null } }
+      .eq('azienda_id', aziendaId).in('tipo_documento', TIPI_LIBRO_GIORNALE).eq('stato', 'elaborato')
+    const catena = []
+    for (let anno = Number(doc.anno) - 1; anno >= Number(doc.anno) - 3; anno--) {
+      const lg = (docsPrec || []).filter((d) => Number(d.anno) === anno && (!d.mese_fine || Number(d.mese_fine) === 12))
+        .sort((a, b) => String(b.caricato_il).localeCompare(String(a.caricato_il)))[0]
+      let datiPrec = null
+      try { datiPrec = lg ? JSON.parse(lg.dati_estratti) : null } catch { datiPrec = null }
+      if (!datiPrec?.gruppi) break
+      catena.push({ dati: datiPrec, anno })
+      if (haApertura(datiPrec)) break
+    }
+    if (catena.length) iniziali = catena
   }
   const stataPatrimoniale = TIPI_LIBRO_GIORNALE.includes(doc.tipo_documento)
     ? await calcolaSpDocumento(aziendaId, dati, conAssestamenti ? { valori: assestamenti, imposte, periodo } : null, iniziali)
@@ -758,7 +767,7 @@ export default function CE() {
 
           {statoPatrimoniale.saldiIniziali && (
             <div className="alert alert-info" style={{ marginBottom: 20 }}>
-              Il libro giornale di quest'anno non contiene la riapertura dei conti: i saldi iniziali sono quelli di fine {statoPatrimoniale.saldiIniziali.anno} dal libro giornale {statoPatrimoniale.saldiIniziali.anno}, e il risultato {statoPatrimoniale.saldiIniziali.anno} (€{fmt(statoPatrimoniale.saldiIniziali.risultato)}) è tra gli utili/perdite portati a nuovo.
+              Il libro giornale di quest'anno non contiene la riapertura dei conti: i saldi iniziali sono quelli di fine {statoPatrimoniale.saldiIniziali.map((s) => s.anno).sort().pop()} ricostruiti dai giornali {statoPatrimoniale.saldiIniziali.map((s) => s.anno).sort().join(' e ')}; {statoPatrimoniale.saldiIniziali.map((s) => `il risultato ${s.anno} (€${fmt(s.risultato)})`).join(' e ')} {statoPatrimoniale.saldiIniziali.length > 1 ? 'sono' : 'è'} tra gli utili/perdite portati a nuovo.
             </div>
           )}
           {statoPatrimoniale.nonClassificati.length > 0 && (

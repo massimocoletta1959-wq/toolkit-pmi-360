@@ -243,7 +243,7 @@ export default function Documenti() {
 
   const [tipoDocumento, setTipoDocumento] = useState('bilancio')
   const [anno, setAnno] = useState('2026')
-  const [meseFine, setMeseFine] = useState(1)
+  const [meseFine, setMeseFine] = useState('')   // da scegliere: un valore predefinito (gennaio) tagliava i dati
   const [file, setFile] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [errore, setErrore] = useState('')
@@ -283,6 +283,10 @@ export default function Documenti() {
     const tipoFile = tipoFileDaEstensione(file.name)
     if (!tipoFile) {
       setErrore('Formato non supportato. Usa PDF, Excel (.xlsx/.xls) o XBRL.')
+      return
+    }
+    if (richiedeMeseFine(tipoDocumento) && !meseFine) {
+      setErrore('Indica fino a quale mese arriva il documento (Mese fine periodo).')
       return
     }
     setUploading(true)
@@ -513,7 +517,8 @@ export default function Documenti() {
                 {richiedeMeseFine(tipoDocumento) && (
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label">Mese fine periodo</label>
-                    <select className="form-control" value={meseFine} onChange={(e) => setMeseFine(Number(e.target.value))}>
+                    <select className="form-control" value={meseFine} onChange={(e) => setMeseFine(e.target.value === '' ? '' : Number(e.target.value))}>
+                      <option value="">— fino a quale mese? —</option>
                       {MESI.map((m, i) => (
                         <option key={i + 1} value={i + 1}>
                           {m}

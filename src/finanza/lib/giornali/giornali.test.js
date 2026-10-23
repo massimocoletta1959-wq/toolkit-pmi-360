@@ -188,3 +188,26 @@ test('GB Software: riconoscimento, conti, lati e quadratura', () => {
   expect(m.filter((x) => x.chiudeSegmento).length).toBe(3)
   expect(m[0]).toMatchObject({ data: '01/01/2025', nDoc: '335', dtDoc: '31/12/2024' })
 })
+
+// GB Software, elenco registrazioni in prima nota: lato esplicito D/A, registrazione = progressivo, righe spezzate
+const GB_PN = [
+  '                                Elenco delle registrazioni in prima nota: Ditta 005 - UNIREST S.R.L. / Anno 2024',
+  '                                          Num. doc.  Data doc. CO   Conto               Descrizione             D/A    Importo   Saldo Partite Imponibile Iva Iva                   Progressivo',
+  '    31/12/2024                                     31/12/2024 00  10020    Capitale sociale/Patr.netto Apertura conA  600.000,00                      0,00 0,00               0,00    2024011',
+  '                                                                           ti',
+  '    31/12/2024                                     31/12/2024 00  50100    BPER Banca conto ordinario Apertura coD     50.000,00                      0,00 0,00               0,00    2024011',
+  '                                                              00  400017   Condominio " VERONA" Amm.re Gabriel  D     550.000,00                      0,00 0,00               0,00    2024011',
+  '    31/12/2024                                     31/12/2024 ',
+  '                                                                           la Cichetti Apertura conti',
+]
+
+test('GB Software prima nota: saldi di apertura, righe spezzate', () => {
+  expect(riconosciLettore(GB_PN).id).toBe('gb_prima_nota')
+  const r = leggiGiornale(GB_PN)
+  expect(r.diagnostica).toMatchObject({ movimenti: 3, registrazioniNonBilanciate: 0, registrazioniApertura: 1 })
+  expect(r.saldi).toEqual({ '10/020/0': -600000, '50/100/0': 50000, '40/00017/C': 550000 })
+  expect(r.movimentiMensili).toEqual({})                       // tutto apertura: nessun movimento del periodo
+  expect(r.descrizioni['50/100/0']).toBe('BPER Banca conto ordinario')
+  const m = leggiMovimentiGiornale(GB_PN)
+  expect(m.every((x) => x.eApertura && x.data === '31/12/2024')).toBe(true)
+})

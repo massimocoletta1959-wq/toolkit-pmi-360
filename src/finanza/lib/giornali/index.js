@@ -7,6 +7,7 @@ import { parseLibroGiornale, estraiMovimenti } from '../libroGiornale'
 import { eGiornaleBuffetti, parseGiornaleBuffetti, estraiMovimentiBuffetti } from './buffetti'
 import { eListaPrimaNotaAs400, parseListaPrimaNotaAs400, estraiMovimentiAs400 } from './as400'
 import { eGiornaleGb, parseGiornaleGb, estraiMovimentiGb } from './gb'
+import { eListaPrimaNotaGb, parseListaPrimaNotaGb, estraiMovimentiPrimaNotaGb } from './gbPrimaNota'
 
 export const LETTORI = [
   {
@@ -36,6 +37,13 @@ export const LETTORI = [
     riconosci: eGiornaleGb,
     leggiSaldi: parseGiornaleGb,
     leggiMovimenti: estraiMovimentiGb,
+  },
+  {
+    id: 'gb_prima_nota',
+    nome: 'GB Software (Elenco delle registrazioni in prima nota)',
+    riconosci: eListaPrimaNotaGb,
+    leggiSaldi: parseListaPrimaNotaGb,
+    leggiMovimenti: estraiMovimentiPrimaNotaGb,
   },
 ]
 

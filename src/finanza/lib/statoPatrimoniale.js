@@ -179,18 +179,21 @@ export function aggiungiSaldiIniziali(aggregatoSP, precedente, annoPrec) {
 // Giornale/Prima Nota) — in quel caso il chiamante mostra solo il Conto Economico.
 // assestamenti (opzionale): { valori, imposte, periodo } — contropartite patrimoniali degli assestamenti di
 // periodo stimati (vedi lib/assestamenti.js), sommati anche al risultato d'esercizio.
-// iniziali (opzionale): { dati, anno } — libro giornale dell'esercizio precedente, quando quello dell'anno non
-// contiene l'apertura dei conti: i suoi saldi patrimoniali diventano i saldi iniziali.
+// iniziali (opzionale): { dati, anno } o [{ dati, anno }, ...] — libri giornale degli esercizi precedenti, quando quello
+// dell'anno non contiene l'apertura dei conti: i loro saldi patrimoniali diventano i saldi iniziali.
 export async function calcolaSpDocumento(aziendaId, dati, assestamenti = null, iniziali = null) {
   if (!dati.gruppi) return null
   const ctx = await caricaContestoSP(aziendaId)
   const base = processaGruppiSP(dati, ctx)
   let { aggregatoSP, risultatoEsercizio } = base
   let saldiIniziali = null
-  if (iniziali?.dati?.gruppi) {
-    const prec = processaGruppiSP(iniziali.dati, ctx)
-    aggregatoSP = aggiungiSaldiIniziali(aggregatoSP, prec, iniziali.anno)
-    saldiIniziali = { anno: iniziali.anno, risultato: prec.risultatoEsercizio }
+  // iniziali: un esercizio { dati, anno } o la catena degli esercizi precedenti senza apertura [{ dati, anno }, ...]
+  const catena = Array.isArray(iniziali) ? iniziali : iniziali ? [iniziali] : []
+  for (const es of catena) {
+    if (!es?.dati?.gruppi) continue
+    const prec = processaGruppiSP(es.dati, ctx)
+    aggregatoSP = aggiungiSaldiIniziali(aggregatoSP, prec, es.anno)
+    ;(saldiIniziali ||= []).push({ anno: es.anno, risultato: prec.risultatoEsercizio })
   }
   if (assestamenti?.valori?.attivi) {
     const r = applicaAssestamentiSP(aggregatoSP, assestamenti.valori, assestamenti.imposte, assestamenti.periodo)

@@ -268,12 +268,19 @@ export default function AnalisiFlussi() {
 
   // Saldo banche/cassa a fine anno di un giornale: dall'analisi gia' salvata se
   // recente (ha la data dell'ultimo movimento), altrimenti rileggendo il giornale.
-  const saldoChiusuraAnno = async (doc, mappature) => {
+  // Saldo banche/cassa al 31/12 dell'anno di "doc". Se il suo giornale non ha la riapertura dei conti (es. passaggio
+  // a un altro programma con i saldi iniziali caricati in prima nota al 31/12 dell'anno prima), il saldo iniziale
+  // viene a sua volta dal giornale dell'anno prima: a catena, al massimo per 3 esercizi.
+  const saldoChiusuraAnno = async (doc, mappature, profondita = 0) => {
     const { data: salvata } = await supabase.from('analisi_flussi').select('dati, creata_il').eq('documento_id', doc.id).maybeSingle()
-    // l'analisi salvata vale solo se e' successiva all'ultima scelta dei conti banca/cassa
+    // l'analisi salvata vale solo se e' successiva all'ultima scelta dei conti banca/cassa e, quando c'e' il giornale
+    // dell'anno prima, se ne ha usato il saldo
     const ultimaScelta = (mappature.mappatureFlussi || []).filter((m) => m.includi_in_banca_cassa || m.escludi_da_banca_cassa)
       .map((m) => m.creata_il || '').sort().pop()
-    const aggiornata = !ultimaScelta || (salvata?.creata_il && String(salvata.creata_il) >= String(ultimaScelta))
+    const precedente = documenti.find((d) => Number(d.anno) === Number(doc.anno) - 1)
+    const fonte = salvata?.dati?.diagnostica?.saldoIniziale
+    const conSaldoIniziale = !precedente || fonte?.fonte === 'anno_precedente' || fonte?.registrazioniApertura > 0 || (fonte?.aperturaGiornale || 0) !== 0
+    const aggiornata = (!ultimaScelta || (salvata?.creata_il && String(salvata.creata_il) >= String(ultimaScelta))) && conSaldoIniziale
     if (salvata?.dati?.diagnostica?.ultimaData && aggiornata) {
       return { importo: salvata.dati.saldoFinePeriodo[12], ultimaData: salvata.dati.diagnostica.ultimaData }
     }
@@ -281,7 +288,13 @@ export default function AnalisiFlussi() {
     if (error) return null
     const righe = await estraiRigheLibroGiornale(new File([blob], doc.nome_file), (pagina, totale) =>
       setProgresso(`Leggo il giornale ${doc.anno}: pagina ${pagina} di ${totale}...`))
-    const r = calcolaFlussiCassa(leggiMovimentiGiornale(righe), mappature)
+    const movimenti = leggiMovimentiGiornale(righe)
+    let saldoInizialeEsterno = null
+    if (precedente && profondita < 2 && !movimenti.some((m) => m.eApertura)) {
+      const ch = await saldoChiusuraAnno(precedente, mappature, profondita + 1)
+      if (ch && ch.ultimaData >= `${precedente.anno}-12-01`) saldoInizialeEsterno = { importo: ch.importo, fonte: 'anno_precedente', riferimento: `${precedente.nome_file}` }
+    }
+    const r = calcolaFlussiCassa(movimenti, { ...mappature, saldoInizialeEsterno })
     return { importo: r.saldoFinePeriodo[12], ultimaData: r.diagnostica.ultimaData }
   }
 
