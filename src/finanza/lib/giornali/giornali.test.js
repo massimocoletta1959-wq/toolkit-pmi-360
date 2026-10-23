@@ -157,3 +157,34 @@ test('AS/400: testata con protocollo e incassi senza riferimento alla fattura ab
   expect(incasso.dtDoc).toBe('14/02/2026')
   expect(incasso.nDoc).toBe('1, 6')
 })
+
+// GB Software: una riga per movimento, lato Dare/Avere dalla colonna, registrazioni ricostruite per quadratura
+const GB = [
+  '                                                                                      LIBRO GIORNALE - Anno 2025',
+  '  DATA                                 DESCRIZIONE                                    D A R E         A V E R E                                     DESCRIZIONE CONTO                  N. RIGA',
+  '01/01/25 Fattura acquisto n. 335 Forn.fatt.da ricev.beni e ser.                                            6.512,36      335 31/12/24 41001 - L.G.E. CALCESTRUZZI SRL                     1',
+  '01/01/25 Fattura acquisto n. 335 L.G.E. CALCESTRUZZI SRL                                 1.174,36                        335 31/12/24 45041 - IVA acquisti                                2',
+  '01/01/25 Fattura acquisto n. L.G.E. CALCESTRUZZI SRL                                     5.338,00                        335 31/12/24 44020 - Forn.fatt.da ricev.beni e ser.              3',
+  '16/01/25 Rilevazione CANONE MENSILE                                                          20,00                          1 16/01/25 64330 - Spese di banca                              4',
+  '16/01/25 Rilevazione CANONE MENSILE                                                                           20,00   HI16/01/25 50105 - BdM Banca conto 1000504                     5',
+  '                                                                      T O T A L I       6.532,36         6.532,36',
+  // descrizione lunga: l'importo in Dare e' stato spinto verso la colonna Avere (lato incerto, deciso dalla quadratura)
+  '03/06/25 Nota accredito su fatt.acquisto n. FPR 8/25 Costi per pers.distacc.di terzi presso 30.476,82             FPR 8/25 03/06/25 41065 - Chiesa di San Domenico                  6',
+  '03/06/25 Nota accredito su fatt.acquisto n. FPR 8/25 C.J.LIPO GENERAL CONSTRUCTION                      5.495,82  12/24 L03/06/25 45041 - IVA acquisti                            7',
+  '03/06/25 Nota accredito su fatt.acquisto n. Chiesa di San Domenico                                     24.981,00  FPR 8/25 03/06/25 61407 - Costi per pers.distacc.di terzi        8',
+  '                                                                      T O T A L I      37.009,18        37.009,18',
+]
+
+test('GB Software: riconoscimento, conti, lati e quadratura', () => {
+  expect(riconosciLettore(GB).id).toBe('gb')
+  const r = leggiGiornale(GB)
+  expect(r.diagnostica).toMatchObject({ formato: 'gb', movimenti: 8, registrazioniNonBilanciate: 0, checkpointOk: 2, checkpointKo: 0, righeMancanti: 0, latiIncertiNonRisolti: 0 })
+  expect(r.saldi['41/00001/F']).toBe(-6512.36)
+  expect(r.saldi['44/020/0']).toBe(5338)
+  expect(r.saldi['41/00065/F']).toBe(30476.82)          // nota di credito: fornitore in Dare
+  expect(r.saldi['61/407/0']).toBe(-24981)
+  expect(r.saldi['50/105/0']).toBe(-20)
+  const m = leggiMovimentiGiornale(GB)
+  expect(m.filter((x) => x.chiudeSegmento).length).toBe(3)
+  expect(m[0]).toMatchObject({ data: '01/01/2025', nDoc: '335', dtDoc: '31/12/2024' })
+})

@@ -6,6 +6,7 @@
 import { parseLibroGiornale, estraiMovimenti } from '../libroGiornale'
 import { eGiornaleBuffetti, parseGiornaleBuffetti, estraiMovimentiBuffetti } from './buffetti'
 import { eListaPrimaNotaAs400, parseListaPrimaNotaAs400, estraiMovimentiAs400 } from './as400'
+import { eGiornaleGb, parseGiornaleGb, estraiMovimentiGb } from './gb'
 
 export const LETTORI = [
   {
@@ -28,6 +29,13 @@ export const LETTORI = [
     riconosci: eListaPrimaNotaAs400,
     leggiSaldi: parseListaPrimaNotaAs400,
     leggiMovimenti: estraiMovimentiAs400,
+  },
+  {
+    id: 'gb',
+    nome: 'GB Software (Libro giornale, stampa di controllo)',
+    riconosci: eGiornaleGb,
+    leggiSaldi: parseGiornaleGb,
+    leggiMovimenti: estraiMovimentiGb,
   },
 ]
 

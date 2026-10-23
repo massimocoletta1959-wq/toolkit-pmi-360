@@ -47,9 +47,16 @@ export function gruppoDiConto(conto) {
 
 async function estraiRighePagina(page) {
   const content = await page.getTextContent()
+  // coordinate nella pagina come viene mostrata: le stampe ruotate (es. GB Software, pagina A4 con /Rotate 90)
+  // hanno il testo verticale nello spazio del PDF e, senza questa trasformazione, righe e colonne si mescolano.
+  // Per le pagine non ruotate x e y restano quelle di prima (y cresce verso l'alto).
+  const viewport = page.getViewport({ scale: 1 })
   const items = content.items
     .filter((it) => it.str != null && it.str.length > 0)
-    .map((it) => ({ str: it.str, x: it.transform[4], y: it.transform[5], w: it.width }))
+    .map((it) => {
+      const m = pdfjsLib.Util.transform(viewport.transform, it.transform)
+      return { str: it.str, x: m[4], y: viewport.height - m[5], w: it.width }
+    })
   if (!items.length) return []
 
   // stima la "spaziatura carattere" della pagina (mediana) per ricostruire un
